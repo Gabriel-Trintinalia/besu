@@ -424,7 +424,7 @@ public abstract class AbstractEngineNewPayload extends ExecutionEngineJsonRpcMet
     LOG.info(String.format(message.toString(), messageArgs.toArray()));
   }
 
-  boolean isForkSupported(EnginePayloadParameter payloadParameter) {
+  boolean isForkSupported(final EnginePayloadParameter payloadParameter) {
     return true;
   }
 }

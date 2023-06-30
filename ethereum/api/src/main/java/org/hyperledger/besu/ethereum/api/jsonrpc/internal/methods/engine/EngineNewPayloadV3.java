@@ -47,7 +47,7 @@ public class EngineNewPayloadV3 extends AbstractEngineNewPayload {
   }
 
   @Override
-  protected boolean isForkSupported(EnginePayloadParameter payloadParameter) {
+  protected boolean isForkSupported(final EnginePayloadParameter payloadParameter) {
     return cancun.isPresent() && payloadParameter.getTimestamp() >= cancun.get().milestone();
   }
 }
