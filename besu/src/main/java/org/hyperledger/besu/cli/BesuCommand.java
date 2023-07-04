@@ -1896,10 +1896,6 @@ public class BesuCommand implements DefaultCommandValues, Runnable {
       } else {
         KZGPointEvalPrecompiledContract.init(network.name());
       }
-    } else if (kzgTrustedSetupFile != null) {
-      throw new ParameterException(
-          this.commandLine,
-          "--kzg-trusted-setup can only be specified on networks with data blobs enabled");
     }
   }
 
