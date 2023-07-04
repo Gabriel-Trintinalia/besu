@@ -14,20 +14,25 @@
  */
 package org.hyperledger.besu.ethereum.api.jsonrpc.internal.methods.engine;
 
+import static org.hyperledger.besu.ethereum.api.jsonrpc.internal.response.JsonRpcError.INVALID_PARAMS;
+import static org.hyperledger.besu.ethereum.api.jsonrpc.internal.response.JsonRpcError.UNSUPPORTED_FORK;
+
 import org.hyperledger.besu.consensus.merge.blockcreation.MergeMiningCoordinator;
 import org.hyperledger.besu.ethereum.ProtocolContext;
 import org.hyperledger.besu.ethereum.api.jsonrpc.RpcMethod;
 import org.hyperledger.besu.ethereum.api.jsonrpc.internal.parameters.EnginePayloadParameter;
+import org.hyperledger.besu.ethereum.api.jsonrpc.internal.response.JsonRpcErrorResponse;
+import org.hyperledger.besu.ethereum.api.jsonrpc.internal.response.JsonRpcResponse;
 import org.hyperledger.besu.ethereum.eth.manager.EthPeers;
 import org.hyperledger.besu.ethereum.mainnet.ProtocolSchedule;
-import org.hyperledger.besu.ethereum.mainnet.ScheduledProtocolSpec;
 
 import java.util.Optional;
 
 import io.vertx.core.Vertx;
 
 public class EngineNewPayloadV3 extends AbstractEngineNewPayload {
-  private final Optional<ScheduledProtocolSpec.Hardfork> cancun;
+
+  private final ProtocolSchedule timestampSchedule;
 
   public EngineNewPayloadV3(
       final Vertx vertx,
@@ -38,7 +43,7 @@ public class EngineNewPayloadV3 extends AbstractEngineNewPayload {
       final EngineCallListener engineCallListener) {
     super(
         vertx, timestampSchedule, protocolContext, mergeCoordinator, ethPeers, engineCallListener);
-    this.cancun = timestampSchedule.hardforkFor(s -> s.fork().name().equalsIgnoreCase("Cancun"));
+    this.timestampSchedule = timestampSchedule;
   }
 
   @Override
@@ -47,7 +52,21 @@ public class EngineNewPayloadV3 extends AbstractEngineNewPayload {
   }
 
   @Override
-  protected boolean isForkSupported(final EnginePayloadParameter payloadParameter) {
-    return cancun.isPresent() && payloadParameter.getTimestamp() >= cancun.get().milestone();
+  protected Optional<JsonRpcResponse> validateForkSupported(
+      final Object reqId, final EnginePayloadParameter payloadParameter) {
+    var cancun = timestampSchedule.hardforkFor(s -> s.fork().name().equalsIgnoreCase("Cancun"));
+
+    if (cancun.isPresent() && payloadParameter.getTimestamp() >= cancun.get().milestone()) {
+      if (payloadParameter.getDataGasUsed() == null
+          || payloadParameter.getExcessDataGas() == null) {
+        return Optional.of(new JsonRpcErrorResponse(reqId, INVALID_PARAMS));
+      }
+    } else {
+      if (payloadParameter.getDataGasUsed() != null
+          || payloadParameter.getExcessDataGas() != null) {
+        return Optional.of(new JsonRpcErrorResponse(reqId, UNSUPPORTED_FORK));
+      }
+    }
+    return Optional.empty();
   }
 }

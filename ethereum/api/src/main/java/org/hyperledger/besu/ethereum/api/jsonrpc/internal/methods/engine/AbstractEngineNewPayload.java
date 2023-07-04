@@ -23,7 +23,6 @@ import static org.hyperledger.besu.ethereum.api.jsonrpc.internal.methods.Executi
 import static org.hyperledger.besu.ethereum.api.jsonrpc.internal.methods.engine.DepositsValidatorProvider.getDepositsValidator;
 import static org.hyperledger.besu.ethereum.api.jsonrpc.internal.methods.engine.WithdrawalsValidatorProvider.getWithdrawalsValidator;
 import static org.hyperledger.besu.ethereum.api.jsonrpc.internal.response.JsonRpcError.INVALID_PARAMS;
-import static org.hyperledger.besu.ethereum.api.jsonrpc.internal.response.JsonRpcError.UNSUPPORTED_FORK;
 
 import org.hyperledger.besu.consensus.merge.blockcreation.MergeMiningCoordinator;
 import org.hyperledger.besu.datatypes.DataGas;
@@ -111,8 +110,9 @@ public abstract class AbstractEngineNewPayload extends ExecutionEngineJsonRpcMet
         .addArgument(() -> Json.encodePrettily(blockParam))
         .log();
 
-    if (!isForkSupported(blockParam)) {
-      return new JsonRpcErrorResponse(reqId, UNSUPPORTED_FORK);
+    var forkValidationResult = validateForkSupported(reqId, blockParam);
+    if (forkValidationResult.isPresent()) {
+      return forkValidationResult.get();
     }
 
     final Optional<List<Withdrawal>> maybeWithdrawals =
@@ -424,7 +424,8 @@ public abstract class AbstractEngineNewPayload extends ExecutionEngineJsonRpcMet
     LOG.info(String.format(message.toString(), messageArgs.toArray()));
   }
 
-  boolean isForkSupported(final EnginePayloadParameter payloadParameter) {
-    return true;
+  Optional<JsonRpcResponse> validateForkSupported(
+      final Object id, final EnginePayloadParameter payloadParameter) {
+    return Optional.empty();
   }
 }
