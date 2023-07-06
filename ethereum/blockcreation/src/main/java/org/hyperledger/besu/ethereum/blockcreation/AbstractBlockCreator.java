@@ -306,7 +306,16 @@ public abstract class AbstractBlockCreator implements AsyncBlockCreator {
                 parentHeader.getExcessDataGas().map(DataGas::toLong).orElse(0L),
                 parentHeader.getDataGasUsed().orElse(0L));
 
-    return newProtocolSpec.getFeeMarket().dataPricePerGas(DataGas.of(headerExcessData));
+    var dataPricePerGas =
+        newProtocolSpec.getFeeMarket().dataPricePerGas(DataGas.of(headerExcessData));
+    LOG.info("####################################");
+    LOG.info(
+        "parentHeader.getExcessDataGas()={}",
+        parentHeader.getExcessDataGas().map(DataGas::toLong).orElse(0L));
+    LOG.info(" parentHeader.getDataGasUsed()={}", parentHeader.getDataGasUsed().orElse(0L));
+    LOG.info("headerExcessData={}", headerExcessData);
+    LOG.info("dataPricePerGas={}", dataPricePerGas);
+    return dataPricePerGas;
   }
 
   private TransactionSelectionResults selectTransactions(
