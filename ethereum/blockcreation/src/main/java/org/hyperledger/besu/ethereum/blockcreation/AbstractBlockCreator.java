@@ -169,10 +169,7 @@ public abstract class AbstractBlockCreator implements AsyncBlockCreator {
           createPendingBlockHeader(timestamp, maybePrevRandao, newProtocolSpec);
       final Address miningBeneficiary =
           miningBeneficiaryCalculator.getMiningBeneficiary(processableBlockHeader.getNumber());
-      final Wei dataGasPrice =
-          newProtocolSpec
-              .getFeeMarket()
-              .dataPricePerGas(parentHeader.getExcessDataGas().orElse(DataGas.ZERO));
+      Wei dataGasPrice = calculateDataGasPrice(newProtocolSpec);
 
       throwIfStopped();
 
@@ -298,6 +295,18 @@ public abstract class AbstractBlockCreator implements AsyncBlockCreator {
         .filter(log -> depositContractAddress.get().equals(log.getLogger()))
         .map(DepositDecoder::decodeFromLog)
         .toList();
+  }
+
+  private Wei calculateDataGasPrice(ProtocolSpec newProtocolSpec) {
+    // Calculate header excess Data
+    long headerExcessData =
+        newProtocolSpec
+            .getGasCalculator()
+            .computeExcessDataGas(
+                parentHeader.getExcessDataGas().map(DataGas::toLong).orElse(0L),
+                parentHeader.getDataGasUsed().orElse(0L));
+
+    return newProtocolSpec.getFeeMarket().dataPricePerGas(DataGas.of(headerExcessData));
   }
 
   private TransactionSelectionResults selectTransactions(
