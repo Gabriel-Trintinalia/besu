@@ -14,8 +14,9 @@
  */
 package org.hyperledger.besu.ethereum.mainnet;
 
+import static org.hyperledger.besu.ethereum.mainnet.feemarket.ExcessDataGasCalculator.calculateExcessDataGasForParent;
+
 import org.hyperledger.besu.datatypes.Address;
-import org.hyperledger.besu.datatypes.DataGas;
 import org.hyperledger.besu.datatypes.Wei;
 import org.hyperledger.besu.ethereum.BlockProcessingOutputs;
 import org.hyperledger.besu.ethereum.BlockProcessingResult;
@@ -113,10 +114,17 @@ public abstract class AbstractBlockProcessor implements BlockProcessor {
       final Address miningBeneficiary =
           miningBeneficiaryCalculator.calculateBeneficiary(blockHeader);
 
+      Optional<BlockHeader> maybeParentHeader =
+          blockchain.getBlockHeader(blockHeader.getParentHash());
+
       Wei dataGasPrice =
-          blockchain
-              .getBlockHeader(blockHeader.getParentHash())
-              .map((parentHeader -> calculateDataGasPrice(protocolSpec, parentHeader)))
+          maybeParentHeader
+              .map(
+                  (parentHeader) ->
+                      protocolSpec
+                          .getFeeMarket()
+                          .dataPricePerGas(
+                              calculateExcessDataGasForParent(protocolSpec, parentHeader)))
               .orElse(Wei.ZERO);
 
       final TransactionProcessingResult result =
@@ -193,16 +201,6 @@ public abstract class AbstractBlockProcessor implements BlockProcessor {
     }
 
     return new BlockProcessingResult(Optional.of(new BlockProcessingOutputs(worldState, receipts)));
-  }
-
-  private Wei calculateDataGasPrice(final ProtocolSpec protocolSpec, BlockHeader parentHeader) {
-    long headerExcessData =
-        protocolSpec
-            .getGasCalculator()
-            .computeExcessDataGas(
-                parentHeader.getExcessDataGas().map(DataGas::toLong).orElse(0L),
-                parentHeader.getDataGasUsed().orElse(0L));
-    return protocolSpec.getFeeMarket().dataPricePerGas(DataGas.of(headerExcessData));
   }
 
   protected boolean hasAvailableBlockBudget(

@@ -14,6 +14,8 @@
  */
 package org.hyperledger.besu.ethereum.blockcreation;
 
+import static org.hyperledger.besu.ethereum.mainnet.feemarket.ExcessDataGasCalculator.calculateExcessDataGasForParent;
+
 import org.hyperledger.besu.datatypes.Address;
 import org.hyperledger.besu.datatypes.DataGas;
 import org.hyperledger.besu.datatypes.Hash;
@@ -169,7 +171,10 @@ public abstract class AbstractBlockCreator implements AsyncBlockCreator {
           createPendingBlockHeader(timestamp, maybePrevRandao, newProtocolSpec);
       final Address miningBeneficiary =
           miningBeneficiaryCalculator.getMiningBeneficiary(processableBlockHeader.getNumber());
-      Wei dataGasPrice = calculateDataGasPrice(newProtocolSpec);
+      Wei dataGasPrice =
+          newProtocolSpec
+              .getFeeMarket()
+              .dataPricePerGas(calculateExcessDataGasForParent(newProtocolSpec, parentHeader));
 
       throwIfStopped();
 
@@ -295,27 +300,6 @@ public abstract class AbstractBlockCreator implements AsyncBlockCreator {
         .filter(log -> depositContractAddress.get().equals(log.getLogger()))
         .map(DepositDecoder::decodeFromLog)
         .toList();
-  }
-
-  private Wei calculateDataGasPrice(ProtocolSpec newProtocolSpec) {
-    // Calculate header excess Data
-    long headerExcessData =
-        newProtocolSpec
-            .getGasCalculator()
-            .computeExcessDataGas(
-                parentHeader.getExcessDataGas().map(DataGas::toLong).orElse(0L),
-                parentHeader.getDataGasUsed().orElse(0L));
-
-    var dataPricePerGas =
-        newProtocolSpec.getFeeMarket().dataPricePerGas(DataGas.of(headerExcessData));
-    LOG.info("####################################");
-    LOG.info(
-        "parentHeader.getExcessDataGas()={}",
-        parentHeader.getExcessDataGas().map(DataGas::toLong).orElse(0L));
-    LOG.info(" parentHeader.getDataGasUsed()={}", parentHeader.getDataGasUsed().orElse(0L));
-    LOG.info("headerExcessData={}", headerExcessData);
-    LOG.info("dataPricePerGas={}", dataPricePerGas);
-    return dataPricePerGas;
   }
 
   private TransactionSelectionResults selectTransactions(
