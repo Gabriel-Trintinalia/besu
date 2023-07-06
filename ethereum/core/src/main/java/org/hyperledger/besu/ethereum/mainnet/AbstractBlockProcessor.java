@@ -112,14 +112,12 @@ public abstract class AbstractBlockProcessor implements BlockProcessor {
       final BlockHashLookup blockHashLookup = new CachingBlockHashLookup(blockHeader, blockchain);
       final Address miningBeneficiary =
           miningBeneficiaryCalculator.calculateBeneficiary(blockHeader);
-      final Wei dataGasPrice =
-          protocolSpec
-              .getFeeMarket()
-              .dataPricePerGas(
-                  blockchain
-                      .getBlockHeader(blockHeader.getParentHash())
-                      .flatMap(BlockHeader::getExcessDataGas)
-                      .orElse(DataGas.ZERO));
+
+      Wei dataGasPrice =
+          blockchain
+              .getBlockHeader(blockHeader.getParentHash())
+              .map((parentHeader -> calculateDataGasPrice(protocolSpec, parentHeader)))
+              .orElse(Wei.ZERO);
 
       final TransactionProcessingResult result =
           transactionProcessor.processTransaction(
@@ -195,6 +193,16 @@ public abstract class AbstractBlockProcessor implements BlockProcessor {
     }
 
     return new BlockProcessingResult(Optional.of(new BlockProcessingOutputs(worldState, receipts)));
+  }
+
+  private Wei calculateDataGasPrice(final ProtocolSpec protocolSpec, BlockHeader parentHeader) {
+    long headerExcessData =
+        protocolSpec
+            .getGasCalculator()
+            .computeExcessDataGas(
+                parentHeader.getExcessDataGas().map(DataGas::toLong).orElse(0L),
+                parentHeader.getDataGasUsed().orElse(0L));
+    return protocolSpec.getFeeMarket().dataPricePerGas(DataGas.of(headerExcessData));
   }
 
   protected boolean hasAvailableBlockBudget(
