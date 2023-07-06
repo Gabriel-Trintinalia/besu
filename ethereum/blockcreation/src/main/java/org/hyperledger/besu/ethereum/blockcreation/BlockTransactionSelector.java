@@ -411,10 +411,6 @@ public class BlockTransactionSelector {
   private boolean transactionDataPriceBelowMin(final Transaction transaction) {
     if (transaction.getType().supportsBlob()) {
       if (transaction.getMaxFeePerDataGas().orElseThrow().lessThan(dataGasPrice)) {
-        LOG.info(
-            "transaction.getMaxFeePerDataGas()={}",
-            transaction.getMaxFeePerDataGas().orElseThrow());
-        LOG.info("dataGasPrice={}", dataGasPrice);
         return true;
       }
     }
