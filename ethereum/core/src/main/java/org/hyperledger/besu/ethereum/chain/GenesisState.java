@@ -172,8 +172,8 @@ public final class GenesisState {
         .blockHeaderFunctions(ScheduleBasedBlockHeaderFunctions.create(protocolSchedule))
         .baseFee(genesis.getGenesisBaseFeePerGas().orElse(null))
         .withdrawalsRoot(isShanghaiAtGenesis(genesis) ? Hash.EMPTY_TRIE_HASH : null)
-        // .dataGasUsed(isCancunAtGenesis(genesis) ? parseDataGasUsed(genesis) : null)
-        // .excessDataGas(isCancunAtGenesis(genesis) ? parseExcessDataGas(genesis) : null)
+        .dataGasUsed(isCancunAtGenesis(genesis) ? parseDataGasUsed(genesis) : null)
+        .excessDataGas(isCancunAtGenesis(genesis) ? parseExcessDataGas(genesis) : null)
         .depositsRoot(isExperimentalEipsTimeAtGenesis(genesis) ? Hash.EMPTY_TRIE_HASH : null)
         .buildBlockHeader();
   }
@@ -258,7 +258,6 @@ public final class GenesisState {
     return false;
   }
 
-  @SuppressWarnings("UnusedMethod")
   private static boolean isCancunAtGenesis(final GenesisConfigFile genesis) {
     final OptionalLong cancunTimestamp = genesis.getConfigOptions().getCancunTime();
     if (cancunTimestamp.isPresent()) {
