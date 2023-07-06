@@ -54,8 +54,11 @@ import java.util.stream.Stream;
 import com.google.common.base.MoreObjects;
 import org.apache.tuweni.bytes.Bytes;
 import org.apache.tuweni.units.bigints.UInt256;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 
 public final class GenesisState {
+  private static final Logger LOG = LoggerFactory.getLogger(GenesisState.class);
 
   private final Block block;
   private final List<GenesisAccount> genesisAccounts;
@@ -91,6 +94,7 @@ public final class GenesisState {
         new Block(
             buildHeader(config, calculateGenesisStateHash(genesisAccounts), protocolSchedule),
             buildBody(config));
+    LOG.info(block.toString());
     return new GenesisState(block, genesisAccounts);
   }
 
@@ -221,14 +225,18 @@ public final class GenesisState {
   }
 
   private static long parseDataGasUsed(final GenesisConfigFile genesis) {
-    return withNiceErrorMessage(
-        "dataGasUsed", genesis.getDataGasUsed(), GenesisState::parseUnsignedLong);
+    var dataGasUsed =
+        withNiceErrorMessage(
+            "dataGasUsed", genesis.getDataGasUsed(), GenesisState::parseUnsignedLong);
+    LOG.info("DataGasUsed={}", dataGasUsed);
+    return dataGasUsed;
   }
 
   private static DataGas parseExcessDataGas(final GenesisConfigFile genesis) {
     long excessDataGas =
         withNiceErrorMessage(
             "excessDataGas", genesis.getExcessDataGas(), GenesisState::parseUnsignedLong);
+    LOG.info("ExcessDataGas={}", excessDataGas);
     return DataGas.of(excessDataGas);
   }
 
@@ -251,8 +259,11 @@ public final class GenesisState {
   private static boolean isCancunAtGenesis(final GenesisConfigFile genesis) {
     final OptionalLong cancunTimestamp = genesis.getConfigOptions().getCancunTime();
     if (cancunTimestamp.isPresent()) {
-      return cancunTimestamp.getAsLong() == genesis.getTimestamp();
+      var cancun = cancunTimestamp.getAsLong() == genesis.getTimestamp();
+      LOG.info("IsCancun?={}", cancun);
+      return cancun;
     }
+    LOG.info("IsCancun?={}", false);
     return false;
   }
 
