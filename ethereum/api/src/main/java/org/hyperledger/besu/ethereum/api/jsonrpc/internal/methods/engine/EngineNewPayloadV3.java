@@ -17,16 +17,18 @@ package org.hyperledger.besu.ethereum.api.jsonrpc.internal.methods.engine;
 import org.hyperledger.besu.consensus.merge.blockcreation.MergeMiningCoordinator;
 import org.hyperledger.besu.ethereum.ProtocolContext;
 import org.hyperledger.besu.ethereum.api.jsonrpc.RpcMethod;
-import org.hyperledger.besu.ethereum.api.jsonrpc.internal.parameters.EngineNewPayloadRequestParameter;
+import org.hyperledger.besu.ethereum.api.jsonrpc.internal.parameters.EnginePayloadParameter;
 import org.hyperledger.besu.ethereum.api.jsonrpc.internal.response.RpcErrorType;
 import org.hyperledger.besu.ethereum.eth.manager.EthPeers;
 import org.hyperledger.besu.ethereum.mainnet.ProtocolSchedule;
 import org.hyperledger.besu.ethereum.mainnet.ScheduledProtocolSpec;
 import org.hyperledger.besu.ethereum.mainnet.ValidationResult;
 
+import java.util.List;
 import java.util.Optional;
 
 import io.vertx.core.Vertx;
+import org.apache.tuweni.bytes.Bytes32;
 
 public class EngineNewPayloadV3 extends AbstractEngineNewPayload {
 
@@ -53,13 +55,8 @@ public class EngineNewPayloadV3 extends AbstractEngineNewPayload {
   protected ValidationResult<RpcErrorType> validateParameters(
       final EnginePayloadParameter payloadParameter,
       final Optional<List<String>> maybeVersionedHashParam,
-      final Optional<String> maybeBeaconBlockRootParam) {
+      final Optional<Bytes32> maybeBeaconBlockRootParam) {
     if (payloadParameter.getBlobGasUsed() == null || payloadParameter.getExcessBlobGas() == null) {
-  protected ValidationResult<RpcErrorType> validateParamsAndForkSupported(
-      final EngineNewPayloadRequestParameter params) {
-
-    if (params.getPayload().getBlobGasUsed() == null
-        || params.getPayload().getExcessBlobGas() == null) {
       return ValidationResult.invalid(RpcErrorType.INVALID_PARAMS, "Missing blob gas fields");
     } else if (maybeVersionedHashParam == null) {
       return ValidationResult.invalid(
@@ -86,9 +83,5 @@ public class EngineNewPayloadV3 extends AbstractEngineNewPayload {
       return ValidationResult.invalid(
           RpcErrorType.UNSUPPORTED_FORK, "Configuration error, no schedule for Cancun fork set");
     }
-    if (params.getPayload().getTimestamp() < cancunTimestamp) {
-      return ValidationResult.invalid(RpcErrorType.UNSUPPORTED_FORK, "Fork not supported");
-    }
-    return ValidationResult.valid();
   }
 }

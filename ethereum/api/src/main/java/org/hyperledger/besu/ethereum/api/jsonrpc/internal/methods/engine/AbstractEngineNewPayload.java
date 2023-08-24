@@ -120,14 +120,12 @@ public abstract class AbstractEngineNewPayload extends ExecutionEngineJsonRpcMet
 
     final ValidationResult<RpcErrorType> forkValidationResult =
         validateForkSupported(blockParam.getTimestamp());
-    ValidationResult<RpcErrorType> forkValidationResult =
-        validateParamsAndForkSupported(newPayloadParams);
     if (!forkValidationResult.isValid()) {
       return new JsonRpcErrorResponse(reqId, forkValidationResult);
     }
 
     final ValidationResult<RpcErrorType> parameterValidationResult =
-        validateParameters(blockParam, maybeVersionedHashParam, maybeParentBeaconBlockRootParam);
+        validateParameters(blockParam, maybeVersionedHashParam, maybeParentBeaconBlockRoot);
     if (!parameterValidationResult.isValid()) {
       return new JsonRpcErrorResponse(reqId, parameterValidationResult);
     }
@@ -412,8 +410,10 @@ public abstract class AbstractEngineNewPayload extends ExecutionEngineJsonRpcMet
     return INVALID;
   }
 
-  protected ValidationResult<RpcErrorType> validateParamsAndForkSupported(
-      final EngineNewPayloadRequestParameter params) {
+  protected ValidationResult<RpcErrorType> validateParameters(
+      final EnginePayloadParameter parameter,
+      final Optional<List<String>> maybeVersionedHashParam,
+      final Optional<Bytes32> maybeBeaconBlockRootParam) {
     return ValidationResult.valid();
   }
 

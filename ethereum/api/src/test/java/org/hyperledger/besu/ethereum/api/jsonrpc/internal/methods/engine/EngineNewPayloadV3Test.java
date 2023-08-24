@@ -22,7 +22,6 @@ import static org.mockito.Mockito.mock;
 import static org.mockito.Mockito.mockStatic;
 import static org.mockito.Mockito.when;
 
-import java.util.Collections;
 import org.hyperledger.besu.datatypes.BlobGas;
 import org.hyperledger.besu.datatypes.Wei;
 import org.hyperledger.besu.ethereum.BlockProcessingOutputs;
@@ -55,13 +54,13 @@ import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
 import org.mockito.MockedStatic;
-import org.mockito.MockedStatic.Verification;
 import org.mockito.junit.jupiter.MockitoExtension;
 
 @ExtendWith(MockitoExtension.class)
 public class EngineNewPayloadV3Test extends EngineNewPayloadV2Test {
 
-  private static final String DEFAULT_PARENT_BEACON_ROOT = "0x0000000000000000000000000000000000000000000000000000000000000000";
+  private static final String DEFAULT_PARENT_BEACON_ROOT =
+      "0x0000000000000000000000000000000000000000000000000000000000000000";
 
   public EngineNewPayloadV3Test() {}
 
@@ -103,9 +102,7 @@ public class EngineNewPayloadV3Test extends EngineNewPayloadV2Test {
                     "2.0",
                     RpcMethod.ENGINE_NEW_PAYLOAD_V3.getMethodName(),
                     new Object[] {
-                      payload,
-                      List.of(shortHash.toHexString()),
-                        DEFAULT_PARENT_BEACON_ROOT
+                      payload, List.of(shortHash.toHexString()), DEFAULT_PARENT_BEACON_ROOT
                     })));
     final EnginePayloadStatusResult res = fromSuccessResp(badParam);
     assertThat(res.getStatusAsString()).isEqualTo(INVALID.name());
@@ -114,32 +111,32 @@ public class EngineNewPayloadV3Test extends EngineNewPayloadV2Test {
 
   @Test
   public void shouldReturnInvalid_missing_TransactionVersionedHash() {
-    Bytes shortHash = Bytes.fromHexString("0x0100000000000000000000000000000000000000000000000000000000000000");
+    Bytes shortHash =
+        Bytes.fromHexString("0x0100000000000000000000000000000000000000000000000000000000000000");
     BlockHeader mockHeader =
         setupValidPayload(
             new BlockProcessingResult(Optional.of(new BlockProcessingOutputs(null, List.of()))),
             Optional.empty(),
             Optional.empty());
 
-
     Transaction blobTransaction = mock(Transaction.class);
 
     try (MockedStatic<TransactionDecoder> utilities = mockStatic(TransactionDecoder.class)) {
-      utilities.when(() -> TransactionDecoder.decodeOpaqueBytes(any(Bytes.class)))
+      utilities
+          .when(() -> TransactionDecoder.decodeOpaqueBytes(any(Bytes.class)))
           .thenReturn(blobTransaction);
 
       lenient()
           .when(blockchain.getBlockHeader(mockHeader.getParentHash()))
           .thenReturn(Optional.of(mock(BlockHeader.class)));
 
-      var resp = resp(mockEnginePayload(mockHeader, List.of("0xblob")) ,
-          List.of(shortHash.toHexString()));
+      var resp =
+          resp(mockEnginePayload(mockHeader, List.of("0xblob")), List.of(shortHash.toHexString()));
       EnginePayloadStatusResult res = fromSuccessResp(resp);
       assertThat(res.getStatusAsString()).isEqualTo(INVALID.name());
       assertThat(res.getError()).isEqualTo("Invalid versionedHash");
     }
   }
-
 
   @Test
   public void shouldReturnInvalidParameterWhenVersionedHashesIsNull() {
@@ -150,11 +147,7 @@ public class EngineNewPayloadV3Test extends EngineNewPayloadV2Test {
                 new JsonRpcRequest(
                     "2.0",
                     RpcMethod.ENGINE_NEW_PAYLOAD_V3.getMethodName(),
-                    new Object[] {
-                      payload,
-                      null,
-                        DEFAULT_PARENT_BEACON_ROOT
-                    })));
+                    new Object[] {payload, null, DEFAULT_PARENT_BEACON_ROOT})));
     JsonRpcError res = fromErrorResp(badParam);
     assertThat(res.getCode()).isEqualTo(RpcErrorType.INVALID_PARAMS.getCode());
     assertThat(res.getData()).isEqualTo("Missing required json rpc parameter at index 1");
@@ -189,7 +182,9 @@ public class EngineNewPayloadV3Test extends EngineNewPayloadV2Test {
         method.validateParameters(
             payload,
             Optional.of(List.of()),
-            Optional.of("0x0000000000000000000000000000000000000000000000000000000000000000"));
+            Optional.of(
+                Bytes32.fromHexString(
+                    "0x0000000000000000000000000000000000000000000000000000000000000000")));
     assertThat(res.isValid()).isTrue();
   }
 
