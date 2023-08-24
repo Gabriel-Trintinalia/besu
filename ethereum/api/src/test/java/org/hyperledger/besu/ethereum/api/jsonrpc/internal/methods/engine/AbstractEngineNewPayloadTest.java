@@ -387,7 +387,8 @@ public abstract class AbstractEngineNewPayloadTest {
     BlockHeader mockHeader = createBlockHeader(Optional.empty(), Optional.empty());
     when(mergeCoordinator.appendNewPayloadToSync(any()))
         .thenReturn(CompletableFuture.completedFuture(null));
-    var resp = resp(mockEnginePayload(mockHeader, Collections.emptyList()));
+    var payload = mockEnginePayload(mockHeader, Collections.emptyList());
+    var resp = resp(payload);
 
     EnginePayloadStatusResult res = fromSuccessResp(resp);
     assertThat(res.getLatestValidHash()).isEmpty();
@@ -443,17 +444,14 @@ public abstract class AbstractEngineNewPayloadTest {
   }
 
   protected JsonRpcResponse resp(final EnginePayloadParameter payload) {
-    Object[] params =
-        maybeParentBeaconBlockRoot
-            .map(bytes32 -> new Object[] {payload, null, bytes32.toHexString()})
-            .orElseGet(() -> new Object[] {payload});
+    Object[] params = new Object[] {payload};
     return method.response(
         new JsonRpcRequestContext(new JsonRpcRequest("2.0", this.method.getName(), params)));
   }
 
   protected EnginePayloadParameter mockEnginePayload(
       final BlockHeader header, final List<String> txs) {
-    return mockEnginePayload(header, txs, null, null, null);
+    return mockEnginePayload(header, txs, null, null);
   }
 
   protected EnginePayloadParameter mockEnginePayload(
@@ -461,20 +459,6 @@ public abstract class AbstractEngineNewPayloadTest {
       final List<String> txs,
       final List<WithdrawalParameter> withdrawals,
       final List<DepositParameter> deposits) {
-    return mockEnginePayload(
-        header,
-        txs,
-        withdrawals,
-        deposits,
-        List.of(VersionedHash.DEFAULT_VERSIONED_HASH.toBytes()));
-  }
-
-  protected EnginePayloadParameter mockEnginePayload(
-      final BlockHeader header,
-      final List<String> txs,
-      final List<WithdrawalParameter> withdrawals,
-      final List<DepositParameter> deposits,
-      final List<Bytes32> versionedHashes) {
     return new EnginePayloadParameter(
         header.getHash(),
         header.getParentHash(),
@@ -493,7 +477,6 @@ public abstract class AbstractEngineNewPayloadTest {
         withdrawals,
         header.getBlobGasUsed().map(UnsignedLongParameter::new).orElse(null),
         header.getExcessBlobGas().map(BlobGas::toHexString).orElse(null),
-        versionedHashes,
         deposits);
   }
 

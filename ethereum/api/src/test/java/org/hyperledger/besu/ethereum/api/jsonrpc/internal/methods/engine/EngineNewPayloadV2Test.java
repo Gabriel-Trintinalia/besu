@@ -103,7 +103,7 @@ public class EngineNewPayloadV2Test extends AbstractEngineNewPayloadTest {
         .when(blockchain.getBlockHeader(mockHeader.getParentHash()))
         .thenReturn(Optional.of(mock(BlockHeader.class)));
     var resp =
-        resp(mockEnginePayload(mockHeader, Collections.emptyList(), withdrawals, null, null));
+        resp(mockEnginePayload(mockHeader, Collections.emptyList(), withdrawals, null));
 
     assertValidResponse(mockHeader, resp);
   }
@@ -121,7 +121,6 @@ public class EngineNewPayloadV2Test extends AbstractEngineNewPayloadTest {
                 createBlockHeader(Optional.of(Collections.emptyList()), Optional.empty()),
                 Collections.emptyList(),
                 withdrawals,
-                null,
                 null));
 
     final JsonRpcError jsonRpcError = fromErrorResp(resp);

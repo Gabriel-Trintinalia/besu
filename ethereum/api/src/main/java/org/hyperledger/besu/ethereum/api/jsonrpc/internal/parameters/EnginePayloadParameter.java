@@ -49,7 +49,6 @@ public class EnginePayloadParameter {
   private final List<WithdrawalParameter> withdrawals;
   private final Long blobGasUsed;
   private final String excessBlobGas;
-  private final List<Bytes32> versionedHashes;
   private final List<DepositParameter> deposits;
 
   @JsonCreator
@@ -71,7 +70,6 @@ public class EnginePayloadParameter {
       @JsonProperty("withdrawals") final List<WithdrawalParameter> withdrawals,
       @JsonProperty("blobGasUsed") final UnsignedLongParameter blobGasUsed,
       @JsonProperty("excessBlobGas") final String excessBlobGas,
-      @JsonProperty("versionedHashes") final List<Bytes32> versionedHashes,
       @JsonProperty("deposits") final List<DepositParameter> deposits) {
     this.blockHash = blockHash;
     this.parentHash = parentHash;
@@ -90,7 +88,6 @@ public class EnginePayloadParameter {
     this.withdrawals = withdrawals;
     this.blobGasUsed = blobGasUsed == null ? null : blobGasUsed.getValue();
     this.excessBlobGas = excessBlobGas;
-    this.versionedHashes = versionedHashes;
     this.deposits = deposits;
   }
 
@@ -164,9 +161,5 @@ public class EnginePayloadParameter {
 
   public List<DepositParameter> getDeposits() {
     return deposits;
-  }
-
-  public List<Bytes32> getVersionedHashes() {
-    return versionedHashes;
   }
 }

@@ -20,6 +20,9 @@ import org.hyperledger.besu.consensus.merge.blockcreation.MergeMiningCoordinator
 import org.hyperledger.besu.datatypes.VersionedHash;
 import org.hyperledger.besu.ethereum.ProtocolContext;
 import org.hyperledger.besu.ethereum.api.jsonrpc.RpcMethod;
+import org.hyperledger.besu.ethereum.api.jsonrpc.internal.JsonRpcRequestContext;
+import org.hyperledger.besu.ethereum.api.jsonrpc.internal.parameters.EngineNewPayloadRequestParameter;
+import org.hyperledger.besu.ethereum.api.jsonrpc.internal.parameters.EnginePayloadParameter;
 import org.hyperledger.besu.ethereum.api.jsonrpc.internal.response.RpcErrorType;
 import org.hyperledger.besu.ethereum.core.BlockHeader;
 import org.hyperledger.besu.ethereum.core.Transaction;
@@ -53,6 +56,14 @@ public class EngineNewPayloadV1 extends AbstractEngineNewPayload {
   @Override
   protected boolean requireTerminalPoWBlockValidation() {
     return true;
+  }
+
+  @Override
+  public EngineNewPayloadRequestParameter getEngineNewPayloadRequestParams(
+      final JsonRpcRequestContext requestContext) {
+    return new EngineNewPayloadRequestParameter(
+        requestContext.getRequest().getId(),
+        requestContext.getRequiredParameter(0, EnginePayloadParameter.class));
   }
 
   @Override

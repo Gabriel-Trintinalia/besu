@@ -98,7 +98,7 @@ public class EngineNewPayloadEIP6110Test extends EngineNewPayloadV3Test {
         .thenReturn(Optional.of(mockHeader.getHash()));
     when(mergeCoordinator.latestValidAncestorDescendsFromTerminal(mockHeader)).thenReturn(true);
 
-    var resp = resp(mockEnginePayload(mockHeader, Collections.emptyList(), null, deposits, null));
+    var resp = resp(mockEnginePayload(mockHeader, Collections.emptyList(), null, deposits));
 
     assertValidResponse(mockHeader, resp);
   }
@@ -172,7 +172,7 @@ public class EngineNewPayloadEIP6110Test extends EngineNewPayloadV3Test {
             .baseFeePerGas(Wei.ONE)
             .timestamp(super.experimentalHardfork.milestone())
             .excessBlobGas(BlobGas.ZERO)
-            .blobGasUsed(100L)
+            .blobGasUsed(0L)
             .buildHeader();
 
     BlockHeader mockHeader =
@@ -183,10 +183,9 @@ public class EngineNewPayloadEIP6110Test extends EngineNewPayloadV3Test {
             .timestamp(parentBlockHeader.getTimestamp() + 1)
             .withdrawalsRoot(maybeWithdrawals.map(BodyValidation::withdrawalsRoot).orElse(null))
             .excessBlobGas(BlobGas.ZERO)
-            .blobGasUsed(100L)
+            .blobGasUsed(0L)
             .depositsRoot(maybeDeposits.map(BodyValidation::depositsRoot).orElse(null))
-            .parentBeaconBlockRoot(
-                maybeParentBeaconBlockRoot.isPresent() ? maybeParentBeaconBlockRoot : null)
+            .parentBeaconBlockRoot(maybeParentBeaconBlockRoot)
             .buildHeader();
     return mockHeader;
   }

@@ -16,22 +16,31 @@ package org.hyperledger.besu.ethereum.api.jsonrpc.internal.methods.engine;
 
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.hyperledger.besu.ethereum.api.jsonrpc.internal.methods.ExecutionEngineJsonRpcMethod.EngineStatus.INVALID;
+import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.Mockito.lenient;
 import static org.mockito.Mockito.mock;
+import static org.mockito.Mockito.mockStatic;
 import static org.mockito.Mockito.when;
 
+import java.util.Collections;
 import org.hyperledger.besu.datatypes.BlobGas;
 import org.hyperledger.besu.datatypes.Wei;
+import org.hyperledger.besu.ethereum.BlockProcessingOutputs;
+import org.hyperledger.besu.ethereum.BlockProcessingResult;
 import org.hyperledger.besu.ethereum.api.jsonrpc.RpcMethod;
 import org.hyperledger.besu.ethereum.api.jsonrpc.internal.JsonRpcRequest;
 import org.hyperledger.besu.ethereum.api.jsonrpc.internal.JsonRpcRequestContext;
 import org.hyperledger.besu.ethereum.api.jsonrpc.internal.parameters.EnginePayloadParameter;
+import org.hyperledger.besu.ethereum.api.jsonrpc.internal.response.JsonRpcError;
 import org.hyperledger.besu.ethereum.api.jsonrpc.internal.response.JsonRpcResponse;
+import org.hyperledger.besu.ethereum.api.jsonrpc.internal.response.RpcErrorType;
 import org.hyperledger.besu.ethereum.api.jsonrpc.internal.results.EnginePayloadStatusResult;
 import org.hyperledger.besu.ethereum.core.BlockHeader;
 import org.hyperledger.besu.ethereum.core.BlockHeaderTestFixture;
 import org.hyperledger.besu.ethereum.core.Deposit;
+import org.hyperledger.besu.ethereum.core.Transaction;
 import org.hyperledger.besu.ethereum.core.Withdrawal;
+import org.hyperledger.besu.ethereum.core.encoding.TransactionDecoder;
 import org.hyperledger.besu.ethereum.mainnet.BodyValidation;
 import org.hyperledger.besu.evm.gascalculator.CancunGasCalculator;
 
@@ -43,10 +52,14 @@ import org.apache.tuweni.bytes.Bytes32;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
+import org.mockito.MockedStatic;
+import org.mockito.MockedStatic.Verification;
 import org.mockito.junit.jupiter.MockitoExtension;
 
 @ExtendWith(MockitoExtension.class)
 public class EngineNewPayloadV3Test extends EngineNewPayloadV2Test {
+
+  private static final String DEFAULT_PARENT_BEACON_ROOT = "0x0000000000000000000000000000000000000000000000000000000000000000";
 
   public EngineNewPayloadV3Test() {}
 
@@ -90,11 +103,74 @@ public class EngineNewPayloadV3Test extends EngineNewPayloadV2Test {
                     new Object[] {
                       payload,
                       List.of(shortHash.toHexString()),
-                      "0x0000000000000000000000000000000000000000000000000000000000000000"
+                        DEFAULT_PARENT_BEACON_ROOT
                     })));
     EnginePayloadStatusResult res = fromSuccessResp(badParam);
     assertThat(res.getStatusAsString()).isEqualTo(INVALID.name());
     assertThat(res.getError()).isEqualTo("Invalid versionedHash");
+  }
+
+  @Test
+  public void shouldReturnInvalid_missing_TransactionVersionedHash() {
+    Bytes shortHash = Bytes.fromHexString("0x0100000000000000000000000000000000000000000000000000000000000000");
+    BlockHeader mockHeader =
+        setupValidPayload(
+            new BlockProcessingResult(Optional.of(new BlockProcessingOutputs(null, List.of()))),
+            Optional.empty(),
+            Optional.empty());
+
+
+    Transaction blobTransaction = mock(Transaction.class);
+
+    try (MockedStatic<TransactionDecoder> utilities = mockStatic(TransactionDecoder.class)) {
+      utilities.when(() -> TransactionDecoder.decodeOpaqueBytes(any(Bytes.class)))
+          .thenReturn(blobTransaction);
+
+      lenient()
+          .when(blockchain.getBlockHeader(mockHeader.getParentHash()))
+          .thenReturn(Optional.of(mock(BlockHeader.class)));
+
+      var resp = resp(mockEnginePayload(mockHeader, List.of("0xblob")) ,
+          List.of(shortHash.toHexString()));
+      EnginePayloadStatusResult res = fromSuccessResp(resp);
+      assertThat(res.getStatusAsString()).isEqualTo(INVALID.name());
+      assertThat(res.getError()).isEqualTo("Invalid versionedHash");
+    }
+  }
+
+
+  @Test
+  public void shouldReturnInvalidParameterWhenVersionedHashesIsNull() {
+    EnginePayloadParameter payload = mock(EnginePayloadParameter.class);
+    JsonRpcResponse badParam =
+        method.response(
+            new JsonRpcRequestContext(
+                new JsonRpcRequest(
+                    "2.0",
+                    RpcMethod.ENGINE_NEW_PAYLOAD_V3.getMethodName(),
+                    new Object[] {
+                      payload,
+                      null,
+                        DEFAULT_PARENT_BEACON_ROOT
+                    })));
+    JsonRpcError res = fromErrorResp(badParam);
+    assertThat(res.getCode()).isEqualTo(RpcErrorType.INVALID_PARAMS.getCode());
+    assertThat(res.getData()).isEqualTo("Missing required json rpc parameter at index 1");
+  }
+
+  @Test
+  public void shouldReturnInvalidParameterWhenParentBeaconRootIsNull() {
+    EnginePayloadParameter payload = mock(EnginePayloadParameter.class);
+    JsonRpcResponse badParam =
+        method.response(
+            new JsonRpcRequestContext(
+                new JsonRpcRequest(
+                    "2.0",
+                    RpcMethod.ENGINE_NEW_PAYLOAD_V3.getMethodName(),
+                    new Object[] {payload, List.of(), null})));
+    JsonRpcError res = fromErrorResp(badParam);
+    assertThat(res.getCode()).isEqualTo(RpcErrorType.INVALID_PARAMS.getCode());
+    assertThat(res.getData()).isEqualTo("Missing required json rpc parameter at index 2");
   }
 
   @Override
@@ -124,6 +200,21 @@ public class EngineNewPayloadV3Test extends EngineNewPayloadV2Test {
                 maybeParentBeaconBlockRoot.isPresent() ? maybeParentBeaconBlockRoot : null)
             .buildHeader();
     return mockHeader;
+  }
+
+  protected JsonRpcResponse resp(final EnginePayloadParameter payload, final List<String> hashes) {
+    String parentBeaconBlockRoot = maybeParentBeaconBlockRoot.get().toHexString();
+    Object[] params = new Object[] {payload, hashes, parentBeaconBlockRoot};
+    return method.response(
+        new JsonRpcRequestContext(new JsonRpcRequest("2.0", this.method.getName(), params)));
+  }
+
+  @Override
+  protected JsonRpcResponse resp(final EnginePayloadParameter payload) {
+    String parentBeaconBlockRoot = maybeParentBeaconBlockRoot.get().toHexString();
+    Object[] params = new Object[] {payload, List.of(), parentBeaconBlockRoot};
+    return method.response(
+        new JsonRpcRequestContext(new JsonRpcRequest("2.0", this.method.getName(), params)));
   }
 
   @Override

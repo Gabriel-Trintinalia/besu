@@ -32,8 +32,10 @@ import org.hyperledger.besu.datatypes.Wei;
 import org.hyperledger.besu.ethereum.BlockProcessingResult;
 import org.hyperledger.besu.ethereum.ProtocolContext;
 import org.hyperledger.besu.ethereum.api.jsonrpc.internal.JsonRpcRequestContext;
+import org.hyperledger.besu.ethereum.api.jsonrpc.internal.exception.InvalidJsonRpcParameters;
 import org.hyperledger.besu.ethereum.api.jsonrpc.internal.methods.ExecutionEngineJsonRpcMethod;
 import org.hyperledger.besu.ethereum.api.jsonrpc.internal.parameters.DepositParameter;
+import org.hyperledger.besu.ethereum.api.jsonrpc.internal.parameters.EngineNewPayloadRequestParameter;
 import org.hyperledger.besu.ethereum.api.jsonrpc.internal.parameters.EnginePayloadParameter;
 import org.hyperledger.besu.ethereum.api.jsonrpc.internal.parameters.WithdrawalParameter;
 import org.hyperledger.besu.ethereum.api.jsonrpc.internal.response.JsonRpcError;
@@ -64,6 +66,7 @@ import org.hyperledger.besu.plugin.services.exception.StorageException;
 
 import java.security.InvalidParameterException;
 import java.util.ArrayList;
+import java.util.Arrays;
 import java.util.Collections;
 import java.util.List;
 import java.util.Optional;
@@ -102,22 +105,23 @@ public abstract class AbstractEngineNewPayload extends ExecutionEngineJsonRpcMet
   public JsonRpcResponse syncResponse(final JsonRpcRequestContext requestContext) {
     engineCallListener.executionEngineCalled();
 
-    final EnginePayloadParameter blockParam =
-        requestContext.getRequiredParameter(0, EnginePayloadParameter.class);
+    EngineNewPayloadRequestParameter newPayloadParams;
+    try {
+      newPayloadParams = getEngineNewPayloadRequestParams(requestContext);
+    } catch (InvalidJsonRpcParameters exception) {
+      return new JsonRpcErrorResponse(
+          requestContext.getRequest().getId(),
+          new JsonRpcError(INVALID_PARAMS, exception.getMessage()));
+    }
 
-    final Optional<List<String>> maybeVersionedHashParam =
-        requestContext.getOptionalList(1, String.class);
-
-    final Object reqId = requestContext.getRequest().getId();
-
-    Optional<String> maybeParentBeaconBlockRootParam =
-        requestContext.getOptionalParameter(2, String.class);
+    Object reqId = newPayloadParams.getRequestId();
+    EnginePayloadParameter blockParam = newPayloadParams.getPayload();
+    final Optional<List<String>> maybeVersionedHashParam = newPayloadParams.getVersionedHashParam();
     final Optional<Bytes32> maybeParentBeaconBlockRoot =
-        maybeParentBeaconBlockRootParam.map(Bytes32::fromHexString);
+        newPayloadParams.getParentBeaconBlockRoot();
 
     ValidationResult<RpcErrorType> forkValidationResult =
-        validateParamsAndForkSupported(
-            reqId, blockParam, maybeVersionedHashParam, maybeParentBeaconBlockRoot);
+        validateParamsAndForkSupported(newPayloadParams);
     if (!forkValidationResult.isValid()) {
       return new JsonRpcErrorResponse(reqId, forkValidationResult);
     }
@@ -333,6 +337,25 @@ public abstract class AbstractEngineNewPayload extends ExecutionEngineJsonRpcMet
     }
   }
 
+  public EngineNewPayloadRequestParameter getEngineNewPayloadRequestParams(
+      final JsonRpcRequestContext requestContext) {
+
+    final Object requestId = requestContext.getRequest().getId();
+    final EnginePayloadParameter payload =
+        requestContext.getRequiredParameter(0, EnginePayloadParameter.class);
+
+    final String[] versionedHashes = requestContext.getRequiredParameter(1, String[].class);
+
+    final Optional<Bytes32> maybeParentBeaconBlockRoot =
+        Optional.of(Bytes32.fromHexString(requestContext.getRequiredParameter(2, String.class)));
+
+    return new EngineNewPayloadRequestParameter(
+        requestId,
+        payload,
+        Optional.of(Arrays.stream(versionedHashes).toList()),
+        maybeParentBeaconBlockRoot);
+  }
+
   JsonRpcResponse respondWith(
       final Object requestId,
       final EnginePayloadParameter param,
@@ -399,10 +422,7 @@ public abstract class AbstractEngineNewPayload extends ExecutionEngineJsonRpcMet
   }
 
   protected ValidationResult<RpcErrorType> validateParamsAndForkSupported(
-      final Object id,
-      final EnginePayloadParameter payloadParameter,
-      final Optional<List<String>> maybeVersionedHashParam,
-      final Optional<Bytes32> parentBeaconBlockRoot) {
+      final EngineNewPayloadRequestParameter params) {
     return ValidationResult.valid();
   }
 
