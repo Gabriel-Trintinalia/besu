@@ -84,7 +84,6 @@ public abstract class AbstractEngineNewPayload extends ExecutionEngineJsonRpcMet
   private static final Hash OMMERS_HASH_CONSTANT = Hash.EMPTY_LIST_HASH;
   private static final Logger LOG = LoggerFactory.getLogger(AbstractEngineNewPayload.class);
   private static final BlockHeaderFunctions headerFunctions = new MainnetBlockHeaderFunctions();
-  private final ProtocolSchedule protocolSchedule;
   private final MergeMiningCoordinator mergeCoordinator;
   private final EthPeers ethPeers;
 
@@ -95,8 +94,7 @@ public abstract class AbstractEngineNewPayload extends ExecutionEngineJsonRpcMet
       final MergeMiningCoordinator mergeCoordinator,
       final EthPeers ethPeers,
       final EngineCallListener engineCallListener) {
-    super(vertx, protocolContext, engineCallListener);
-    this.protocolSchedule = protocolSchedule;
+    super(vertx, protocolSchedule, protocolContext, engineCallListener);
     this.mergeCoordinator = mergeCoordinator;
     this.ethPeers = ethPeers;
   }
@@ -120,10 +118,18 @@ public abstract class AbstractEngineNewPayload extends ExecutionEngineJsonRpcMet
     final Optional<Bytes32> maybeParentBeaconBlockRoot =
         newPayloadParams.getParentBeaconBlockRoot();
 
+    final ValidationResult<RpcErrorType> forkValidationResult =
+        validateForkSupported(blockParam.getTimestamp());
     ValidationResult<RpcErrorType> forkValidationResult =
         validateParamsAndForkSupported(newPayloadParams);
     if (!forkValidationResult.isValid()) {
       return new JsonRpcErrorResponse(reqId, forkValidationResult);
+    }
+
+    final ValidationResult<RpcErrorType> parameterValidationResult =
+        validateParameters(blockParam, maybeVersionedHashParam, maybeParentBeaconBlockRootParam);
+    if (!parameterValidationResult.isValid()) {
+      return new JsonRpcErrorResponse(reqId, parameterValidationResult);
     }
 
     final Optional<List<VersionedHash>> maybeVersionedHashes;
@@ -146,7 +152,7 @@ public abstract class AbstractEngineNewPayload extends ExecutionEngineJsonRpcMet
             .map(ws -> ws.stream().map(WithdrawalParameter::toWithdrawal).collect(toList()));
 
     if (!getWithdrawalsValidator(
-            protocolSchedule, blockParam.getTimestamp(), blockParam.getBlockNumber())
+            protocolSchedule.get(), blockParam.getTimestamp(), blockParam.getBlockNumber())
         .validateWithdrawals(maybeWithdrawals)) {
       return new JsonRpcErrorResponse(
           reqId, new JsonRpcError(INVALID_PARAMS, "Invalid withdrawals"));
@@ -156,7 +162,7 @@ public abstract class AbstractEngineNewPayload extends ExecutionEngineJsonRpcMet
         Optional.ofNullable(blockParam.getDeposits())
             .map(ds -> ds.stream().map(DepositParameter::toDeposit).collect(toList()));
     if (!getDepositsValidator(
-            protocolSchedule, blockParam.getTimestamp(), blockParam.getBlockNumber())
+            protocolSchedule.get(), blockParam.getTimestamp(), blockParam.getBlockNumber())
         .validateDepositParameter(maybeDeposits)) {
       return new JsonRpcErrorResponse(reqId, new JsonRpcError(INVALID_PARAMS, "Invalid deposits"));
     }
@@ -240,7 +246,7 @@ public abstract class AbstractEngineNewPayload extends ExecutionEngineJsonRpcMet
             newBlockHeader,
             maybeParentHeader,
             maybeVersionedHashes,
-            protocolSchedule.getByBlockHeader(newBlockHeader));
+            protocolSchedule.get().getByBlockHeader(newBlockHeader));
     if (!blobValidationResult.isValid()) {
       return respondWithInvalid(
           reqId,
@@ -288,21 +294,6 @@ public abstract class AbstractEngineNewPayload extends ExecutionEngineJsonRpcMet
           .log();
       mergeCoordinator.appendNewPayloadToSync(block);
       return respondWith(reqId, blockParam, null, SYNCING);
-    }
-
-    // TODO: post-merge cleanup
-    if (requireTerminalPoWBlockValidation()
-        && !mergeContext.get().isCheckpointPostMergeSync()
-        && !mergeContext.get().isPostMergeAtGenesis()
-        && !mergeCoordinator.latestValidAncestorDescendsFromTerminal(newBlockHeader)
-        && !mergeContext.get().isChainPruningEnabled()) {
-      mergeCoordinator.addBadBlock(block, Optional.empty());
-      return respondWithInvalid(
-          reqId,
-          blockParam,
-          Hash.ZERO,
-          INVALID,
-          newBlockHeader.getHash() + " did not descend from terminal block");
     }
 
     final var latestValidAncestor = mergeCoordinator.getLatestValidAncestor(newBlockHeader);

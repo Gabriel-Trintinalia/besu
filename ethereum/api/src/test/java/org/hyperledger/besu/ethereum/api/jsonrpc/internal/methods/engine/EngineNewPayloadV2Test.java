@@ -147,11 +147,6 @@ public class EngineNewPayloadV2Test extends AbstractEngineNewPayloadTest {
   }
 
   @Override
-  protected boolean validateTerminalPoWBlock() {
-    return false;
-  }
-
-  @Override
   protected ExecutionEngineJsonRpcMethod.EngineStatus getExpectedInvalidBlockHashStatus() {
     return INVALID;
   }

@@ -42,8 +42,10 @@ import org.hyperledger.besu.ethereum.core.Transaction;
 import org.hyperledger.besu.ethereum.core.Withdrawal;
 import org.hyperledger.besu.ethereum.core.encoding.TransactionDecoder;
 import org.hyperledger.besu.ethereum.mainnet.BodyValidation;
+import org.hyperledger.besu.ethereum.mainnet.ValidationResult;
 import org.hyperledger.besu.evm.gascalculator.CancunGasCalculator;
 
+import java.util.Collections;
 import java.util.List;
 import java.util.Optional;
 
@@ -86,15 +88,15 @@ public class EngineNewPayloadV3Test extends EngineNewPayloadV2Test {
   }
 
   @Test
-  public void shouldInvalidPayloadOnShortVersionedHash() {
-    Bytes shortHash = Bytes.fromHexString("0x" + "69".repeat(31));
+  public void shouldInvalidVersionedHash_whenShortVersionedHash() {
+    final Bytes shortHash = Bytes.fromHexString("0x" + "69".repeat(31));
 
-    EnginePayloadParameter payload = mock(EnginePayloadParameter.class);
-    when(payload.getTimestamp()).thenReturn(30l);
+    final EnginePayloadParameter payload = mock(EnginePayloadParameter.class);
+    when(payload.getTimestamp()).thenReturn(cancunHardfork.milestone());
     when(payload.getExcessBlobGas()).thenReturn("99");
     when(payload.getBlobGasUsed()).thenReturn(9l);
 
-    JsonRpcResponse badParam =
+    final JsonRpcResponse badParam =
         method.response(
             new JsonRpcRequestContext(
                 new JsonRpcRequest(
@@ -105,7 +107,7 @@ public class EngineNewPayloadV3Test extends EngineNewPayloadV2Test {
                       List.of(shortHash.toHexString()),
                         DEFAULT_PARENT_BEACON_ROOT
                     })));
-    EnginePayloadStatusResult res = fromSuccessResp(badParam);
+    final EnginePayloadStatusResult res = fromSuccessResp(badParam);
     assertThat(res.getStatusAsString()).isEqualTo(INVALID.name());
     assertThat(res.getError()).isEqualTo("Invalid versionedHash");
   }
@@ -171,6 +173,24 @@ public class EngineNewPayloadV3Test extends EngineNewPayloadV2Test {
     JsonRpcError res = fromErrorResp(badParam);
     assertThat(res.getCode()).isEqualTo(RpcErrorType.INVALID_PARAMS.getCode());
     assertThat(res.getData()).isEqualTo("Missing required json rpc parameter at index 2");
+  }
+
+  @Test
+  public void shouldValidVersionedHash_whenListIsEmpty() {
+    final BlockHeader mockHeader =
+        setupValidPayload(
+            new BlockProcessingResult(Optional.of(new BlockProcessingOutputs(null, List.of()))),
+            Optional.empty(),
+            Optional.empty());
+    final EnginePayloadParameter payload =
+        mockEnginePayload(mockHeader, Collections.emptyList(), null, null);
+
+    ValidationResult<RpcErrorType> res =
+        method.validateParameters(
+            payload,
+            Optional.of(List.of()),
+            Optional.of("0x0000000000000000000000000000000000000000000000000000000000000000"));
+    assertThat(res.isValid()).isTrue();
   }
 
   @Override
