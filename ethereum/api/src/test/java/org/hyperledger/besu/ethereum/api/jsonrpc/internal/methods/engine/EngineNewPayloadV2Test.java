@@ -102,8 +102,7 @@ public class EngineNewPayloadV2Test extends AbstractEngineNewPayloadTest {
     lenient()
         .when(blockchain.getBlockHeader(mockHeader.getParentHash()))
         .thenReturn(Optional.of(mock(BlockHeader.class)));
-    var resp =
-        resp(mockEnginePayload(mockHeader, Collections.emptyList(), withdrawals, null));
+    var resp = resp(mockEnginePayload(mockHeader, Collections.emptyList(), withdrawals, null));
 
     assertValidResponse(mockHeader, resp);
   }
