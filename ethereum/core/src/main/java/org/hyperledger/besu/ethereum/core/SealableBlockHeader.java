@@ -62,7 +62,7 @@ public class SealableBlockHeader extends ProcessableBlockHeader {
       final Wei baseFee,
       final Bytes32 mixHashOrPrevRandao,
       final Hash withdrawalsRoot,
-      final Long blobGasUsed,
+      final BlobGas blobGasUsed,
       final BlobGas excessBlobGas,
       final Bytes32 parentBeaconBlockRoot,
       final Hash depositsRoot) {

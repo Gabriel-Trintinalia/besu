@@ -266,7 +266,7 @@ public abstract class AbstractBlockCreator implements AsyncBlockCreator {
                       : null)
               .depositsRoot(maybeDeposits.map(BodyValidation::depositsRoot).orElse(null));
       if (usage != null) {
-        builder.blobGasUsed(usage.used.toLong()).excessBlobGas(usage.excessBlobGas);
+        builder.blobGasUsed(BlobGas.of(usage.used.toLong())).excessBlobGas(usage.excessBlobGas);
       }
 
       final SealableBlockHeader sealableBlockHeader = builder.buildSealableBlockHeader();

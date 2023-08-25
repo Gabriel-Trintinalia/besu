@@ -41,7 +41,7 @@ public class BlobGasValidationRule implements DetachedBlockHeaderValidationRule 
   public boolean validate(final BlockHeader header, final BlockHeader parent) {
     long headerExcessBlobGas = header.getExcessBlobGas().map(BlobGas::toLong).orElse(0L);
     long parentExcessBlobGas = parent.getExcessBlobGas().map(BlobGas::toLong).orElse(0L);
-    long parentBlobGasUsed = parent.getBlobGasUsed().orElse(0L);
+    long parentBlobGasUsed = parent.getBlobGasUsed().map(BlobGas::toLong).orElse(0L);
 
     long calculatedExcessBlobGas =
         gasCalculator.computeExcessBlobGas(parentExcessBlobGas, parentBlobGasUsed);

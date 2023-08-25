@@ -406,7 +406,7 @@ public class T8nExecutor {
     blockHeader
         .getBlobGasUsed()
         .ifPresentOrElse(
-            bgu -> resultObject.put("blobGasUsed", Bytes.ofUnsignedLong(bgu).toQuantityHexString()),
+            bgu -> resultObject.put("blobGasUsed", bgu.toShortHexString()),
             () ->
                 blockHeader
                     .getExcessBlobGas()

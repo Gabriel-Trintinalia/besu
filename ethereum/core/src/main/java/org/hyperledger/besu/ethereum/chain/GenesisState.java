@@ -223,9 +223,11 @@ public final class GenesisState {
     return withNiceErrorMessage("nonce", genesis.getNonce(), GenesisState::parseUnsignedLong);
   }
 
-  private static long parseBlobGasUsed(final GenesisConfigFile genesis) {
-    return withNiceErrorMessage(
-        "blobGasUsed", genesis.getBlobGasUsed(), GenesisState::parseUnsignedLong);
+  private static BlobGas parseBlobGasUsed(final GenesisConfigFile genesis) {
+    long blobGasUsed =
+        withNiceErrorMessage(
+            "blobGasUsed", genesis.getBlobGasUsed(), GenesisState::parseUnsignedLong);
+    return BlobGas.of(blobGasUsed);
   }
 
   private static BlobGas parseExcessBlobGas(final GenesisConfigFile genesis) {

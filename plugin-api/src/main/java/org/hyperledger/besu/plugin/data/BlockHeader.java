@@ -215,7 +215,7 @@ public interface BlockHeader {
    * @return The blob_gas_used of this header.
    */
   @Unstable
-  Optional<? extends Long> getBlobGasUsed();
+  Optional<? extends Quantity> getBlobGasUsed();
 
   /**
    * The parent beacon block root of this header.

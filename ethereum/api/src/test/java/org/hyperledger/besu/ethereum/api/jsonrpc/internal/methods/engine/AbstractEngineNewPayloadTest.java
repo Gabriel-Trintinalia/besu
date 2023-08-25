@@ -424,7 +424,7 @@ public abstract class AbstractEngineNewPayloadTest extends AbstractScheduledApiT
         header.getPrevRandao().map(Bytes32::toHexString).orElse("0x0"),
         txs,
         withdrawals,
-        header.getBlobGasUsed().map(UnsignedLongParameter::new).orElse(null),
+        header.getBlobGasUsed().map(BlobGas::toHexString).orElse(null),
         header.getExcessBlobGas().map(BlobGas::toHexString).orElse(null),
         deposits);
   }

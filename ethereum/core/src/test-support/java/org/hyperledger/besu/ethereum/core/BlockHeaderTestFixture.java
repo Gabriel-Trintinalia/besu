@@ -53,7 +53,7 @@ public class BlockHeaderTestFixture {
   private Optional<Hash> depositsRoot = Optional.empty();
   private BlockHeaderFunctions blockHeaderFunctions = new MainnetBlockHeaderFunctions();
   private Optional<BlobGas> excessBlobGas = Optional.empty();
-  private Optional<Long> blobGasUsed = Optional.empty();
+  private Optional<BlobGas> blobGasUsed = Optional.empty();
   private Optional<Bytes32> parentBeaconBlockRoot = Optional.empty();
 
   public BlockHeader buildHeader() {
@@ -185,7 +185,7 @@ public class BlockHeaderTestFixture {
     return this;
   }
 
-  public BlockHeaderTestFixture blobGasUsed(final Long blobGasUsed) {
+  public BlockHeaderTestFixture blobGasUsed(final BlobGas blobGasUsed) {
     this.blobGasUsed = Optional.ofNullable(blobGasUsed);
     return this;
   }

@@ -45,7 +45,7 @@ public class BlobGasValidationRuleTest {
     // Create parent header
     final BlockHeaderTestFixture parentBuilder = new BlockHeaderTestFixture();
     parentBuilder.excessBlobGas(BlobGas.of(1L));
-    parentBuilder.blobGasUsed(target);
+    parentBuilder.blobGasUsed(BlobGas.of(target));
     final BlockHeader parentHeader = parentBuilder.buildHeader();
 
     // Create block header with matching excessBlobGas
@@ -66,7 +66,7 @@ public class BlobGasValidationRuleTest {
     // Create parent header
     final BlockHeaderTestFixture parentBuilder = new BlockHeaderTestFixture();
     parentBuilder.excessBlobGas(BlobGas.of(1L));
-    parentBuilder.blobGasUsed(target);
+    parentBuilder.blobGasUsed(BlobGas.of(target));
     final BlockHeader parentHeader = parentBuilder.buildHeader();
 
     // Create block header with different excessBlobGas

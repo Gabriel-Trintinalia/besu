@@ -209,7 +209,9 @@ public abstract class AbstractEngineNewPayload extends ExecutionEngineJsonRpcMet
             blockParam.getPrevRandao(),
             0,
             maybeWithdrawals.map(BodyValidation::withdrawalsRoot).orElse(null),
-            blockParam.getBlobGasUsed() == null ? null : blockParam.getBlobGasUsed(),
+            blockParam.getBlobGasUsed() == null
+                ? null
+                : BlobGas.fromHexString(blockParam.getBlobGasUsed()),
             blockParam.getExcessBlobGas() == null
                 ? null
                 : BlobGas.fromHexString(blockParam.getExcessBlobGas()),
@@ -460,7 +462,7 @@ public abstract class AbstractEngineNewPayload extends ExecutionEngineJsonRpcMet
       final ProtocolSpec protocolSpec) {
     var calculatedBlobGas =
         protocolSpec.getGasCalculator().blobGasCost(maybeVersionedHashes.size());
-    return header.getBlobGasUsed().orElse(0L).equals(calculatedBlobGas);
+    return header.getBlobGasUsed().map(BlobGas::toLong).orElse(0L).equals(calculatedBlobGas);
   }
 
   private Optional<List<VersionedHash>> extractVersionedHashes(

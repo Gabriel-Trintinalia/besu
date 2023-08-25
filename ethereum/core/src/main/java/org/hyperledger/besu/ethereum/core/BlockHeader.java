@@ -61,7 +61,7 @@ public class BlockHeader extends SealableBlockHeader
       final Bytes32 mixHashOrPrevRandao,
       final long nonce,
       final Hash withdrawalsRoot,
-      final Long blobGasUsed,
+      final BlobGas blobGasUsed,
       final BlobGas excessBlobGas,
       final Bytes32 parentBeaconBlockRoot,
       final Hash depositsRoot,
@@ -170,7 +170,7 @@ public class BlockHeader extends SealableBlockHeader
       out.writeBytes(withdrawalsRoot);
     }
     if (excessBlobGas.isPresent() && blobGasUsed.isPresent()) {
-      out.writeLongScalar(blobGasUsed.get());
+      out.writeUInt64Scalar(blobGasUsed.get());
       out.writeUInt64Scalar(excessBlobGas.get());
     }
     if (parentBeaconBlockRoot != null) {
@@ -205,7 +205,8 @@ public class BlockHeader extends SealableBlockHeader
         !(input.isEndOfCurrentList() || input.isZeroLengthString())
             ? Hash.wrap(input.readBytes32())
             : null;
-    final Long blobGasUsed = !input.isEndOfCurrentList() ? input.readLongScalar() : null;
+    final BlobGas blobGasUsed =
+        !input.isEndOfCurrentList() ? BlobGas.of(input.readLongScalar()) : null;
     final BlobGas excessBlobGas =
         !input.isEndOfCurrentList() ? BlobGas.of(input.readLongScalar()) : null;
     final Bytes32 parentBeaconBlockRoot = !input.isEndOfCurrentList() ? input.readBytes32() : null;
@@ -313,7 +314,7 @@ public class BlockHeader extends SealableBlockHeader
             .getWithdrawalsRoot()
             .map(h -> Hash.fromHexString(h.toHexString()))
             .orElse(null),
-        pluginBlockHeader.getBlobGasUsed().map(Long::longValue).orElse(null),
+        pluginBlockHeader.getBlobGasUsed().map(BlobGas::fromQuantity).orElse(null),
         pluginBlockHeader.getExcessBlobGas().map(BlobGas::fromQuantity).orElse(null),
         pluginBlockHeader.getParentBeaconBlockRoot().orElse(null),
         pluginBlockHeader

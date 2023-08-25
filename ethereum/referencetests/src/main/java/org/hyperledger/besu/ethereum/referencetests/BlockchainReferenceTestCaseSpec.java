@@ -196,8 +196,8 @@ public class BlockchainReferenceTestCaseSpec {
           Bytes.fromHexStringLenient(nonce).toLong(),
           withdrawalsRoot != null ? Hash.fromHexString(withdrawalsRoot) : null,
           dataGasUsed != null
-              ? Long.decode(dataGasUsed)
-              : blobGasUsed != null ? Long.decode(blobGasUsed) : 0,
+              ? BlobGas.fromHexString(dataGasUsed)
+              : blobGasUsed != null ? BlobGas.fromHexString(blobGasUsed) : null,
           excessDataGas != null
               ? BlobGas.fromHexString(excessDataGas)
               : excessBlobGas != null ? BlobGas.fromHexString(excessBlobGas) : null,

@@ -73,7 +73,7 @@ public class BlockHeaderBuilder {
   // instead of an invalid identifier such as -1.
   private OptionalLong nonce = OptionalLong.empty();
 
-  private Long blobGasUsed = null;
+  private BlobGas blobGasUsed = null;
   private BlobGas excessBlobGas = null;
   private Bytes32 parentBeaconBlockRoot = null;
 
@@ -415,7 +415,7 @@ public class BlockHeaderBuilder {
     return this;
   }
 
-  public BlockHeaderBuilder blobGasUsed(final Long blobGasUsed) {
+  public BlockHeaderBuilder blobGasUsed(final BlobGas blobGasUsed) {
     this.blobGasUsed = blobGasUsed;
     return this;
   }

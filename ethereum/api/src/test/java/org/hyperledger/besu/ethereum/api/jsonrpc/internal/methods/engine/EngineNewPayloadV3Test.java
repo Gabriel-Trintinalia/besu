@@ -84,7 +84,7 @@ public class EngineNewPayloadV3Test extends EngineNewPayloadV2Test {
     final EnginePayloadParameter payload = mock(EnginePayloadParameter.class);
     when(payload.getTimestamp()).thenReturn(cancunHardfork.milestone());
     when(payload.getExcessBlobGas()).thenReturn("99");
-    when(payload.getBlobGasUsed()).thenReturn(9l);
+    when(payload.getBlobGasUsed()).thenReturn("9");
 
     final JsonRpcResponse badParam =
         method.response(
@@ -142,7 +142,7 @@ public class EngineNewPayloadV3Test extends EngineNewPayloadV2Test {
             .withdrawalsRoot(maybeWithdrawals.map(BodyValidation::withdrawalsRoot).orElse(null))
             .depositsRoot(maybeDeposits.map(BodyValidation::depositsRoot).orElse(null))
             .excessBlobGas(BlobGas.ZERO)
-            .blobGasUsed(0L)
+            .blobGasUsed(BlobGas.ZERO)
             .parentBeaconBlockRoot(
                 maybeParentBeaconBlockRoot.isPresent() ? maybeParentBeaconBlockRoot : null)
             .buildHeader();

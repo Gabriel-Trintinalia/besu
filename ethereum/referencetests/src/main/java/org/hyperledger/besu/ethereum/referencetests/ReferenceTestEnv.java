@@ -142,8 +142,8 @@ public class ReferenceTestEnv extends BlockHeader {
         0L,
         null, // withdrawalsRoot
         currentBlobGasUsed == null
-            ? currentDataGasUsed == null ? null : Long.decode(currentDataGasUsed)
-            : Long.decode(currentBlobGasUsed),
+            ? currentDataGasUsed == null ? null : BlobGas.fromHexString(currentDataGasUsed)
+            : BlobGas.fromHexString(currentBlobGasUsed),
         currentExcessBlobGas == null
             ? currentExcessDataGas == null ? null : BlobGas.fromHexString(currentExcessDataGas)
             : BlobGas.fromHexString(currentExcessBlobGas),
