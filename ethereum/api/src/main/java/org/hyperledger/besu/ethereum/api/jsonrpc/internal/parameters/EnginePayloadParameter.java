@@ -25,12 +25,6 @@ import com.fasterxml.jackson.annotation.JsonCreator;
 import com.fasterxml.jackson.annotation.JsonProperty;
 import org.apache.tuweni.bytes.Bytes32;
 
-/**
- * parentHash: DATA, 32 Bytes feeRecipient: DATA, 20 Bytes stateRoot: DATA, 32 Bytes receiptsRoot:
- * DATA, 32 Bytes logsBloom: DATA, 256 Bytes prevRandao: DATA, 32 Bytes blockNumber: QUANTITY
- * gasLimit: QUANTITY gasUsed: QUANTITY timestamp: QUANTITY baseFeePerGas: QUANTITY blockHash: DATA,
- * 32 Bytes transactions: Array of TypedTransaction
- */
 public class EnginePayloadParameter {
   private final Hash blockHash;
   private final Hash parentHash;
@@ -51,6 +45,28 @@ public class EnginePayloadParameter {
   private final String excessBlobGas;
   private final List<DepositParameter> deposits;
 
+  /**
+   * Creates an instance of EnginePayloadParameter.
+   *
+   * @param blockHash DATA, 32 Bytes
+   * @param parentHash DATA, 32 Bytes
+   * @param feeRecipient DATA, 20 Bytes
+   * @param stateRoot DATA, 32 Bytes
+   * @param blockNumber QUANTITY, 64 Bits
+   * @param baseFeePerGas QUANTITY, 256 Bits
+   * @param gasLimit QUANTITY, 64 Bits
+   * @param gasUsed QUANTITY, 64 Bits
+   * @param timestamp QUANTITY, 64 Bits
+   * @param extraData DATA, 0 to 32 Bytes
+   * @param receiptsRoot DATA, 32 Bytes
+   * @param logsBloom DATA, 256 Bytes
+   * @param prevRandao DATA, 32 Bytes
+   * @param transactions Array of DATA
+   * @param withdrawals Array of Withdrawal
+   * @param blobGasUsed QUANTITY, 64 Bits
+   * @param excessBlobGas QUANTITY, 64 Bits
+   * @param deposits List of deposit parameters.
+   */
   @JsonCreator
   public EnginePayloadParameter(
       @JsonProperty("blockHash") final Hash blockHash,

@@ -118,16 +118,16 @@ public abstract class AbstractEngineNewPayload extends ExecutionEngineJsonRpcMet
     final Optional<Bytes32> maybeParentBeaconBlockRoot =
         newPayloadParams.getParentBeaconBlockRoot();
 
-    final ValidationResult<RpcErrorType> forkValidationResult =
-        validateForkSupported(blockParam.getTimestamp());
-    if (!forkValidationResult.isValid()) {
-      return new JsonRpcErrorResponse(reqId, forkValidationResult);
-    }
-
     final ValidationResult<RpcErrorType> parameterValidationResult =
         validateParameters(blockParam, maybeVersionedHashParam, maybeParentBeaconBlockRoot);
     if (!parameterValidationResult.isValid()) {
       return new JsonRpcErrorResponse(reqId, parameterValidationResult);
+    }
+
+    final ValidationResult<RpcErrorType> forkValidationResult =
+        validateForkSupported(blockParam.getTimestamp());
+    if (!forkValidationResult.isValid()) {
+      return new JsonRpcErrorResponse(reqId, forkValidationResult);
     }
 
     final Optional<List<VersionedHash>> maybeVersionedHashes;
