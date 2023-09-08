@@ -15,23 +15,16 @@
 package org.hyperledger.besu.ethereum.core;
 
 import static com.google.common.base.Preconditions.checkArgument;
-import static com.google.common.base.Preconditions.checkState;
 import static org.hyperledger.besu.crypto.Hash.keccak256;
-import static org.hyperledger.besu.datatypes.VersionedHash.SHA256_VERSION_ID;
 
-import org.hyperledger.besu.crypto.KeyPair;
 import org.hyperledger.besu.crypto.SECPPublicKey;
 import org.hyperledger.besu.crypto.SECPSignature;
 import org.hyperledger.besu.crypto.SignatureAlgorithm;
 import org.hyperledger.besu.crypto.SignatureAlgorithmFactory;
 import org.hyperledger.besu.datatypes.AccessListEntry;
 import org.hyperledger.besu.datatypes.Address;
-import org.hyperledger.besu.datatypes.Blob;
 import org.hyperledger.besu.datatypes.BlobsWithCommitments;
 import org.hyperledger.besu.datatypes.Hash;
-import org.hyperledger.besu.datatypes.KZGCommitment;
-import org.hyperledger.besu.datatypes.KZGProof;
-import org.hyperledger.besu.datatypes.Sha256Hash;
 import org.hyperledger.besu.datatypes.TransactionType;
 import org.hyperledger.besu.datatypes.VersionedHash;
 import org.hyperledger.besu.datatypes.Wei;
@@ -117,8 +110,8 @@ public class Transaction
 
   private final Optional<BlobsWithCommitments> blobsWithCommitments;
 
-  public static Builder builder() {
-    return new Builder();
+  public static TransactionBuilder builder() {
+    return new TransactionBuilder();
   }
 
   public static Transaction readFrom(final Bytes rlpBytes) {
@@ -821,7 +814,7 @@ public class Transaction
     return transactions.stream().map(Transaction::getHash).collect(Collectors.toUnmodifiableList());
   }
 
-  private static Bytes32 computeSenderRecoveryHash(
+  protected static Bytes32 computeSenderRecoveryHash(
       final TransactionType transactionType,
       final long nonce,
       final Wei gasPrice,
@@ -1134,203 +1127,5 @@ public class Transaction
       return Optional.of(Address.contractAddress(getSender(), getNonce()));
     }
     return Optional.empty();
-  }
-
-  public static class Builder {
-    private static final Optional<List<AccessListEntry>> EMPTY_ACCESS_LIST = Optional.of(List.of());
-
-    protected TransactionType transactionType;
-
-    protected long nonce = -1L;
-
-    protected Wei gasPrice;
-
-    protected Wei maxPriorityFeePerGas;
-
-    protected Wei maxFeePerGas;
-    protected Wei maxFeePerBlobGas;
-
-    protected long gasLimit = -1L;
-
-    protected Optional<Address> to = Optional.empty();
-
-    protected Wei value;
-
-    protected SECPSignature signature;
-
-    protected Bytes payload;
-
-    protected Optional<List<AccessListEntry>> accessList = Optional.empty();
-
-    protected Address sender;
-
-    protected Optional<BigInteger> chainId = Optional.empty();
-    protected Optional<BigInteger> v = Optional.empty();
-    protected List<VersionedHash> versionedHashes = null;
-    private BlobsWithCommitments blobsWithCommitments;
-
-    public Builder type(final TransactionType transactionType) {
-      this.transactionType = transactionType;
-      return this;
-    }
-
-    public Builder chainId(final BigInteger chainId) {
-      this.chainId = Optional.of(chainId);
-      return this;
-    }
-
-    public Builder v(final BigInteger v) {
-      this.v = Optional.of(v);
-      return this;
-    }
-
-    public Builder gasPrice(final Wei gasPrice) {
-      this.gasPrice = gasPrice;
-      return this;
-    }
-
-    public Builder maxPriorityFeePerGas(final Wei maxPriorityFeePerGas) {
-      this.maxPriorityFeePerGas = maxPriorityFeePerGas;
-      return this;
-    }
-
-    public Builder maxFeePerGas(final Wei maxFeePerGas) {
-      this.maxFeePerGas = maxFeePerGas;
-      return this;
-    }
-
-    public Builder maxFeePerBlobGas(final Wei maxFeePerBlobGas) {
-      this.maxFeePerBlobGas = maxFeePerBlobGas;
-      return this;
-    }
-
-    public Builder gasLimit(final long gasLimit) {
-      this.gasLimit = gasLimit;
-      return this;
-    }
-
-    public Builder nonce(final long nonce) {
-      this.nonce = nonce;
-      return this;
-    }
-
-    public Builder value(final Wei value) {
-      this.value = value;
-      return this;
-    }
-
-    public Builder to(final Address to) {
-      this.to = Optional.ofNullable(to);
-      return this;
-    }
-
-    public Builder payload(final Bytes payload) {
-      this.payload = payload;
-      return this;
-    }
-
-    public Builder accessList(final List<AccessListEntry> accessList) {
-      this.accessList =
-          accessList == null
-              ? Optional.empty()
-              : accessList.isEmpty() ? EMPTY_ACCESS_LIST : Optional.of(accessList);
-      return this;
-    }
-
-    public Builder sender(final Address sender) {
-      this.sender = sender;
-      return this;
-    }
-
-    public Builder signature(final SECPSignature signature) {
-      this.signature = signature;
-      return this;
-    }
-
-    public Builder versionedHashes(final List<VersionedHash> versionedHashes) {
-      this.versionedHashes = versionedHashes;
-      return this;
-    }
-
-    public Builder guessType() {
-      if (versionedHashes != null && !versionedHashes.isEmpty()) {
-        transactionType = TransactionType.BLOB;
-      } else if (maxPriorityFeePerGas != null || maxFeePerGas != null) {
-        transactionType = TransactionType.EIP1559;
-      } else if (accessList.isPresent()) {
-        transactionType = TransactionType.ACCESS_LIST;
-      } else {
-        transactionType = TransactionType.FRONTIER;
-      }
-      return this;
-    }
-
-    public TransactionType getTransactionType() {
-      return transactionType;
-    }
-
-    public Transaction build() {
-      if (transactionType == null) guessType();
-      return new Transaction(
-          transactionType,
-          nonce,
-          Optional.ofNullable(gasPrice),
-          Optional.ofNullable(maxPriorityFeePerGas),
-          Optional.ofNullable(maxFeePerGas),
-          Optional.ofNullable(maxFeePerBlobGas),
-          gasLimit,
-          to,
-          value,
-          signature,
-          payload,
-          accessList,
-          sender,
-          chainId,
-          Optional.ofNullable(versionedHashes),
-          Optional.ofNullable(blobsWithCommitments));
-    }
-
-    public Transaction signAndBuild(final KeyPair keys) {
-      checkState(
-          signature == null, "The transaction signature has already been provided to this builder");
-      signature(computeSignature(keys));
-      sender(Address.extract(Hash.hash(keys.getPublicKey().getEncodedBytes())));
-      return build();
-    }
-
-    SECPSignature computeSignature(final KeyPair keys) {
-      return SignatureAlgorithmFactory.getInstance()
-          .sign(
-              computeSenderRecoveryHash(
-                  transactionType,
-                  nonce,
-                  gasPrice,
-                  maxPriorityFeePerGas,
-                  maxFeePerGas,
-                  maxFeePerBlobGas,
-                  gasLimit,
-                  to,
-                  value,
-                  payload,
-                  accessList,
-                  versionedHashes,
-                  chainId),
-              keys);
-    }
-
-    public Builder kzgBlobs(
-        final List<KZGCommitment> kzgCommitments,
-        final List<Blob> blobs,
-        final List<KZGProof> kzgProofs) {
-      if (this.versionedHashes == null || this.versionedHashes.isEmpty()) {
-        this.versionedHashes =
-            kzgCommitments.stream()
-                .map(c -> new VersionedHash(SHA256_VERSION_ID, Sha256Hash.sha256(c.getData())))
-                .collect(Collectors.toList());
-      }
-      this.blobsWithCommitments =
-          new BlobsWithCommitments(kzgCommitments, blobs, kzgProofs, versionedHashes);
-      return this;
-    }
   }
 }

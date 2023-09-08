@@ -25,6 +25,7 @@ import org.hyperledger.besu.datatypes.TransactionType;
 import org.hyperledger.besu.datatypes.VersionedHash;
 import org.hyperledger.besu.datatypes.Wei;
 import org.hyperledger.besu.ethereum.core.Transaction;
+import org.hyperledger.besu.ethereum.core.TransactionBuilder;
 import org.hyperledger.besu.ethereum.rlp.RLPInput;
 
 import java.util.List;
@@ -51,13 +52,13 @@ public class BlobTransactionDecoder {
   }
 
   private static Transaction readTransactionPayload(final RLPInput input) {
-    final Transaction.Builder builder = Transaction.builder();
+    final TransactionBuilder builder = Transaction.builder();
     readTransactionPayloadInner(builder, input);
     return builder.build();
   }
 
   private static void readTransactionPayloadInner(
-      final Transaction.Builder builder, final RLPInput input) {
+      final TransactionBuilder builder, final RLPInput input) {
     builder
         .type(TransactionType.BLOB)
         .chainId(input.readBigIntegerScalar())
@@ -94,7 +95,7 @@ public class BlobTransactionDecoder {
   }
 
   private static Transaction readNetworkWrapperInner(final RLPInput input) {
-    final Transaction.Builder builder = Transaction.builder();
+    final TransactionBuilder builder = Transaction.builder();
     input.enterList();
     readTransactionPayloadInner(builder, input);
     input.leaveList();

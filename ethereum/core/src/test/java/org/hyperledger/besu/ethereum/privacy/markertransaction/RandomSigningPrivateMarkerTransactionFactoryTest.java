@@ -21,6 +21,7 @@ import org.hyperledger.besu.datatypes.Address;
 import org.hyperledger.besu.datatypes.TransactionType;
 import org.hyperledger.besu.datatypes.Wei;
 import org.hyperledger.besu.ethereum.core.Transaction;
+import org.hyperledger.besu.ethereum.core.TransactionBuilder;
 import org.hyperledger.besu.ethereum.privacy.PrivateTransaction;
 
 import java.util.Optional;
@@ -46,7 +47,7 @@ public class RandomSigningPrivateMarkerTransactionFactoryTest {
     final Address precompiledAddress = Address.fromHexString("1");
 
     final Transaction unsignedPrivateMarkerTransaction =
-        new Transaction.Builder()
+        new TransactionBuilder()
             .type(TransactionType.FRONTIER)
             .nonce(providedNonce)
             .gasPrice(gasPrice)

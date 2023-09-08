@@ -23,6 +23,7 @@ import org.hyperledger.besu.datatypes.Address;
 import org.hyperledger.besu.datatypes.VersionedHash;
 import org.hyperledger.besu.datatypes.Wei;
 import org.hyperledger.besu.ethereum.core.Transaction;
+import org.hyperledger.besu.ethereum.core.TransactionBuilder;
 
 import java.math.BigInteger;
 import java.util.ArrayList;
@@ -54,7 +55,7 @@ import org.apache.tuweni.units.bigints.UInt256;
  *   <li>the signature of the transaction is not provided in the json directly. Instead, the private
  *       key of the sender is provided, and the transaction must thus be signed (also in {@link
  *       #get(GeneralStateTestCaseSpec.Indexes)}) through {@link
- *       Transaction.Builder#signAndBuild(KeyPair)}.
+ *       TransactionBuilder#signAndBuild(KeyPair)}.
  * </ul>
  */
 @JsonIgnoreProperties(ignoreUnknown = true)
@@ -156,7 +157,7 @@ public class StateTestVersionedTransaction {
       return null;
     }
 
-    final Transaction.Builder transactionBuilder =
+    final TransactionBuilder transactionBuilder =
         Transaction.builder().nonce(nonce).gasLimit(gasLimit).to(to).value(value).payload(data);
 
     Optional.ofNullable(gasPrice).ifPresent(transactionBuilder::gasPrice);

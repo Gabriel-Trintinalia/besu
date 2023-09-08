@@ -30,6 +30,7 @@ import org.hyperledger.besu.ethereum.api.jsonrpc.internal.response.JsonRpcRespon
 import org.hyperledger.besu.ethereum.api.jsonrpc.internal.response.JsonRpcSuccessResponse;
 import org.hyperledger.besu.ethereum.api.jsonrpc.internal.response.RpcErrorType;
 import org.hyperledger.besu.ethereum.core.Transaction;
+import org.hyperledger.besu.ethereum.core.TransactionBuilder;
 import org.hyperledger.besu.ethereum.eth.transactions.TransactionPool;
 import org.hyperledger.besu.ethereum.mainnet.ValidationResult;
 import org.hyperledger.besu.ethereum.privacy.PrivateTransaction;
@@ -133,7 +134,7 @@ public abstract class AbstractEeaSendRawTransaction implements JsonRpcMethod {
     final long nonce = publicNonceProvider.getNonce(sender);
 
     final Transaction unsignedPrivateMarkerTransaction =
-        new Transaction.Builder()
+        new TransactionBuilder()
             .type(TransactionType.FRONTIER)
             .sender(sender)
             .nonce(nonce)

@@ -31,11 +31,7 @@ import org.hyperledger.besu.datatypes.Hash;
 import org.hyperledger.besu.datatypes.TransactionType;
 import org.hyperledger.besu.datatypes.VersionedHash;
 import org.hyperledger.besu.datatypes.Wei;
-import org.hyperledger.besu.ethereum.core.BlockHeader;
-import org.hyperledger.besu.ethereum.core.BlockHeaderBuilder;
-import org.hyperledger.besu.ethereum.core.MutableWorldState;
-import org.hyperledger.besu.ethereum.core.Transaction;
-import org.hyperledger.besu.ethereum.core.TransactionReceipt;
+import org.hyperledger.besu.ethereum.core.*;
 import org.hyperledger.besu.ethereum.mainnet.BodyValidation;
 import org.hyperledger.besu.ethereum.mainnet.MainnetTransactionProcessor;
 import org.hyperledger.besu.ethereum.mainnet.ProtocolSchedule;
@@ -106,7 +102,7 @@ public class T8nExecutor {
                 Transaction.readFrom(Bytes.fromHexString(txNode.get("txbytes").asText()));
             transactions.add(tx);
           } else {
-            Transaction.Builder builder = Transaction.builder();
+            TransactionBuilder builder = Transaction.builder();
             int type = Bytes.fromHexStringLenient(txNode.get("type").textValue()).toInt();
             BigInteger chainId =
                 Bytes.fromHexStringLenient(txNode.get("chainId").textValue())

@@ -58,7 +58,7 @@ public class TransactionTestFixture {
   private Optional<BigInteger> v = Optional.empty();
 
   public Transaction createTransaction(final KeyPair keys) {
-    final Transaction.Builder builder = Transaction.builder();
+    final TransactionBuilder builder = Transaction.builder();
     builder
         .type(transactionType)
         .gasLimit(gasLimit)

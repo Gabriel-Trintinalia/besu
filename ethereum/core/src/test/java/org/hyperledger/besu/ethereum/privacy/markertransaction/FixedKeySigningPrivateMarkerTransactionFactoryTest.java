@@ -23,6 +23,7 @@ import org.hyperledger.besu.datatypes.Address;
 import org.hyperledger.besu.datatypes.TransactionType;
 import org.hyperledger.besu.datatypes.Wei;
 import org.hyperledger.besu.ethereum.core.Transaction;
+import org.hyperledger.besu.ethereum.core.TransactionBuilder;
 import org.hyperledger.besu.ethereum.core.Util;
 import org.hyperledger.besu.ethereum.privacy.PrivateTransaction;
 
@@ -53,7 +54,7 @@ public class FixedKeySigningPrivateMarkerTransactionFactoryTest {
         new FixedKeySigningPrivateMarkerTransactionFactory(signingKeys);
 
     final Transaction unsignedPrivateMarkerTransaction =
-        new Transaction.Builder()
+        new TransactionBuilder()
             .type(TransactionType.FRONTIER)
             .nonce(providedNonce)
             .gasPrice(gasPrice)

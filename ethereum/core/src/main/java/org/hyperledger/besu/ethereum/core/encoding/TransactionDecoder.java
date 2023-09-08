@@ -29,6 +29,7 @@ import org.hyperledger.besu.datatypes.Address;
 import org.hyperledger.besu.datatypes.TransactionType;
 import org.hyperledger.besu.datatypes.Wei;
 import org.hyperledger.besu.ethereum.core.Transaction;
+import org.hyperledger.besu.ethereum.core.TransactionBuilder;
 import org.hyperledger.besu.ethereum.rlp.RLP;
 import org.hyperledger.besu.ethereum.rlp.RLPInput;
 
@@ -89,7 +90,7 @@ public class TransactionDecoder {
 
   static Transaction decodeFrontier(final RLPInput input) {
     input.enterList();
-    final Transaction.Builder builder =
+    final TransactionBuilder builder =
         Transaction.builder()
             .type(TransactionType.FRONTIER)
             .nonce(input.readLongScalar())
@@ -123,7 +124,7 @@ public class TransactionDecoder {
 
   private static Transaction decodeAccessList(final RLPInput rlpInput) {
     rlpInput.enterList();
-    final Transaction.Builder preSignatureTransactionBuilder =
+    final TransactionBuilder preSignatureTransactionBuilder =
         Transaction.builder()
             .type(TransactionType.ACCESS_LIST)
             .chainId(BigInteger.valueOf(rlpInput.readLongScalar()))
@@ -164,7 +165,7 @@ public class TransactionDecoder {
   static Transaction decodeEIP1559(final RLPInput input) {
     input.enterList();
     final BigInteger chainId = input.readBigIntegerScalar();
-    final Transaction.Builder builder =
+    final TransactionBuilder builder =
         Transaction.builder()
             .type(TransactionType.EIP1559)
             .chainId(chainId)
