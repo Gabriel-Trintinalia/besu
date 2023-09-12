@@ -2,6 +2,7 @@ package org.hyperledger.besu.ethereum.core;
 
 import static com.google.common.base.Preconditions.checkState;
 import static org.hyperledger.besu.datatypes.VersionedHash.SHA256_VERSION_ID;
+import static org.hyperledger.besu.ethereum.core.TransactionPreImage.computeSenderRecoveryHash;
 
 import org.hyperledger.besu.crypto.KeyPair;
 import org.hyperledger.besu.crypto.SECPSignature;
@@ -180,7 +181,7 @@ public class TransactionBuilder {
   SECPSignature computeSignature(final KeyPair keys) {
     return SignatureAlgorithmFactory.getInstance()
         .sign(
-            Transaction.computeSenderRecoveryHash(
+            computeSenderRecoveryHash(
                 transactionType,
                 nonce,
                 gasPrice,
