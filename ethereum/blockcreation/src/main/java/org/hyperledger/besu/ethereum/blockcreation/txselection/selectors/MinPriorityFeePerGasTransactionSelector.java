@@ -22,10 +22,7 @@ import org.hyperledger.besu.ethereum.eth.transactions.PendingTransaction;
 import org.hyperledger.besu.ethereum.processing.TransactionProcessingResult;
 import org.hyperledger.besu.plugin.data.TransactionSelectionResult;
 
-/**
- * This class is responsible for selecting transactions based on the minimum priority fee. It
- * extends the AbstractTransactionSelector class.
- */
+/** This class is responsible for selecting transactions based on the minimum priority fee. */
 public class MinPriorityFeePerGasTransactionSelector extends AbstractTransactionSelector {
 
   /**
