@@ -85,29 +85,28 @@ public class EthFeeHistory implements JsonRpcMethod {
     final BlockHeader chainHeadHeader = blockchain.getChainHeadHeader();
     final long chainHeadBlockNumber = chainHeadHeader.getNumber();
 
-    final long resolvedHighestBlockNumber =
-        resolveHighestBlockNumber(highestBlock, chainHeadBlockNumber);
-    if (resolvedHighestBlockNumber > chainHeadBlockNumber) {
+    final long highestBlockNumber = highestBlock.getNumber().orElse(chainHeadBlockNumber);
+    if (highestBlockNumber > chainHeadBlockNumber) {
       return new JsonRpcErrorResponse(requestId, RpcErrorType.INVALID_PARAMS);
     }
 
-    final long oldestBlock = Math.max(0, resolvedHighestBlockNumber - (blockCount - 1));
-    final long lastBlock = calculateLastBlock(blockCount, resolvedHighestBlockNumber, oldestBlock);
+    final long firstBlock = Math.max(0, highestBlockNumber - (blockCount - 1));
+    final long lastBlock =
+        blockCount > highestBlockNumber ? (highestBlockNumber + 1) : (firstBlock + blockCount);
 
-    final List<BlockHeader> blockHeaders = getBlockHeaders(oldestBlock, lastBlock);
-    final List<Wei> explicitlyRequestedBaseFees = getExplicitlyRequestedBaseFees(blockHeaders);
+    final List<BlockHeader> blockHeaderRange = getBlockHeaders(firstBlock, lastBlock);
+    final List<Wei> requestedBaseFees = getBaseFees(blockHeaderRange);
     final Wei nextBaseFee =
-        getNextBaseFee(
-            resolvedHighestBlockNumber, chainHeadHeader, explicitlyRequestedBaseFees, blockHeaders);
-    final List<Double> gasUsedRatios = getGasUsedRatios(blockHeaders);
+        getNextBaseFee(highestBlockNumber, chainHeadHeader, requestedBaseFees, blockHeaderRange);
+    final List<Double> gasUsedRatios = getGasUsedRatios(blockHeaderRange);
 
     final Optional<List<List<Wei>>> maybeRewards =
-        maybeRewardPercentiles.map(rewards -> getRewards(rewards, blockHeaders));
+        maybeRewardPercentiles.map(rewards -> getRewards(rewards, blockHeaderRange));
 
     return new JsonRpcSuccessResponse(
         requestId,
         createFeeHistoryResult(
-            oldestBlock, explicitlyRequestedBaseFees, nextBaseFee, gasUsedRatios, maybeRewards));
+            firstBlock, requestedBaseFees, nextBaseFee, gasUsedRatios, maybeRewards));
   }
 
   private Wei getNextBaseFee(
@@ -270,40 +269,25 @@ public class EthFeeHistory implements JsonRpcMethod {
     return blockCount < 1 || blockCount > 1024;
   }
 
-  private long resolveHighestBlockNumber(
-      final BlockParameter highestBlock, final long chainHeadBlockNumber) {
-    return highestBlock
-        .getNumber()
-        .orElse(
-            chainHeadBlockNumber /* both latest and pending use the head block until we have pending block support */);
-  }
-
-  private long calculateLastBlock(
-      final int blockCount, final long resolvedHighestBlockNumber, final long oldestBlock) {
-    return blockCount > resolvedHighestBlockNumber
-        ? (resolvedHighestBlockNumber + 1)
-        : (oldestBlock + blockCount);
-  }
-
   private List<BlockHeader> getBlockHeaders(final long oldestBlock, final long lastBlock) {
     return LongStream.range(oldestBlock, lastBlock)
         .parallel()
         .mapToObj(blockchain::getBlockHeader)
         .flatMap(Optional::stream)
-        .collect(toUnmodifiableList());
+        .toList();
   }
 
-  private List<Wei> getExplicitlyRequestedBaseFees(final List<BlockHeader> blockHeaders) {
+  private List<Wei> getBaseFees(final List<BlockHeader> blockHeaders) {
     // we return the base fees for the blocks requested and 1 more because we can always compute it
     return blockHeaders.stream()
         .map(blockHeader -> blockHeader.getBaseFee().orElse(Wei.ZERO))
-        .collect(toUnmodifiableList());
+        .toList();
   }
 
   private List<Double> getGasUsedRatios(final List<BlockHeader> blockHeaders) {
     return blockHeaders.stream()
         .map(blockHeader -> blockHeader.getGasUsed() / (double) blockHeader.getGasLimit())
-        .collect(toUnmodifiableList());
+        .toList();
   }
 
   private FeeHistory.FeeHistoryResult createFeeHistoryResult(
