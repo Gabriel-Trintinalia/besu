@@ -102,29 +102,12 @@ public class EthFeeHistory implements JsonRpcMethod {
     final List<Double> gasUsedRatios = getGasUsedRatios(blockHeaders);
 
     final Optional<List<List<Wei>>> maybeRewards =
-        getOptionalRewards(maybeRewardPercentiles, blockHeaders);
+        maybeRewardPercentiles.map(rewards -> getRewards(rewards, blockHeaders));
 
     return new JsonRpcSuccessResponse(
         requestId,
         createFeeHistoryResult(
             oldestBlock, explicitlyRequestedBaseFees, nextBaseFee, gasUsedRatios, maybeRewards));
-  }
-
-  private FeeHistory.FeeHistoryResult createFeeHistoryResult(
-      final long oldestBlock,
-      final List<Wei> explicitlyRequestedBaseFees,
-      final Wei nextBaseFee,
-      final List<Double> gasUsedRatios,
-      final Optional<List<List<Wei>>> maybeRewards) {
-    return FeeHistory.FeeHistoryResult.from(
-        ImmutableFeeHistory.builder()
-            .oldestBlock(oldestBlock)
-            .baseFeePerGas(
-                Stream.concat(explicitlyRequestedBaseFees.stream(), Stream.of(nextBaseFee))
-                    .collect(toUnmodifiableList()))
-            .gasUsedRatio(gasUsedRatios)
-            .reward(maybeRewards)
-            .build());
   }
 
   private Wei getNextBaseFee(
@@ -147,73 +130,69 @@ public class EthFeeHistory implements JsonRpcMethod {
       final BlockHeader chainHeadHeader,
       final List<Wei> explicitlyRequestedBaseFees,
       final List<BlockHeader> blockHeaders) {
-    // We are able to use the chain head timestamp for next block header as
+
+    // Note: We are able to use the chain head timestamp for next block header as
     // the base fee market can only be pre or post London. If another fee
-    // market is added will need to reconsider this.
-    return Optional.of(
+    // market is added, we will need to reconsider this.
+
+    // Get the fee market for the next block header
+    Optional<FeeMarket> feeMarketOptional =
+        Optional.of(
             protocolSchedule
                 .getForNextBlockHeader(chainHeadHeader, chainHeadHeader.getTimestamp())
-                .getFeeMarket())
+                .getFeeMarket());
+
+    // If the fee market implements base fee, compute the next base fee
+    return feeMarketOptional
         .filter(FeeMarket::implementsBaseFee)
         .map(BaseFeeMarket.class::cast)
         .map(
-            feeMarket ->
-                computeBaseFeeForMarket(
-                    nextBlockNumber, explicitlyRequestedBaseFees, blockHeaders, feeMarket))
-        .orElse(Wei.ZERO);
+            feeMarket -> {
+              // Get the last block header and the last explicitly requested base fee
+              final BlockHeader lastBlockHeader = blockHeaders.get(blockHeaders.size() - 1);
+              final Wei lastExplicitlyRequestedBaseFee =
+                  explicitlyRequestedBaseFees.get(explicitlyRequestedBaseFees.size() - 1);
+
+              // Compute the next base fee
+              return feeMarket.computeBaseFee(
+                  nextBlockNumber,
+                  lastExplicitlyRequestedBaseFee,
+                  lastBlockHeader.getGasUsed(),
+                  feeMarket.targetGasUsed(lastBlockHeader));
+            })
+        .orElse(Wei.ZERO); // If the fee market does not implement base fee, return zero
   }
 
-  private Wei computeBaseFeeForMarket(
-      final long nextBlockNumber,
-      final List<Wei> explicitlyRequestedBaseFees,
-      final List<BlockHeader> blockHeaders,
-      final BaseFeeMarket feeMarket) {
-    final BlockHeader lastBlockHeader = blockHeaders.get(blockHeaders.size() - 1);
-    return feeMarket.computeBaseFee(
-        nextBlockNumber,
-        explicitlyRequestedBaseFees.get(explicitlyRequestedBaseFees.size() - 1),
-        lastBlockHeader.getGasUsed(),
-        feeMarket.targetGasUsed(lastBlockHeader));
-  }
-
-  private Optional<List<List<Wei>>> getOptionalRewards(
-      final Optional<List<Double>> optionalRewardPercentiles,
-      final List<BlockHeader> blockHeaders) {
-    return optionalRewardPercentiles.map(
-        rewardPercentiles -> {
-          var sortedPercentiles = rewardPercentiles.stream().sorted().toList();
-          return calculateRewardsForBlockHeaders(sortedPercentiles, blockHeaders);
-        });
-  }
-
-  private List<List<Wei>> calculateRewardsForBlockHeaders(
-      final List<Double> sortedPercentiles, final List<BlockHeader> blockHeaders) {
+  private List<List<Wei>> getRewards(
+      final List<Double> rewardPercentiles, final List<BlockHeader> blockHeaders) {
+    var sortedPercentiles = rewardPercentiles.stream().sorted().toList();
     return blockHeaders.stream()
         .parallel()
-        .map(blockHeader -> calculateRewardForBlockHeader(sortedPercentiles, blockHeader))
+        .map(blockHeader -> calculateBlockHeaderReward(sortedPercentiles, blockHeader))
         .flatMap(Optional::stream)
         .toList();
   }
 
-  private Optional<List<Wei>> calculateRewardForBlockHeader(
+  private Optional<List<Wei>> calculateBlockHeaderReward(
       final List<Double> sortedPercentiles, final BlockHeader blockHeader) {
-    final RewardCacheKey key = new RewardCacheKey(blockHeader.getBlockHash(), sortedPercentiles);
-    return Optional.ofNullable(cache.getIfPresent(key))
-        .or(() -> calculateAndCacheReward(sortedPercentiles, blockHeader, key));
-  }
 
-  private Optional<List<Wei>> calculateAndCacheReward(
-      final List<Double> sortedPercentiles,
-      final BlockHeader blockHeader,
-      final RewardCacheKey key) {
-    Optional<Block> block = blockchain.getBlockByHash(blockHeader.getBlockHash());
-    return block.map(
-        b -> {
-          List<Wei> rewards = computeRewards(sortedPercentiles, b);
-          // Put the computed rewards in the cache
-          cache.put(key, rewards);
-          return rewards;
-        });
+    // Create a new key for the reward cache
+    final RewardCacheKey key = new RewardCacheKey(blockHeader.getBlockHash(), sortedPercentiles);
+
+    // Try to get the rewards from the cache
+    return Optional.ofNullable(cache.getIfPresent(key))
+        .or(
+            () -> {
+              // If the rewards are not in the cache, compute them
+              Optional<Block> block = blockchain.getBlockByHash(blockHeader.getBlockHash());
+              return block.map(
+                  b -> {
+                    List<Wei> rewards = computeRewards(sortedPercentiles, b);
+                    // Put the computed rewards in the cache for future use
+                    cache.put(key, rewards);
+                    return rewards;
+                  });
+            });
   }
 
   record TransactionInfo(Transaction transaction, Long gasUsed, Wei effectivePriorityFeePerGas) {}
@@ -226,16 +205,10 @@ public class EthFeeHistory implements JsonRpcMethod {
       return generateZeroWeiList(rewardPercentiles.size());
     }
     final Optional<Wei> baseFee = block.getHeader().getBaseFee();
-    // we need to get the gas used for the individual transactions and can't use the cumulative gas
-    // used because we're going to be reordering the transactions
     final List<Long> transactionsGasUsed = calculateTransactionsGasUsed(block);
     final List<TransactionInfo> transactionsInfo =
         generateTransactionsInfo(transactions, transactionsGasUsed, baseFee);
-
-    final List<TransactionInfo> sortedTransactionsInfo =
-        sortTransactionsInfoByEffectivePriorityFeePerGas(transactionsInfo);
-
-    return calculateRewards(rewardPercentiles, block, sortedTransactionsInfo);
+    return calculateRewards(rewardPercentiles, block, transactionsInfo);
   }
 
   private List<Wei> calculateRewards(
@@ -289,14 +262,8 @@ public class EthFeeHistory implements JsonRpcMethod {
             (transaction, gasUsed) ->
                 new TransactionInfo(
                     transaction, gasUsed, transaction.getEffectivePriorityFeePerGas(baseFee)))
-        .collect(toUnmodifiableList());
-  }
-
-  private List<TransactionInfo> sortTransactionsInfoByEffectivePriorityFeePerGas(
-      final List<TransactionInfo> transactionsInfo) {
-    return transactionsInfo.stream()
         .sorted(Comparator.comparing(TransactionInfo::effectivePriorityFeePerGas))
-        .collect(toUnmodifiableList());
+        .toList();
   }
 
   private boolean isInvalidBlockCount(final int blockCount) {
@@ -339,7 +306,24 @@ public class EthFeeHistory implements JsonRpcMethod {
         .collect(toUnmodifiableList());
   }
 
+  private FeeHistory.FeeHistoryResult createFeeHistoryResult(
+      final long oldestBlock,
+      final List<Wei> explicitlyRequestedBaseFees,
+      final Wei nextBaseFee,
+      final List<Double> gasUsedRatios,
+      final Optional<List<List<Wei>>> maybeRewards) {
+    return FeeHistory.FeeHistoryResult.from(
+        ImmutableFeeHistory.builder()
+            .oldestBlock(oldestBlock)
+            .baseFeePerGas(
+                Stream.concat(explicitlyRequestedBaseFees.stream(), Stream.of(nextBaseFee))
+                    .collect(toUnmodifiableList()))
+            .gasUsedRatio(gasUsedRatios)
+            .reward(maybeRewards)
+            .build());
+  }
+
   private List<Wei> generateZeroWeiList(final int size) {
-    return Stream.generate(() -> Wei.ZERO).limit(size).collect(toUnmodifiableList());
+    return Stream.generate(() -> Wei.ZERO).limit(size).toList();
   }
 }

@@ -118,6 +118,25 @@ public class EthFeeHistoryTest {
   }
 
   @Test
+  public void shouldNotReturnRewardsIfNoPercentiles() {
+    final ProtocolSpec londonSpec = mock(ProtocolSpec.class);
+    when(londonSpec.getFeeMarket()).thenReturn(FeeMarket.london(5));
+    when(protocolSchedule.getForNextBlockHeader(
+            eq(blockchain.getChainHeadHeader()),
+            eq(blockchain.getChainHeadHeader().getTimestamp())))
+        .thenReturn(londonSpec);
+    final Object latest = ((JsonRpcSuccessResponse) feeHistoryRequest("0x1", "latest")).getResult();
+    assertThat(latest)
+        .isEqualTo(
+            FeeHistory.FeeHistoryResult.from(
+                ImmutableFeeHistory.builder()
+                    .oldestBlock(10)
+                    .baseFeePerGas(List.of(Wei.of(25496L), Wei.of(28683L)))
+                    .gasUsedRatio(List.of(0.9999999992132459))
+                    .build()));
+  }
+
+  @Test
   public void shouldComputeRewardsCorrectly() {
     // Define the percentiles of rewards we want to compute
     List<Double> rewardPercentiles =
