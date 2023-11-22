@@ -18,6 +18,7 @@ import static java.util.stream.Collectors.toUnmodifiableList;
 
 import org.hyperledger.besu.datatypes.Hash;
 import org.hyperledger.besu.datatypes.Wei;
+import org.hyperledger.besu.ethereum.api.ApiConfiguration;
 import org.hyperledger.besu.ethereum.api.jsonrpc.RpcMethod;
 import org.hyperledger.besu.ethereum.api.jsonrpc.internal.JsonRpcRequestContext;
 import org.hyperledger.besu.ethereum.api.jsonrpc.internal.parameters.BlockParameter;
@@ -28,6 +29,7 @@ import org.hyperledger.besu.ethereum.api.jsonrpc.internal.response.JsonRpcSucces
 import org.hyperledger.besu.ethereum.api.jsonrpc.internal.response.RpcErrorType;
 import org.hyperledger.besu.ethereum.api.jsonrpc.internal.results.FeeHistory;
 import org.hyperledger.besu.ethereum.api.jsonrpc.internal.results.ImmutableFeeHistory;
+import org.hyperledger.besu.ethereum.blockcreation.MiningCoordinator;
 import org.hyperledger.besu.ethereum.chain.Blockchain;
 import org.hyperledger.besu.ethereum.core.Block;
 import org.hyperledger.besu.ethereum.core.BlockHeader;
@@ -53,14 +55,22 @@ import com.google.common.collect.Streams;
 public class EthFeeHistory implements JsonRpcMethod {
   private final ProtocolSchedule protocolSchedule;
   private final Blockchain blockchain;
+  private final MiningCoordinator miningCoordinator;
+  private final ApiConfiguration apiConfiguration;
   private final Cache<RewardCacheKey, List<Wei>> cache;
   private static final int MAXIMUM_CACHE_SIZE = 100_000;
 
   record RewardCacheKey(Hash blockHash, List<Double> rewardPercentiles) {}
 
-  public EthFeeHistory(final ProtocolSchedule protocolSchedule, final Blockchain blockchain) {
+  public EthFeeHistory(
+      final ProtocolSchedule protocolSchedule,
+      final Blockchain blockchain,
+      final MiningCoordinator miningCoordinator,
+      final ApiConfiguration apiConfiguration) {
     this.protocolSchedule = protocolSchedule;
     this.blockchain = blockchain;
+    this.miningCoordinator = miningCoordinator;
+    this.apiConfiguration = apiConfiguration;
     this.cache = Caffeine.newBuilder().maximumSize(MAXIMUM_CACHE_SIZE).build();
   }
 
@@ -203,7 +213,8 @@ public class EthFeeHistory implements JsonRpcMethod {
     final List<Long> transactionsGasUsed = calculateTransactionsGasUsed(block);
     final List<TransactionInfo> transactionsInfo =
         generateTransactionsInfo(transactions, transactionsGasUsed, baseFee);
-    return calculateRewards(rewardPercentiles, block, transactionsInfo);
+    var realRewards = calculateRewards(rewardPercentiles, block, transactionsInfo);
+    return getBoundedRewards(realRewards);
   }
 
   private List<Wei> calculateRewards(
@@ -233,6 +244,56 @@ public class EthFeeHistory implements JsonRpcMethod {
       rewards.add(sortedTransactionsInfo.get(transactionIndex).effectivePriorityFeePerGas);
     }
     return rewards;
+  }
+
+  /**
+   * This method returns a list of bounded rewards.
+   *
+   * @param rewards The list of rewards to be bounded.
+   * @return The list of bounded rewards.
+   */
+  private List<Wei> getBoundedRewards(final List<Wei> rewards) {
+    Wei minPriorityFee = miningCoordinator.getMinTransactionGasPrice();
+
+    // Calculate the lower and upper bounds for the reward.
+    var lowerBound =
+        minPriorityFee.multiply(apiConfiguration.getPriorityFeeLowerCoefficient()).divide(100);
+    var upperBound =
+        minPriorityFee.multiply(apiConfiguration.getPriorityFeeUpperCoefficient()).divide(100);
+
+    return rewards.stream()
+        .map(reward -> boundReward(reward, minPriorityFee, lowerBound, upperBound))
+        .toList();
+  }
+
+  /**
+   * This method bounds the reward between a lower and upper limit.
+   *
+   * @param reward The reward to be bounded.
+   * @param minPriorityFee The minimum priority fee.
+   * @param lowerBound The lower limit for the reward.
+   * @param upperBound The upper limit for the reward.
+   * @return The bounded reward.
+   */
+  private Wei boundReward(
+      final Wei reward, final Wei minPriorityFee, final Wei lowerBound, final Wei upperBound) {
+    // If the minimum priority fee is zero, return the reward as is.
+    if (minPriorityFee.isZero()) {
+      return reward;
+    }
+
+    // If the reward is less than the lower bound, return the lower bound.
+    if (reward.compareTo(lowerBound) < 0) {
+      return lowerBound;
+    }
+
+    // If the reward is greater than the upper bound, return the upper bound.
+    if (reward.compareTo(upperBound) > 0) {
+      return upperBound;
+    }
+
+    // If the reward is within the bounds, return the reward as is.
+    return reward;
   }
 
   private List<Long> calculateTransactionsGasUsed(final Block block) {

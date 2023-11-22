@@ -59,4 +59,14 @@ public abstract class ApiConfiguration {
   public Long getGasCap() {
     return 0L;
   }
+
+  @Value.Default
+  public Long getPriorityFeeLowerCoefficient() {
+    return 100L;
+  }
+
+  @Value.Default
+  public Long getPriorityFeeUpperCoefficient() {
+    return 100L;
+  }
 }

@@ -37,7 +37,7 @@ public class EthGetLogs implements JsonRpcMethod {
   private static final Logger LOG = LoggerFactory.getLogger(EthGetLogs.class);
 
   private final BlockchainQueries blockchain;
-  private final long maxLogRange;
+  private final Long maxLogRange;
 
   public EthGetLogs(final BlockchainQueries blockchain, final long maxLogRange) {
     this.blockchain = blockchain;

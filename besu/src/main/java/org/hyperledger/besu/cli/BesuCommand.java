@@ -1218,6 +1218,20 @@ public class BesuCommand implements DefaultCommandValues, Runnable {
   private final Long apiGasPriceMax = 500_000_000_000L;
 
   @CommandLine.Option(
+      names = {"--api-fee-history-lower-priority-fee-coefficient"},
+      hidden = true,
+      description =
+          "Coefficient for setting the lower limit of minimum priority fee in eth_feeHistory (default: ${DEFAULT-VALUE})")
+  private final Long apiPriorityFeeLowerCoefficient = 100L;
+
+  @CommandLine.Option(
+      names = {"--api-fee-history-upper-priority-fee-coefficient"},
+      hidden = true,
+      description =
+          "Coefficient for setting the upper limit of minimum priority fee in eth_feeHistory (default: ${DEFAULT-VALUE})")
+  private final Long apiPriorityFeeUpperCoefficient = 100L;
+
+  @CommandLine.Option(
       names = {"--static-nodes-file"},
       paramLabel = MANDATORY_FILE_FORMAT_HELP,
       description =
@@ -2488,11 +2502,14 @@ public class BesuCommand implements DefaultCommandValues, Runnable {
     return ImmutableApiConfiguration.builder()
         .gasPriceBlocks(apiGasPriceBlocks)
         .gasPricePercentile(apiGasPricePercentile)
+        .gasPriceMax(apiGasPriceMax)
         .gasPriceMinSupplier(
             getMiningParameters().getMinTransactionGasPrice().getAsBigInteger()::longValueExact)
         .gasPriceMax(apiGasPriceMax)
         .maxLogsRange(rpcMaxLogsRange)
         .gasCap(rpcGasCap)
+        .priorityFeeLowerCoefficient(apiPriorityFeeLowerCoefficient)
+        .priorityFeeUpperCoefficient(apiPriorityFeeUpperCoefficient)
         .build();
   }
 
