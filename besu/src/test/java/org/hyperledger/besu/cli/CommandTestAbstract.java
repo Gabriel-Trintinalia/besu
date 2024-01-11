@@ -573,11 +573,11 @@ public abstract class CommandTestAbstract {
     }
 
     public MiningOptions getMiningOptions() {
-      return miningOptions;
+      return getOptionsContext().getMiningOptions();
     }
 
     public TransactionPoolOptions getTransactionPoolOptions() {
-      return transactionPoolOptions;
+      return getOptionsContext().getTransactionPoolOptions();
     }
 
     public DataStorageOptions getDataStorageOptions() {
