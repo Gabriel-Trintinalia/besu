@@ -14,21 +14,39 @@
  */
 package org.hyperledger.besu.ethereum.mainnet.requests;
 
+import org.hyperledger.besu.datatypes.Address;
 import org.hyperledger.besu.ethereum.core.MutableWorldState;
+import org.hyperledger.besu.ethereum.core.ProcessableBlockHeader;
 import org.hyperledger.besu.ethereum.core.Request;
 import org.hyperledger.besu.ethereum.core.TransactionReceipt;
 import org.hyperledger.besu.ethereum.core.WithdrawalRequest;
+import org.hyperledger.besu.ethereum.mainnet.SystemCallProcessor;
 import org.hyperledger.besu.ethereum.mainnet.WithdrawalRequestContractHelper;
+import org.hyperledger.besu.evm.tracing.OperationTracer;
 
 import java.util.List;
 import java.util.Optional;
 
 public class WithdrawalRequestProcessor implements RequestProcessor {
+
+  public static final Address WITHDRAWAL_REQUEST_PREDEPLOY_ADDRESS =
+      Address.fromHexString("0x00A3ca265EBcb825B45F985A16CEFB49958cE017");
+
   @Override
   public Optional<List<Request>> process(
+      final ProcessableBlockHeader blockHeader,
       final MutableWorldState mutableWorldState,
-      final List<TransactionReceipt> transactionReceipts) {
+      final List<TransactionReceipt> transactionReceipts,
+      final OperationTracer operationTracer) {
 
+    SystemCallProcessor systemCallProcessor = new SystemCallProcessor();
+    systemCallProcessor.processTransaction(
+        WITHDRAWAL_REQUEST_PREDEPLOY_ADDRESS,
+        mutableWorldState.updater(),
+        blockHeader,
+        operationTracer,
+        null,
+        null);
     List<WithdrawalRequest> withdrawalRequests =
         WithdrawalRequestContractHelper.popWithdrawalRequestsFromQueue(mutableWorldState).stream()
             .toList();

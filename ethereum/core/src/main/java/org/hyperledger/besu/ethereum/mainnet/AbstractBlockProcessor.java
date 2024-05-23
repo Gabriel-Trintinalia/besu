@@ -197,7 +197,7 @@ public abstract class AbstractBlockProcessor implements BlockProcessor {
         protocolSpec.getRequestProcessorCoordinator();
     Optional<List<Request>> maybeRequests = Optional.empty();
     if (requestProcessor.isPresent()) {
-      maybeRequests = requestProcessor.get().process(worldState, receipts);
+      maybeRequests = requestProcessor.get().process(blockHeader, worldState, receipts, OperationTracer.NO_TRACING);
     }
 
     if (!rewardCoinbase(worldState, blockHeader, ommers, skipZeroBlockRewards)) {

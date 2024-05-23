@@ -17,6 +17,7 @@ package org.hyperledger.besu.ethereum.mainnet.requests;
 import org.hyperledger.besu.datatypes.Address;
 import org.hyperledger.besu.ethereum.core.Deposit;
 import org.hyperledger.besu.ethereum.core.MutableWorldState;
+import org.hyperledger.besu.ethereum.core.ProcessableBlockHeader;
 import org.hyperledger.besu.ethereum.core.Request;
 import org.hyperledger.besu.ethereum.core.TransactionReceipt;
 import org.hyperledger.besu.ethereum.core.encoding.DepositDecoder;
@@ -26,6 +27,7 @@ import java.util.List;
 import java.util.Optional;
 
 import com.google.common.annotations.VisibleForTesting;
+import org.hyperledger.besu.evm.tracing.OperationTracer;
 
 public class DepositRequestProcessor implements RequestProcessor {
 
@@ -40,7 +42,11 @@ public class DepositRequestProcessor implements RequestProcessor {
 
   @Override
   public Optional<List<Request>> process(
-      final MutableWorldState ignored, final List<TransactionReceipt> transactionReceipts) {
+    final ProcessableBlockHeader blockHeader,
+    final MutableWorldState mutableWorldState,
+    final List<TransactionReceipt> transactionReceipts,
+    final OperationTracer operationTrace)
+  {
     if (depositContractAddress.isEmpty()) {
       return Optional.empty();
     }

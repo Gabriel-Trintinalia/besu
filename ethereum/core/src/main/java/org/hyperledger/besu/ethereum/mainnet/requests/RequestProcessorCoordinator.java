@@ -16,6 +16,7 @@ package org.hyperledger.besu.ethereum.mainnet.requests;
 
 import org.hyperledger.besu.datatypes.RequestType;
 import org.hyperledger.besu.ethereum.core.MutableWorldState;
+import org.hyperledger.besu.ethereum.core.ProcessableBlockHeader;
 import org.hyperledger.besu.ethereum.core.Request;
 import org.hyperledger.besu.ethereum.core.TransactionReceipt;
 
@@ -24,6 +25,7 @@ import java.util.List;
 import java.util.Optional;
 
 import com.google.common.collect.ImmutableSortedMap;
+import org.hyperledger.besu.evm.tracing.OperationTracer;
 
 /** Processes various types of requests based on their RequestType. */
 public class RequestProcessorCoordinator {
@@ -40,10 +42,13 @@ public class RequestProcessorCoordinator {
   }
 
   public Optional<List<Request>> process(
-      final MutableWorldState mutableWorldState, final List<TransactionReceipt> receipts) {
+    final ProcessableBlockHeader blockHeader,
+    final MutableWorldState mutableWorldState,
+    final List<TransactionReceipt> transactionReceipts,
+    final OperationTracer operationTrace) {
     List<Request> requests = null;
     for (RequestProcessor requestProcessor : processors.values()) {
-      var r = requestProcessor.process(mutableWorldState, receipts);
+      var r = requestProcessor.process(blockHeader, mutableWorldState, transactionReceipts, operationTrace);
       if (r.isPresent()) {
         if (requests == null) {
           requests = new ArrayList<>();
