@@ -25,6 +25,7 @@ import java.util.List;
 import java.util.Optional;
 
 import com.google.common.collect.ImmutableSortedMap;
+import org.hyperledger.besu.ethereum.mainnet.ProtocolSpec;
 import org.hyperledger.besu.evm.tracing.OperationTracer;
 
 /** Processes various types of requests based on their RequestType. */
@@ -44,11 +45,12 @@ public class RequestProcessorCoordinator {
   public Optional<List<Request>> process(
     final ProcessableBlockHeader blockHeader,
     final MutableWorldState mutableWorldState,
+    final ProtocolSpec protocolSpec,
     final List<TransactionReceipt> transactionReceipts,
     final OperationTracer operationTrace) {
     List<Request> requests = null;
     for (RequestProcessor requestProcessor : processors.values()) {
-      var r = requestProcessor.process(blockHeader, mutableWorldState, transactionReceipts, operationTrace);
+      var r = requestProcessor.process(blockHeader, mutableWorldState, protocolSpec, transactionReceipts, operationTrace);
       if (r.isPresent()) {
         if (requests == null) {
           requests = new ArrayList<>();

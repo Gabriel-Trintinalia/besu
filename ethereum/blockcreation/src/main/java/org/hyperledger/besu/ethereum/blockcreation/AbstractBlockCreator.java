@@ -244,7 +244,7 @@ public abstract class AbstractBlockCreator implements AsyncBlockCreator {
       Optional<List<Request>> maybeRequests =
           requestProcessor.flatMap(
               processor ->
-                  processor.process(processableBlockHeader, disposableWorldState, transactionResults.getReceipts(), operationTracer));
+                  processor.process(processableBlockHeader, disposableWorldState,  transactionResults.getReceipts(), operationTracer));
 
       throwIfStopped();
 

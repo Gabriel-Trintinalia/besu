@@ -40,7 +40,7 @@ public class SystemCallProcessor {
 
   public SystemCallProcessor() {}
 
-  public TransactionProcessingResult processTransaction(
+  public TransactionProcessingResult process(
       final Address callAddress,
       final WorldUpdater worldState,
       final ProcessableBlockHeader blockHeader,

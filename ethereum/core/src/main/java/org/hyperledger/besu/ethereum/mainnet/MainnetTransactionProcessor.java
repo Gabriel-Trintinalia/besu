@@ -24,6 +24,7 @@ import org.hyperledger.besu.collections.trie.BytesTrieSet;
 import org.hyperledger.besu.datatypes.AccessListEntry;
 import org.hyperledger.besu.datatypes.Address;
 import org.hyperledger.besu.datatypes.Wei;
+import org.hyperledger.besu.ethereum.core.BlockHeader;
 import org.hyperledger.besu.ethereum.core.ProcessableBlockHeader;
 import org.hyperledger.besu.ethereum.core.Transaction;
 import org.hyperledger.besu.ethereum.core.feemarket.CoinbaseFeePriceCalculator;
@@ -337,73 +338,14 @@ public class MainnetTransactionProcessor {
           accessListGas);
 
       final WorldUpdater worldUpdater = worldState.updater();
-      final ImmutableMap.Builder<String, Object> contextVariablesBuilder =
-          ImmutableMap.<String, Object>builder()
-              .put(KEY_IS_PERSISTING_PRIVATE_STATE, isPersistingPrivateState)
-              .put(KEY_TRANSACTION, transaction)
-              .put(KEY_TRANSACTION_HASH, transaction.getHash());
-      if (privateMetadataUpdater != null) {
-        contextVariablesBuilder.put(KEY_PRIVATE_METADATA_UPDATER, privateMetadataUpdater);
-      }
 
       operationTracer.traceStartTransaction(worldUpdater, transaction);
 
-      final MessageFrame.Builder commonMessageFrameBuilder =
-          MessageFrame.builder()
-              .maxStackSize(maxStackSize)
-              .worldUpdater(worldUpdater.updater())
-              .initialGas(gasAvailable)
-              .originator(senderAddress)
-              .gasPrice(transactionGasPrice)
-              .blobGasPrice(blobGasPrice)
-              .sender(senderAddress)
-              .value(transaction.getValue())
-              .apparentValue(transaction.getValue())
-              .blockValues(blockHeader)
-              .completer(__ -> {})
-              .miningBeneficiary(miningBeneficiary)
-              .blockHashLookup(blockHashLookup)
-              .contextVariables(contextVariablesBuilder.build())
-              .accessListWarmAddresses(addressList)
-              .accessListWarmStorage(storageList);
+      ImmutableMap<String, Object> contextVariables
+        = createContextVariables(transaction, isPersistingPrivateState, privateMetadataUpdater);
 
-      if (transaction.getVersionedHashes().isPresent()) {
-        commonMessageFrameBuilder.versionedHashes(
-            Optional.of(transaction.getVersionedHashes().get().stream().toList()));
-      } else {
-        commonMessageFrameBuilder.versionedHashes(Optional.empty());
-      }
+      final MessageFrame initialFrame =  buildInitialFrame(contextVariables);
 
-      final MessageFrame initialFrame;
-      if (transaction.isContractCreation()) {
-        final Address contractAddress =
-            Address.contractAddress(senderAddress, sender.getNonce() - 1L);
-
-        final Bytes initCodeBytes = transaction.getPayload();
-        initialFrame =
-            commonMessageFrameBuilder
-                .type(MessageFrame.Type.CONTRACT_CREATION)
-                .address(contractAddress)
-                .contract(contractAddress)
-                .inputData(Bytes.EMPTY)
-                .code(contractCreationProcessor.getCodeFromEVMUncached(initCodeBytes))
-                .build();
-      } else {
-        @SuppressWarnings("OptionalGetWithoutIsPresent") // isContractCall tests isPresent
-        final Address to = transaction.getTo().get();
-        final Optional<Account> maybeContract = Optional.ofNullable(worldState.get(to));
-        initialFrame =
-            commonMessageFrameBuilder
-                .type(MessageFrame.Type.MESSAGE_CALL)
-                .address(to)
-                .contract(to)
-                .inputData(transaction.getPayload())
-                .code(
-                    maybeContract
-                        .map(c -> messageCallProcessor.getCodeFromEVM(c.getCodeHash(), c.getCode()))
-                        .orElse(CodeV0.EMPTY_CODE))
-                .build();
-      }
       Deque<MessageFrame> messageFrameStack = initialFrame.getMessageFrameStack();
 
       if (initialFrame.getCode().isValid()) {
@@ -530,6 +472,84 @@ public class MainnetTransactionProcessor {
               TransactionInvalidReason.INTERNAL_ERROR,
               "Internal Error in Besu - " + re + "\n" + printableStackTraceFromThrowable(re)));
     }
+  }
+
+  private ImmutableMap<String, Object> createContextVariables(Transaction transaction, boolean isPersistingPrivateState, PrivateMetadataUpdater privateMetadataUpdater){
+    final ImmutableMap.Builder<String, Object> contextVariablesBuilder =
+      ImmutableMap.<String, Object>builder()
+        .put(KEY_IS_PERSISTING_PRIVATE_STATE, isPersistingPrivateState)
+        .put(KEY_TRANSACTION, transaction)
+        .put(KEY_TRANSACTION_HASH, transaction.getHash());
+    if (privateMetadataUpdater != null) {
+      contextVariablesBuilder.put(KEY_PRIVATE_METADATA_UPDATER, privateMetadataUpdater);
+    }
+    return contextVariablesBuilder.build();
+  }
+
+  private MessageFrame buildInitialFrame(
+    final WorldUpdater worldUpdater,
+    long gasAvailable, Address senderAddress, Wei transactionGasPrice, Wei blobGasPrice, BlockHeader blockHeader, Address miningBeneficiary, Set<Address> addressList, Multimap<Address, Bytes32> storageList,      final BlockHashLookup blockHashLookup,
+    ImmutableMap<String, Object> contextVariables,
+    MutableAccount sender, Transaction transaction
+    ){
+
+    final MessageFrame.Builder commonMessageFrameBuilder =
+      MessageFrame.builder()
+        .maxStackSize(maxStackSize)
+        .worldUpdater(worldUpdater.updater())
+        .initialGas(gasAvailable)
+        .originator(senderAddress)
+        .gasPrice(transactionGasPrice)
+        .blobGasPrice(blobGasPrice)
+        .sender(senderAddress)
+        .value(transaction.getValue())
+        .apparentValue(transaction.getValue())
+        .blockValues(blockHeader)
+        .completer(__ -> {})
+        .miningBeneficiary(miningBeneficiary)
+        .blockHashLookup(blockHashLookup)
+        .contextVariables(contextVariables)
+        .accessListWarmAddresses(addressList)
+        .accessListWarmStorage(storageList);
+
+    if (transaction.getVersionedHashes().isPresent()) {
+      commonMessageFrameBuilder.versionedHashes(
+        Optional.of(transaction.getVersionedHashes().get().stream().toList()));
+    } else {
+      commonMessageFrameBuilder.versionedHashes(Optional.empty());
+    }
+
+    final MessageFrame initialFrame;
+    if (transaction.isContractCreation()) {
+      final Address contractAddress =
+        Address.contractAddress(senderAddress, sender.getNonce() - 1L);
+
+      final Bytes initCodeBytes = transaction.getPayload();
+      initialFrame =
+        commonMessageFrameBuilder
+          .type(MessageFrame.Type.CONTRACT_CREATION)
+          .address(contractAddress)
+          .contract(contractAddress)
+          .inputData(Bytes.EMPTY)
+          .code(contractCreationProcessor.getCodeFromEVMUncached(initCodeBytes))
+          .build();
+    } else {
+      @SuppressWarnings("OptionalGetWithoutIsPresent") // isContractCall tests isPresent
+      final Address to = transaction.getTo().get();
+      final Optional<Account> maybeContract = Optional.ofNullable(worldState.get(to));
+      initialFrame =
+        commonMessageFrameBuilder
+          .type(MessageFrame.Type.MESSAGE_CALL)
+          .address(to)
+          .contract(to)
+          .inputData(transaction.getPayload())
+          .code(
+            maybeContract
+              .map(c -> messageCallProcessor.getCodeFromEVM(c.getCodeHash(), c.getCode()))
+              .orElse(CodeV0.EMPTY_CODE))
+          .build();
+    }
+    return  initialFrame;
   }
 
   public void process(final MessageFrame frame, final OperationTracer operationTracer) {

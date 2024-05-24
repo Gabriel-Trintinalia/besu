@@ -18,6 +18,7 @@ import org.hyperledger.besu.ethereum.core.MutableWorldState;
 import org.hyperledger.besu.ethereum.core.ProcessableBlockHeader;
 import org.hyperledger.besu.ethereum.core.Request;
 import org.hyperledger.besu.ethereum.core.TransactionReceipt;
+import org.hyperledger.besu.ethereum.mainnet.ProtocolSpec;
 import org.hyperledger.besu.evm.tracing.OperationTracer;
 
 import java.util.List;
@@ -27,6 +28,7 @@ public interface RequestProcessor {
   Optional<List<Request>> process(
     final ProcessableBlockHeader blockHeader,
     final MutableWorldState mutableWorldState,
+    final ProtocolSpec protocolSpec,
     final List<TransactionReceipt> transactionReceipts,
     final OperationTracer operationTrace);
 }
