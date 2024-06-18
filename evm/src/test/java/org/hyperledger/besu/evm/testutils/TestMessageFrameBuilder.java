@@ -15,7 +15,6 @@
 package org.hyperledger.besu.evm.testutils;
 
 import static org.hyperledger.besu.evm.frame.MessageFrame.DEFAULT_MAX_STACK_SIZE;
-import static org.hyperledger.besu.evm.operation.BlockHashOperation.BlockHashLookup;
 
 import org.hyperledger.besu.datatypes.Address;
 import org.hyperledger.besu.datatypes.Hash;
@@ -25,6 +24,7 @@ import org.hyperledger.besu.evm.code.CodeV0;
 import org.hyperledger.besu.evm.frame.BlockValues;
 import org.hyperledger.besu.evm.frame.MessageFrame;
 import org.hyperledger.besu.evm.internal.Words;
+import org.hyperledger.besu.evm.operation.BlockHashOperation.BlockHashLookup;
 import org.hyperledger.besu.evm.toy.ToyWorld;
 import org.hyperledger.besu.evm.worldstate.WorldUpdater;
 
@@ -56,6 +56,7 @@ public class TestMessageFrameBuilder {
   private final List<Bytes> stackItems = new ArrayList<>();
   private Optional<BlockHashLookup> blockHashLookup = Optional.empty();
   private Bytes memory = Bytes.EMPTY;
+  private boolean isStatic = false;
 
   public TestMessageFrameBuilder worldUpdater(final WorldUpdater worldUpdater) {
     this.worldUpdater = Optional.of(worldUpdater);
@@ -102,7 +103,7 @@ public class TestMessageFrameBuilder {
     return this;
   }
 
-  TestMessageFrameBuilder inputData(final Bytes inputData) {
+  public TestMessageFrameBuilder inputData(final Bytes inputData) {
     this.inputData = inputData;
     return this;
   }
@@ -142,6 +143,11 @@ public class TestMessageFrameBuilder {
     return this;
   }
 
+  public TestMessageFrameBuilder isStatic(final boolean isStatic) {
+    this.isStatic = isStatic;
+    return this;
+  }
+
   public MessageFrame build() {
     final MessageFrame frame =
         MessageFrame.builder()
@@ -161,8 +167,9 @@ public class TestMessageFrameBuilder {
             .blockValues(blockValues.orElseGet(() -> new FakeBlockValues(1337)))
             .completer(c -> {})
             .miningBeneficiary(Address.ZERO)
-            .blockHashLookup(blockHashLookup.orElse((f, n) -> Hash.hash(Words.longBytes(n))))
+            .blockHashLookup(blockHashLookup.orElse(number -> Hash.hash(Words.longBytes(number))))
             .maxStackSize(maxStackSize)
+            .isStatic(isStatic)
             .build();
     frame.setPC(pc);
     frame.setSection(section);

@@ -131,6 +131,7 @@ public class LayeredPendingTransactionsTest extends BaseTransactionPoolTest {
     final SparseTransactions sparseTransactions =
         new SparseTransactions(
             poolConfig,
+            ethScheduler,
             evictCollector,
             txPoolMetrics,
             transactionReplacementTester,
@@ -139,6 +140,7 @@ public class LayeredPendingTransactionsTest extends BaseTransactionPoolTest {
     final ReadyTransactions readyTransactions =
         new ReadyTransactions(
             poolConfig,
+            ethScheduler,
             sparseTransactions,
             txPoolMetrics,
             transactionReplacementTester,
@@ -148,6 +150,7 @@ public class LayeredPendingTransactionsTest extends BaseTransactionPoolTest {
         new BaseFeePrioritizedTransactions(
             poolConfig,
             LayeredPendingTransactionsTest::mockBlockHeader,
+            ethScheduler,
             readyTransactions,
             txPoolMetrics,
             transactionReplacementTester,
@@ -167,14 +170,16 @@ public class LayeredPendingTransactionsTest extends BaseTransactionPoolTest {
     senderLimitedLayers = createLayers(senderLimitedConfig);
     smallLayers = createLayers(smallPoolConfig);
 
-    pendingTransactions = new LayeredPendingTransactions(poolConf, layers.prioritizedTransactions);
+    pendingTransactions =
+        new LayeredPendingTransactions(poolConf, layers.prioritizedTransactions, ethScheduler);
 
     senderLimitedTransactions =
         new LayeredPendingTransactions(
-            senderLimitedConfig, senderLimitedLayers.prioritizedTransactions);
+            senderLimitedConfig, senderLimitedLayers.prioritizedTransactions, ethScheduler);
 
     smallPendingTransactions =
-        new LayeredPendingTransactions(smallPoolConfig, smallLayers.prioritizedTransactions);
+        new LayeredPendingTransactions(
+            smallPoolConfig, smallLayers.prioritizedTransactions, ethScheduler);
   }
 
   @Test

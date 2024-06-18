@@ -25,7 +25,7 @@ import java.util.List;
 import java.util.Optional;
 
 public interface RequestProcessor {
-  Optional<List<Request>> process(
+  Optional<List<? extends Request>> process(
     final ProcessableBlockHeader blockHeader,
     final MutableWorldState mutableWorldState,
     final ProtocolSpec protocolSpec,

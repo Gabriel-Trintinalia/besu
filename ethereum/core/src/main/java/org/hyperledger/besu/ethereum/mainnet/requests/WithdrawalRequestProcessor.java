@@ -34,7 +34,7 @@ public class WithdrawalRequestProcessor implements RequestProcessor {
       Address.fromHexString("0x00A3ca265EBcb825B45F985A16CEFB49958cE017");
 
   @Override
-  public Optional<List<Request>> process(
+  public Optional<List<? extends Request>> process(
       final ProcessableBlockHeader blockHeader,
       final MutableWorldState mutableWorldState,
       final ProtocolSpec protocolSpec,
@@ -53,6 +53,6 @@ public class WithdrawalRequestProcessor implements RequestProcessor {
         WithdrawalRequestContractHelper.popWithdrawalRequestsFromQueue(mutableWorldState).stream()
             .toList();
 
-    return Optional.of(withdrawalRequests.stream().map(r -> (Request) r).toList());
+    return Optional.of(withdrawalRequests);
   }
 }
