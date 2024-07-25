@@ -498,8 +498,8 @@ public class EthPeers {
                 "Failed to retrieve chain head info. Disconnecting {}... {}",
                 peer.getLoggableId(),
                 error);
-/*            peer.disconnect(
-                DisconnectMessage.DisconnectReason.USELESS_PEER_FAILED_TO_RETRIEVE_CHAIN_HEAD);*/
+            /*            peer.disconnect(
+            DisconnectMessage.DisconnectReason.USELESS_PEER_FAILED_TO_RETRIEVE_CHAIN_HEAD);*/
           } else {
 
             // we can check trailing peers now
