@@ -31,6 +31,7 @@ import org.hyperledger.besu.ethereum.eth.sync.snapsync.SnapSyncConfiguration;
 import org.hyperledger.besu.ethereum.p2p.rlpx.wire.MessageData;
 import org.hyperledger.besu.ethereum.proof.WorldStateProofProvider;
 import org.hyperledger.besu.ethereum.rlp.BytesValueRLPOutput;
+import org.hyperledger.besu.ethereum.rlp.RLP;
 import org.hyperledger.besu.ethereum.trie.CompactEncoding;
 import org.hyperledger.besu.ethereum.trie.MerkleTrie;
 import org.hyperledger.besu.ethereum.trie.diffbased.bonsai.BonsaiWorldStateProvider;
@@ -46,6 +47,7 @@ import java.util.HashMap;
 import java.util.List;
 import java.util.NavigableMap;
 import java.util.Optional;
+import java.util.TreeMap;
 import java.util.concurrent.atomic.AtomicBoolean;
 import java.util.concurrent.atomic.AtomicInteger;
 import java.util.concurrent.atomic.AtomicLong;
@@ -240,12 +242,9 @@ class SnapServer implements BesuEvents.InitialSyncCompletionListener {
                         stopWatch,
                         maxResponseBytes,
                         (pair) -> {
-                          var rlpOutput = new BytesValueRLPOutput();
-                          rlpOutput.startList();
-                          rlpOutput.writeBytes(pair.getFirst());
-                          rlpOutput.writeRLPBytes(pair.getSecond());
-                          rlpOutput.endList();
-                          return rlpOutput.encodedSize();
+                          Bytes bytes =
+                              AccountRangeMessage.toSlimAccount(RLP.input(pair.getSecond()));
+                          return Hash.SIZE + bytes.size();
                         });
 
                 NavigableMap<Bytes32, Bytes> accounts =
@@ -271,7 +270,16 @@ class SnapServer implements BesuEvents.InitialSyncCompletionListener {
                       worldStateProof.getAccountProofRelatedNodes(
                           range.worldStateRootHash(), Hash.wrap(accounts.lastKey())));
                 }
-                var resp = AccountRangeMessage.create(accounts, proof);
+
+                // account message expect slim accounts
+                NavigableMap<Bytes32, Bytes> slimAccounts = new TreeMap<>();
+                accounts.forEach(
+                    (key, value) -> {
+                      Bytes modifiedValue = AccountRangeMessage.toSlimAccount(RLP.input((value)));
+                      slimAccounts.put(key, modifiedValue);
+                    });
+
+                var resp = AccountRangeMessage.create(slimAccounts, proof);
                 if (accounts.isEmpty()) {
                   LOGGER.debug(
                       "returned empty account range message for {} to  {}, proof count {}",
@@ -580,7 +588,7 @@ class SnapServer implements BesuEvents.InitialSyncCompletionListener {
 
   static class StatefulPredicate implements Predicate<Pair<Bytes32, Bytes>> {
     // default to a max of 4 seconds per request
-    static final long MAX_MILLIS_PER_REQUEST = 4000;
+    static final long MAX_MILLIS_PER_REQUEST = 300000;
 
     final AtomicInteger byteLimit = new AtomicInteger(0);
     final AtomicInteger recordLimit = new AtomicInteger(0);
@@ -599,7 +607,7 @@ class SnapServer implements BesuEvents.InitialSyncCompletionListener {
         final Function<Pair<Bytes32, Bytes>, Integer> encodingSizeAccumulator) {
       this.stopWatch = stopWatch;
       this.maxResponseBytes = maxResponseBytes;
-      this.maxResponseBytesFudgeFactor = maxResponseBytes * 9 / 10;
+      this.maxResponseBytesFudgeFactor = maxResponseBytes * 10 / 10;
       this.forWhat = forWhat;
       this.encodingSizeAccumulator = encodingSizeAccumulator;
     }
@@ -631,7 +639,7 @@ class SnapServer implements BesuEvents.InitialSyncCompletionListener {
       var hasNoRecords = recordLimit.get() == 0;
       var underRecordLimit = recordLimit.addAndGet(1) <= MAX_ENTRIES_PER_REQUEST;
       var underByteLimit =
-          byteLimit.accumulateAndGet(0, (cur, __) -> cur + encodingSizeAccumulator.apply(pair))
+          byteLimit.getAndAccumulate(0, (cur, __) -> cur + encodingSizeAccumulator.apply(pair))
               < maxResponseBytesFudgeFactor;
       // Only enforce limits when we have at least 1 record as the snapsync spec
       // requires at least 1 record must be returned

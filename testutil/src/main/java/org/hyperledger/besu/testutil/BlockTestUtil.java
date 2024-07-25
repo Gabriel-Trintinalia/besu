@@ -52,6 +52,8 @@ public final class BlockTestUtil {
       Suppliers.memoize(BlockTestUtil::supplyUpgradedForkResources);
   private static final Supplier<ChainResources> testRpcCompactChainSupplier =
       Suppliers.memoize(BlockTestUtil::supplyTestRpcCompactResources);
+  private static final Supplier<ChainResources> snapTestChainSupplier =
+      Suppliers.memoize(BlockTestUtil::supplySnapTestChainResources);
 
   /**
    * Gets test blockchain url.
@@ -105,6 +107,15 @@ public final class BlockTestUtil {
    */
   public static ChainResources getHiveTestChainResources() {
     return hiveTestChainSupplier.get();
+  }
+
+  /**
+   * Gets test chain resources for Snap tests.
+   *
+   * @return the test chain resources
+   */
+  public static ChainResources getSnapTestChainResources() {
+    return snapTestChainSupplier.get();
   }
 
   /**
@@ -170,6 +181,14 @@ public final class BlockTestUtil {
     final URL blocksURL =
         ensureFileUrl(
             BlockTestUtil.class.getClassLoader().getResource("hive/testBlockchain.blocks"));
+    return new ChainResources(genesisURL, blocksURL);
+  }
+
+  private static ChainResources supplySnapTestChainResources() {
+    final URL genesisURL =
+        ensureFileUrl(BlockTestUtil.class.getClassLoader().getResource("snap/snapGenesis.json"));
+    final URL blocksURL =
+        ensureFileUrl(BlockTestUtil.class.getClassLoader().getResource("snap/chain.rlp"));
     return new ChainResources(genesisURL, blocksURL);
   }
 
