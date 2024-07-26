@@ -45,6 +45,7 @@ import java.util.ArrayList;
 import java.util.Collections;
 import java.util.HashMap;
 import java.util.List;
+import java.util.Map;
 import java.util.NavigableMap;
 import java.util.Optional;
 import java.util.TreeMap;
@@ -275,15 +276,18 @@ class SnapServer implements BesuEvents.InitialSyncCompletionListener {
                           range.worldStateRootHash(), Hash.wrap(accounts.lastKey())));
                 }
 
-                // account message expect slim accounts
-                NavigableMap<Bytes32, Bytes> slimAccounts = new TreeMap<>();
-                accounts.forEach(
-                    (key, value) -> {
-                      Bytes modifiedValue = AccountRangeMessage.toSlimAccount(RLP.input((value)));
-                      slimAccounts.put(key, modifiedValue);
-                    });
+                // convert to slim accounts
+                accounts =
+                    accounts.entrySet().stream()
+                        .collect(
+                            Collectors.toMap(
+                                Map.Entry::getKey,
+                                entry ->
+                                    AccountRangeMessage.toSlimAccount(RLP.input(entry.getValue())),
+                                (e1, e2) -> e1,
+                                TreeMap::new));
 
-                var resp = AccountRangeMessage.create(slimAccounts, proof);
+                var resp = AccountRangeMessage.create(accounts, proof);
                 if (accounts.isEmpty()) {
                   LOGGER.debug(
                       "returned empty account range message for {} to  {}, proof count {}",
@@ -381,14 +385,14 @@ class SnapServer implements BesuEvents.InitialSyncCompletionListener {
                           Hash.wrap(forAccountHash), startKeyBytes, endKeyBytes, statefulPredicate);
 
                   //// address partial range queries that return empty
-                  if (accountStorages.isEmpty() && isPartialRange) {
+                  if (isPartialRange) {
                     // fetch next slot after range, if it exists
                     LOGGER.debug(
                         "found no slots in range, taking first value starting from {}",
                         asLogHash(range.endKeyHash()));
-                    accountStorages =
+                    accountStorages.putAll(
                         storage.streamFlatStorages(
-                            Hash.wrap(forAccountHash), range.endKeyHash(), UInt256.MAX_VALUE, 1L);
+                            Hash.wrap(forAccountHash), range.endKeyHash(), UInt256.MAX_VALUE, 1L));
                   }
 
                   // don't send empty storage ranges

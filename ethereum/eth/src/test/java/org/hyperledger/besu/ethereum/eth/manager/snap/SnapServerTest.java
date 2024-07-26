@@ -188,7 +188,7 @@ public class SnapServerTest {
   public void assertAccountLimitRangeResponse() {
     // assert we limit the range response according to size
     final int acctCount = 2000;
-    final long acctRLPSize = 105;
+    final long acctRLPSize = 37;
 
     List<Integer> randomLoad = IntStream.range(1, 4096).boxed().collect(Collectors.toList());
     Collections.shuffle(randomLoad);
@@ -209,17 +209,15 @@ public class SnapServerTest {
     tmp.writeBytes(HASH_LAST);
     tmp.writeBigIntegerScalar(BigInteger.valueOf(acctRLPSize * acctCount));
     tmp.endList();
-    @SuppressWarnings("UnusedVariable")
     var tinyRangeLimit = new GetAccountRangeMessage(tmp.encoded()).wrapMessageData(BigInteger.ONE);
 
-    /*    var rangeData =
-    getAndVerifyAccountRangeData(
-        (AccountRangeMessage) snapServer.constructGetAccountRangeResponse(tinyRangeLimit),
-        // TODO: after sorting out the request fudge factor, adjust this assertion to match
-        acctCount * 90 / 100 - 1);*/
+    var rangeData =
+        getAndVerifyAccountRangeData(
+            (AccountRangeMessage) snapServer.constructGetAccountRangeResponse(tinyRangeLimit),
+            acctCount);
 
     // assert proofs are valid for the requested range
-    // assertThat(assertIsValidAccountRangeProof(Hash.ZERO, rangeData)).isTrue();
+    assertThat(assertIsValidAccountRangeProof(Hash.ZERO, rangeData)).isTrue();
   }
 
   @Test
@@ -374,8 +372,7 @@ public class SnapServerTest {
     // expecting to see complete 10 slot storage for acct3
     assertThat(firstAccountStorages.size()).isEqualTo(10);
     var secondAccountStorages = slotsData.slots().last();
-    // expecting to see only 6 since request was limited to 16 slots
-    // TODO: after sorting out the request fudge factor, adjust this assertion to match
+    // expecting to see only 6 since request was limited to 16 slots + next
     assertThat(secondAccountStorages.size()).isEqualTo(7);
     // proofs required for interrupted storage range:
     assertThat(slotsData.proofs().size()).isNotEqualTo(0);
