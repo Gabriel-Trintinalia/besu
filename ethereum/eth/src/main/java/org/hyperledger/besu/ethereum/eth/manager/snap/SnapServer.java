@@ -388,7 +388,7 @@ class SnapServer implements BesuEvents.InitialSyncCompletionListener {
                   if (isPartialRange) {
                     // fetch next slot after range, if it exists
                     LOGGER.debug(
-                        "found no slots in range, taking first value starting from {}",
+                        "Getting next available, taking first value starting from {}",
                         asLogHash(range.endKeyHash()));
                     accountStorages.putAll(
                         storage.streamFlatStorages(
