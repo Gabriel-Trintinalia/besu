@@ -36,17 +36,9 @@ import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 
 public class SnapServerGetAccountRangeTest {
-
-  private static final String ROOT_HASH_HEX =
-      "ea4c1f4d9fa8664c22574c5b2f948a78c4b1a753cebc1861e7fb5b1aa21c5a94";
-  private static final String ZERO_HASH_HEX =
-      "0x0000000000000000000000000000000000000000000000000000000000000000";
-  private static final String LIMIT_HASH_HEX =
-      "0xffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffff";
-  public static final String FIRST_ACCOUNT =
-      "0x005e94bf632e80cde11add7d3447cd4ca93a5f2205d9874261484ae180718bd6";
-  public static final String SECOND_ACCOUNT =
-      "0x005e94bf632e80cde11add7d3447cd4ca93a5f2205d9874261484ae180718bd7";
+  private Hash rootHash;
+  public Bytes32 firstAccount;
+  public Bytes32 secondAccount;
   private SnapServer snapServer;
 
   @BeforeEach
@@ -63,6 +55,8 @@ public class SnapServerGetAccountRangeTest {
         new WorldStateStorageCoordinator(
             protocolContext.getWorldStateArchive().getWorldStateStorage());
 
+    rootHash = protocolContext.getWorldStateArchive().getMutable().rootHash();
+
     SnapSyncConfiguration snapSyncConfiguration =
         ImmutableSnapSyncConfiguration.builder().isSnapServerEnabled(true).build();
     snapServer =
@@ -72,6 +66,7 @@ public class SnapServerGetAccountRangeTest {
                 worldStateStorageCoordinator,
                 protocolContext)
             .start();
+    initAccounts();
   }
 
   /**
@@ -81,13 +76,15 @@ public class SnapServerGetAccountRangeTest {
   @Test
   public void test0_RequestEntireStateRangeWith4000BytesLimit() {
     testAccountRangeRequest(
-        ROOT_HASH_HEX,
-        ZERO_HASH_HEX,
-        LIMIT_HASH_HEX,
-        4000,
-        86,
-        FIRST_ACCOUNT,
-        "0x445cb5c1278fdce2f9cbdb681bdd76c52f8e50e41dbd9e220242a69ba99ac099");
+        new AccountRangeRequestParams.Builder()
+            .rootHash(rootHash)
+            .responseBytes(4000)
+            .expectedAccounts(86)
+            .expectedFirstAccount(firstAccount)
+            .expectedLastAccount(
+                Bytes32.fromHexString(
+                    "0x445cb5c1278fdce2f9cbdb681bdd76c52f8e50e41dbd9e220242a69ba99ac099"))
+            .build());
   }
 
   /**
@@ -97,13 +94,15 @@ public class SnapServerGetAccountRangeTest {
   @Test
   public void test1_RequestEntireStateRangeWith3000BytesLimit() {
     testAccountRangeRequest(
-        ROOT_HASH_HEX,
-        ZERO_HASH_HEX,
-        LIMIT_HASH_HEX,
-        3000,
-        65,
-        FIRST_ACCOUNT,
-        "0x2e6fe1362b3e388184fd7bf08e99e74170b26361624ffd1c5f646da7067b58b6");
+        new AccountRangeRequestParams.Builder()
+            .rootHash(rootHash)
+            .responseBytes(3000)
+            .expectedAccounts(65)
+            .expectedFirstAccount(firstAccount)
+            .expectedLastAccount(
+                Bytes32.fromHexString(
+                    "0x2e6fe1362b3e388184fd7bf08e99e74170b26361624ffd1c5f646da7067b58b6"))
+            .build());
   }
 
   /**
@@ -113,13 +112,15 @@ public class SnapServerGetAccountRangeTest {
   @Test
   public void test2_RequestEntireStateRangeWith2000BytesLimit() {
     testAccountRangeRequest(
-        ROOT_HASH_HEX,
-        ZERO_HASH_HEX,
-        LIMIT_HASH_HEX,
-        2000,
-        44,
-        FIRST_ACCOUNT,
-        "0x1c3f74249a4892081ba0634a819aec9ed25f34c7653f5719b9098487e65ab595");
+        new AccountRangeRequestParams.Builder()
+            .rootHash(rootHash)
+            .responseBytes(2000)
+            .expectedAccounts(44)
+            .expectedFirstAccount(firstAccount)
+            .expectedLastAccount(
+                Bytes32.fromHexString(
+                    "0x1c3f74249a4892081ba0634a819aec9ed25f34c7653f5719b9098487e65ab595"))
+            .build());
   }
 
   /**
@@ -129,7 +130,13 @@ public class SnapServerGetAccountRangeTest {
   @Test
   public void test3_RequestEntireStateRangeWith1ByteLimit() {
     testAccountRangeRequest(
-        ROOT_HASH_HEX, ZERO_HASH_HEX, LIMIT_HASH_HEX, 1, 1, FIRST_ACCOUNT, FIRST_ACCOUNT);
+        new AccountRangeRequestParams.Builder()
+            .rootHash(rootHash)
+            .responseBytes(1)
+            .expectedAccounts(1)
+            .expectedFirstAccount(firstAccount)
+            .expectedLastAccount(firstAccount)
+            .build());
   }
 
   /**
@@ -139,7 +146,13 @@ public class SnapServerGetAccountRangeTest {
   @Test
   public void test4_RequestEntireStateRangeWithZeroBytesLimit() {
     testAccountRangeRequest(
-        ROOT_HASH_HEX, ZERO_HASH_HEX, LIMIT_HASH_HEX, 0, 1, FIRST_ACCOUNT, FIRST_ACCOUNT);
+        new AccountRangeRequestParams.Builder()
+            .rootHash(rootHash)
+            .responseBytes(0)
+            .expectedAccounts(1)
+            .expectedFirstAccount(firstAccount)
+            .expectedLastAccount(firstAccount)
+            .build());
   }
 
   /**
@@ -149,9 +162,15 @@ public class SnapServerGetAccountRangeTest {
    */
   @Test
   public void test5_RequestRangeBeforeFirstAccountKey() {
-    String startHash = "0x005e94bf632e80cde11add7d3447cd4ca93a5f2205d9874261484ae1807189e2";
     testAccountRangeRequest(
-        ROOT_HASH_HEX, startHash, SECOND_ACCOUNT, 4000, 2, FIRST_ACCOUNT, SECOND_ACCOUNT);
+        new AccountRangeRequestParams.Builder()
+            .rootHash(rootHash)
+            .startHash(hashAdd(firstAccount, -500))
+            .limitHash(hashAdd(firstAccount, 1))
+            .expectedAccounts(2)
+            .expectedFirstAccount(firstAccount)
+            .expectedLastAccount(secondAccount)
+            .build());
   }
 
   /**
@@ -160,10 +179,15 @@ public class SnapServerGetAccountRangeTest {
    */
   @Test
   public void test6_RequestRangeBothBoundsBeforeFirstAccountKey() {
-    String startHash = "0x005e94bf632e80cde11add7d3447cd4ca93a5f2205d9874261484ae1807189e2";
-    String limitHash = "0x005e94bf632e80cde11add7d3447cd4ca93a5f2205d9874261484ae180718a14";
     testAccountRangeRequest(
-        ROOT_HASH_HEX, startHash, limitHash, 4000, 1, FIRST_ACCOUNT, FIRST_ACCOUNT);
+        new AccountRangeRequestParams.Builder()
+            .rootHash(rootHash)
+            .startHash(hashAdd(firstAccount, -500))
+            .limitHash(hashAdd(firstAccount, -400))
+            .expectedAccounts(1)
+            .expectedFirstAccount(firstAccount)
+            .expectedLastAccount(firstAccount)
+            .build());
   }
 
   /**
@@ -173,7 +197,14 @@ public class SnapServerGetAccountRangeTest {
   @Test
   public void test7_RequestBothBoundsZero() {
     testAccountRangeRequest(
-        ROOT_HASH_HEX, ZERO_HASH_HEX, ZERO_HASH_HEX, 4000, 1, FIRST_ACCOUNT, FIRST_ACCOUNT);
+        new AccountRangeRequestParams.Builder()
+            .rootHash(rootHash)
+            .startHash(Hash.ZERO)
+            .limitHash(Hash.ZERO)
+            .expectedAccounts(1)
+            .expectedFirstAccount(firstAccount)
+            .expectedLastAccount(firstAccount)
+            .build());
   }
 
   /**
@@ -182,15 +213,16 @@ public class SnapServerGetAccountRangeTest {
    */
   @Test
   public void test8_RequestStartingHashFirstAvailableAccountKey() {
-    String startHash = FIRST_ACCOUNT;
     testAccountRangeRequest(
-        ROOT_HASH_HEX,
-        startHash,
-        LIMIT_HASH_HEX,
-        4000,
-        86,
-        FIRST_ACCOUNT,
-        "0x445cb5c1278fdce2f9cbdb681bdd76c52f8e50e41dbd9e220242a69ba99ac099");
+        new AccountRangeRequestParams.Builder()
+            .rootHash(rootHash)
+            .startHash(firstAccount)
+            .expectedAccounts(86)
+            .expectedFirstAccount(firstAccount)
+            .expectedLastAccount(
+                Bytes32.fromHexString(
+                    "0x445cb5c1278fdce2f9cbdb681bdd76c52f8e50e41dbd9e220242a69ba99ac099"))
+            .build());
   }
 
   /**
@@ -200,20 +232,24 @@ public class SnapServerGetAccountRangeTest {
   @Test
   public void test9_RequestStartingHashAfterFirstAvailableKey() {
     testAccountRangeRequest(
-        ROOT_HASH_HEX,
-        SECOND_ACCOUNT,
-        LIMIT_HASH_HEX,
-        4000,
-        86,
-        SECOND_ACCOUNT,
-        "0x4615e5f5df5b25349a00ad313c6cd0436b6c08ee5826e33a018661997f85ebaa");
+        new AccountRangeRequestParams.Builder()
+            .rootHash(rootHash)
+            .startHash(secondAccount)
+            .expectedAccounts(86)
+            .expectedFirstAccount(secondAccount)
+            .expectedLastAccount(
+                Bytes32.fromHexString(
+                    "0x4615e5f5df5b25349a00ad313c6cd0436b6c08ee5826e33a018661997f85ebaa"))
+            .build());
   }
 
   /** This test requests a non-existent state root. Expected: 0 accounts. */
   @Test
   public void test10_RequestNonExistentStateRoot() {
-    String rootHash = "1337000000000000000000000000000000000000000000000000000000000000";
-    testAccountRangeRequest(rootHash, ZERO_HASH_HEX, LIMIT_HASH_HEX, 4000, 0, null, null);
+    Hash rootHash =
+        Hash.fromHexString("1337000000000000000000000000000000000000000000000000000000000000");
+    testAccountRangeRequest(
+        new AccountRangeRequestParams.Builder().rootHash(rootHash).expectedAccounts(0).build());
   }
 
   /**
@@ -222,8 +258,10 @@ public class SnapServerGetAccountRangeTest {
    */
   @Test
   public void test11_RequestStateRootOfGenesisBlock() {
-    String rootHash = "17fa928a94db88a7959927626d9bb0c82d28710e59aa91c0eaa12b33e303fd52";
-    testAccountRangeRequest(rootHash, ZERO_HASH_HEX, LIMIT_HASH_HEX, 4000, 0, null, null);
+    Hash rootHash =
+        Hash.fromHexString("17fa928a94db88a7959927626d9bb0c82d28710e59aa91c0eaa12b33e303fd52");
+    testAccountRangeRequest(
+        new AccountRangeRequestParams.Builder().rootHash(rootHash).expectedAccounts(0).build());
   }
 
   /**
@@ -232,15 +270,17 @@ public class SnapServerGetAccountRangeTest {
    */
   @Test
   public void test12_RequestStateRoot127BlocksOld() {
-    String rootHash = "e5a5661f0d0f149de13c6a68eadbb59e31cb30cf6e18629346fe80789b1f3fbc";
+    Hash rootHash =
+        Hash.fromHexString("e5a5661f0d0f149de13c6a68eadbb59e31cb30cf6e18629346fe80789b1f3fbc");
     testAccountRangeRequest(
-        rootHash,
-        ZERO_HASH_HEX,
-        LIMIT_HASH_HEX,
-        4000,
-        84,
-        FIRST_ACCOUNT,
-        "0x580aa878e2f92d113a12c0a3ce3c21972b03dbe80786858d49a72097e2c491a3");
+        new AccountRangeRequestParams.Builder()
+            .rootHash(rootHash)
+            .expectedAccounts(84)
+            .expectedFirstAccount(firstAccount)
+            .expectedLastAccount(
+                Bytes32.fromHexString(
+                    "0x580aa878e2f92d113a12c0a3ce3c21972b03dbe80786858d49a72097e2c491a3"))
+            .build());
   }
 
   /**
@@ -249,8 +289,10 @@ public class SnapServerGetAccountRangeTest {
    */
   @Test
   public void test13_RequestStateRootIsStorageRoot() {
-    String rootHash = "df97f94bc47471870606f626fb7a0b42eed2d45fcc84dc1200ce62f7831da990";
-    testAccountRangeRequest(rootHash, ZERO_HASH_HEX, LIMIT_HASH_HEX, 4000, 0, null, null);
+    Hash rootHash =
+        Hash.fromHexString("df97f94bc47471870606f626fb7a0b42eed2d45fcc84dc1200ce62f7831da990");
+    testAccountRangeRequest(
+        new AccountRangeRequestParams.Builder().rootHash(rootHash).expectedAccounts(0).build());
   }
 
   /**
@@ -259,7 +301,13 @@ public class SnapServerGetAccountRangeTest {
    */
   @Test
   public void test14_RequestStartingHashAfterLimitHash() {
-    testAccountRangeRequest(ROOT_HASH_HEX, LIMIT_HASH_HEX, ZERO_HASH_HEX, 4000, 0, null, null);
+    testAccountRangeRequest(
+        new AccountRangeRequestParams.Builder()
+            .rootHash(rootHash)
+            .startHash(Hash.LAST)
+            .limitHash(Hash.ZERO)
+            .expectedAccounts(0)
+            .build());
   }
 
   /**
@@ -269,10 +317,15 @@ public class SnapServerGetAccountRangeTest {
    */
   @Test
   public void test15_RequestStartingHashFirstAvailableKeyAndLimitHashBefore() {
-    String startHash = FIRST_ACCOUNT;
-    String limitHash = "0x005e94bf632e80cde11add7d3447cd4ca93a5f2205d9874261484ae180718bd5";
     testAccountRangeRequest(
-        ROOT_HASH_HEX, startHash, limitHash, 4000, 1, FIRST_ACCOUNT, FIRST_ACCOUNT);
+        new AccountRangeRequestParams.Builder()
+            .rootHash(rootHash)
+            .startHash(firstAccount)
+            .limitHash(hashAdd(firstAccount, -1))
+            .expectedAccounts(1)
+            .expectedFirstAccount(firstAccount)
+            .expectedLastAccount(firstAccount)
+            .build());
   }
 
   /**
@@ -281,42 +334,153 @@ public class SnapServerGetAccountRangeTest {
    */
   @Test
   public void test16_RequestStartingHashFirstAvailableKeyAndLimitHashZero() {
-    String startHash = FIRST_ACCOUNT;
     testAccountRangeRequest(
-        ROOT_HASH_HEX, startHash, ZERO_HASH_HEX, 4000, 1, FIRST_ACCOUNT, FIRST_ACCOUNT);
+        new AccountRangeRequestParams.Builder()
+            .rootHash(rootHash)
+            .startHash(firstAccount)
+            .limitHash(Hash.ZERO)
+            .expectedAccounts(1)
+            .expectedFirstAccount(firstAccount)
+            .expectedLastAccount(firstAccount)
+            .build());
   }
 
-  private void testAccountRangeRequest(
-      final String rootHashHex,
-      final String startHashHex,
-      final String limitHashHex,
-      final int responseBytes,
-      final int expectedAccounts,
-      final String expectedFirstAccount,
-      final String expectedLastAccount) {
-    Hash rootHash = Hash.fromHexString(rootHashHex);
-    Bytes32 startHash = Bytes32.fromHexString(startHashHex);
-    Bytes32 limitHash = Bytes32.fromHexString(limitHashHex);
-    BigInteger sizeRequest = BigInteger.valueOf(responseBytes);
+  private void testAccountRangeRequest(final AccountRangeRequestParams params) {
+    Hash rootHash = params.getRootHash();
+    Bytes32 startHash = params.getStartHash();
+    Bytes32 limitHash = params.getLimitHash();
+    BigInteger sizeRequest = BigInteger.valueOf(params.getResponseBytes());
 
-    AccountRangeMessage message = requestAccountRange(rootHash, startHash, limitHash, sizeRequest);
-    NavigableMap<Bytes32, Bytes> accounts = message.accountData(false).accounts();
-    assertThat(message.accountData(false).accounts().size()).isEqualTo(expectedAccounts);
-    if (expectedAccounts > 0) {
-      assertThat(accounts.firstKey()).isEqualTo(Bytes32.fromHexString(expectedFirstAccount));
-      assertThat(accounts.lastKey()).isEqualTo(Bytes32.fromHexString(expectedLastAccount));
+    GetAccountRangeMessage requestMessage =
+        GetAccountRangeMessage.create(rootHash, startHash, limitHash, sizeRequest);
+
+    AccountRangeMessage resultMessage =
+        AccountRangeMessage.readFrom(
+            snapServer.constructGetAccountRangeResponse(
+                requestMessage.wrapMessageData(BigInteger.ONE)));
+    NavigableMap<Bytes32, Bytes> accounts = resultMessage.accountData(false).accounts();
+    assertThat(resultMessage.accountData(false).accounts().size())
+        .isEqualTo(params.getExpectedAccounts());
+
+    if (params.getExpectedAccounts() > 0) {
+      assertThat(accounts.firstKey()).isEqualTo(params.getExpectedFirstAccount());
+      assertThat(accounts.lastKey()).isEqualTo(params.getExpectedLastAccount());
     }
   }
 
-  private AccountRangeMessage requestAccountRange(
-      final Hash rootHash,
-      final Bytes32 startHash,
-      final Bytes32 limitHash,
-      final BigInteger sizeRequest) {
+  private void initAccounts() {
     GetAccountRangeMessage requestMessage =
-        GetAccountRangeMessage.create(rootHash, startHash, limitHash, sizeRequest);
-    return AccountRangeMessage.readFrom(
-        snapServer.constructGetAccountRangeResponse(
-            requestMessage.wrapMessageData(BigInteger.ONE)));
+        GetAccountRangeMessage.create(rootHash, Hash.ZERO, Hash.LAST, BigInteger.valueOf(4000));
+    AccountRangeMessage resultMessage =
+        AccountRangeMessage.readFrom(
+            snapServer.constructGetAccountRangeResponse(
+                requestMessage.wrapMessageData(BigInteger.ONE)));
+    NavigableMap<Bytes32, Bytes> accounts = resultMessage.accountData(false).accounts();
+    firstAccount = accounts.firstEntry().getKey();
+    secondAccount = accounts.entrySet().stream().skip(1).findFirst().orElseThrow().getKey();
+  }
+
+  private Bytes32 hashAdd(final Bytes32 hash, final int value) {
+    var result = Hash.wrap(hash).toBigInteger().add(BigInteger.valueOf(value));
+    Bytes resultBytes = Bytes.wrap(result.toByteArray());
+    return Bytes32.leftPad(resultBytes);
+  }
+
+  public static class AccountRangeRequestParams {
+    private final Hash rootHash;
+    private final Bytes32 startHash;
+    private final Bytes32 limitHash;
+    private final int responseBytes;
+    private final int expectedAccounts;
+    private final Bytes32 expectedFirstAccount;
+    private final Bytes32 expectedLastAccount;
+
+    private AccountRangeRequestParams(final Builder builder) {
+      this.rootHash = builder.rootHash;
+      this.startHash = builder.startHash;
+      this.limitHash = builder.limitHash;
+      this.responseBytes = builder.responseBytes;
+      this.expectedAccounts = builder.expectedAccounts;
+      this.expectedFirstAccount = builder.expectedFirstAccount;
+      this.expectedLastAccount = builder.expectedLastAccount;
+    }
+
+    public static class Builder {
+      private Hash rootHash = null;
+      private Bytes32 startHash = Bytes32.ZERO;
+      private Bytes32 limitHash = Hash.LAST;
+      private int responseBytes = 4000;
+      private int expectedAccounts = 0;
+      private Bytes32 expectedFirstAccount = null;
+      private Bytes32 expectedLastAccount = null;
+
+      public Builder rootHash(final Hash rootHashHex) {
+        this.rootHash = rootHashHex;
+        return this;
+      }
+
+      public Builder startHash(final Bytes32 startHashHex) {
+        this.startHash = startHashHex;
+        return this;
+      }
+
+      public Builder limitHash(final Bytes32 limitHashHex) {
+        this.limitHash = limitHashHex;
+        return this;
+      }
+
+      public Builder responseBytes(final int responseBytes) {
+        this.responseBytes = responseBytes;
+        return this;
+      }
+
+      public Builder expectedAccounts(final int expectedAccounts) {
+        this.expectedAccounts = expectedAccounts;
+        return this;
+      }
+
+      public Builder expectedFirstAccount(final Bytes32 expectedFirstAccount) {
+        this.expectedFirstAccount = expectedFirstAccount;
+        return this;
+      }
+
+      public Builder expectedLastAccount(final Bytes32 expectedLastAccount) {
+        this.expectedLastAccount = expectedLastAccount;
+        return this;
+      }
+
+      public AccountRangeRequestParams build() {
+        return new AccountRangeRequestParams(this);
+      }
+    }
+
+    // Getters for each field
+    public Hash getRootHash() {
+      return rootHash;
+    }
+
+    public Bytes32 getStartHash() {
+      return startHash;
+    }
+
+    public Bytes32 getLimitHash() {
+      return limitHash;
+    }
+
+    public int getResponseBytes() {
+      return responseBytes;
+    }
+
+    public int getExpectedAccounts() {
+      return expectedAccounts;
+    }
+
+    public Bytes32 getExpectedFirstAccount() {
+      return expectedFirstAccount;
+    }
+
+    public Bytes32 getExpectedLastAccount() {
+      return expectedLastAccount;
+    }
   }
 }

@@ -251,12 +251,16 @@ class SnapServer implements BesuEvents.InitialSyncCompletionListener {
                     storage.streamFlatAccounts(
                         range.startKeyHash(), range.endKeyHash(), shouldContinuePredicate);
 
-                if (accounts.isEmpty() && shouldContinuePredicate.shouldContinue.get()) {
+                if (shouldContinuePredicate.shouldContinue.get()) {
+                  var nextHash =
+                      range.endKeyHash().compareTo(range.startKeyHash()) >= 0
+                          ? range.endKeyHash()
+                          : range.startKeyHash();
                   // fetch next account after range, if it exists
                   LOGGER.debug(
-                      "found no accounts in range, taking first value starting from {}",
-                      asLogHash(range.endKeyHash()));
-                  accounts = storage.streamFlatAccounts(range.endKeyHash(), UInt256.MAX_VALUE, 1L);
+                      "Getting next available account, taking first value starting from {}",
+                      asLogHash(nextHash));
+                  accounts.putAll(storage.streamFlatAccounts(nextHash, UInt256.MAX_VALUE, 1L));
                 }
 
                 final var worldStateProof =
