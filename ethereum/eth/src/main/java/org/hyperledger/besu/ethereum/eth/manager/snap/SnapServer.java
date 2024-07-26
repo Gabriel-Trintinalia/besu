@@ -596,7 +596,7 @@ class SnapServer implements BesuEvents.InitialSyncCompletionListener {
 
   static class StatefulPredicate implements Predicate<Pair<Bytes32, Bytes>> {
     // default to a max of 4 seconds per request
-    static final long MAX_MILLIS_PER_REQUEST = 300000;
+    static final long MAX_MILLIS_PER_REQUEST = 4000;
 
     final AtomicInteger byteLimit = new AtomicInteger(0);
     final AtomicInteger recordLimit = new AtomicInteger(0);
