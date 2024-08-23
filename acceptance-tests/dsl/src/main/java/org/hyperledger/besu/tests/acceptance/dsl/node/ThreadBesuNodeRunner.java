@@ -29,6 +29,7 @@ import org.hyperledger.besu.cryptoservices.NodeKey;
 import org.hyperledger.besu.ethereum.GasLimitCalculator;
 import org.hyperledger.besu.ethereum.api.ApiConfiguration;
 import org.hyperledger.besu.ethereum.api.graphql.GraphQLConfiguration;
+import org.hyperledger.besu.ethereum.api.jsonrpc.InProcessRpcConfiguration;
 import org.hyperledger.besu.ethereum.core.ImmutableMiningParameters;
 import org.hyperledger.besu.ethereum.core.plugins.PluginConfiguration;
 import org.hyperledger.besu.ethereum.eth.EthProtocolConfiguration;
@@ -39,7 +40,6 @@ import org.hyperledger.besu.ethereum.p2p.peers.EnodeURLImpl;
 import org.hyperledger.besu.ethereum.storage.keyvalue.KeyValueStorageProvider;
 import org.hyperledger.besu.ethereum.storage.keyvalue.KeyValueStorageProviderBuilder;
 import org.hyperledger.besu.ethereum.transaction.TransactionSimulator;
-import org.hyperledger.besu.ethereum.worldstate.DataStorageConfiguration;
 import org.hyperledger.besu.evm.internal.EvmConfiguration;
 import org.hyperledger.besu.metrics.MetricsSystemFactory;
 import org.hyperledger.besu.metrics.ObservableMetricsSystem;
@@ -140,7 +140,8 @@ public class ThreadBesuNodeRunner implements BesuNodeRunner {
     besuPluginContext.addService(PermissioningService.class, permissioningService);
     besuPluginContext.addService(PrivacyPluginService.class, new PrivacyPluginServiceImpl());
 
-    besuPluginContext.registerPlugins(new PluginConfiguration(pluginsPath));
+    besuPluginContext.registerPlugins(
+        new PluginConfiguration.Builder().pluginsDir(pluginsPath).build());
 
     commandLine.parseArgs(node.getConfiguration().getExtraCLIOptions().toArray(new String[0]));
 
@@ -236,6 +237,8 @@ public class ThreadBesuNodeRunner implements BesuNodeRunner {
             .transactionPoolValidatorService(transactionPoolValidatorServiceImpl)
             .build();
 
+    final InProcessRpcConfiguration inProcessRpcConfiguration = node.inProcessRpcConfiguration();
+
     final int maxPeers = 25;
 
     builder
@@ -246,7 +249,7 @@ public class ThreadBesuNodeRunner implements BesuNodeRunner {
         .nodeKey(new NodeKey(new KeyPairSecurityModule(KeyPairUtil.loadKeyPair(dataDir))))
         .metricsSystem(metricsSystem)
         .transactionPoolConfiguration(txPoolConfig)
-        .dataStorageConfiguration(DataStorageConfiguration.DEFAULT_FOREST_CONFIG)
+        .dataStorageConfiguration(node.getDataStorageConfiguration())
         .ethProtocolConfiguration(EthProtocolConfiguration.defaultConfig())
         .clock(Clock.systemUTC())
         .isRevertReasonEnabled(node.isRevertReasonEnabled())
@@ -297,7 +300,8 @@ public class ThreadBesuNodeRunner implements BesuNodeRunner {
         .besuPluginContext(besuPluginContext)
         .autoLogBloomCaching(false)
         .storageProvider(storageProvider)
-        .rpcEndpointService(rpcEndpointServiceImpl);
+        .rpcEndpointService(rpcEndpointServiceImpl)
+        .inProcessRpcConfiguration(inProcessRpcConfiguration);
     node.engineRpcConfiguration().ifPresent(runnerBuilder::engineJsonRpcConfiguration);
 
     besuPluginContext.beforeExternalServices();
@@ -313,6 +317,9 @@ public class ThreadBesuNodeRunner implements BesuNodeRunner {
             besuController.getTransactionPool(),
             besuController.getSyncState(),
             besuController.getProtocolContext().getBadBlockManager()));
+
+    rpcEndpointServiceImpl.init(runner.getInProcessRpcMethods());
+
     besuPluginContext.startPlugins();
 
     runner.startEthereumMainLoop();

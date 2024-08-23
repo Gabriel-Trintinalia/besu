@@ -1,18 +1,56 @@
 # Changelog
 
+## [Unreleased]
+
+### Fixed
+- **DebugMetrics**: Fixed a `ClassCastException` occurring in `DebugMetrics` when handling nested metric structures. Previously, `Double` values within these structures were incorrectly cast to `Map` objects, leading to errors. This update allows for proper handling of both direct values and nested structures at the same level. Issue# [#7383]
+
+### Tests
+- Added a comprehensive test case to reproduce the bug and verify the fix for the `ClassCastException` in `DebugMetrics`. This ensures that complex, dynamically nested metric structures can be handled without errors.
+
 ## Next release
+
+### Upcoming Breaking Changes
+
+### Breaking Changes
+- Receipt compaction is enabled by default. It will no longer be possible to downgrade Besu to versions prior to 24.5.1.
+
+### Additions and Improvements
+- Add 'inbound' field to admin_peers JSON-RPC Call [#7461](https://github.com/hyperledger/besu/pull/7461)
+- Add pending block header to `TransactionEvaluationContext` plugin API [#7483](https://github.com/hyperledger/besu/pull/7483)
+- Add bootnode to holesky config [#7500](https://github.com/hyperledger/besu/pull/7500)
+
+### Bug fixes
+- Fix tracing in precompiled contracts when halting for out of gas [#7318](https://github.com/hyperledger/besu/issues/7318)
+- Correctly release txpool save and restore lock in case of exceptions [#7473](https://github.com/hyperledger/besu/pull/7473)
+- Fix for `eth_gasPrice` could not retrieve block error [#7482](https://github.com/hyperledger/besu/pull/7482)
+
+
+## 24.8.0
 
 ### Upcoming Breaking Changes
 - Receipt compaction will be enabled by default in a future version of Besu. After this change it will not be possible to downgrade to the previous Besu version.
 - --Xbonsai-limit-trie-logs-enabled is deprecated, use --bonsai-limit-trie-logs-enabled instead
 - --Xbonsai-trie-logs-pruning-window-size is deprecated, use --bonsai-trie-logs-pruning-window-size instead
 - `besu storage x-trie-log` subcommand is deprecated, use `besu storage trie-log` instead
+- Allow configuration of Withdrawal Request Contract Address via genesis configuration [#7356](https://github.com/hyperledger/besu/pull/7356)
 
 ### Breaking Changes
+- Remove long-deprecated `perm*whitelist*` methods [#7401](https://github.com/hyperledger/besu/pull/7401)
 
 ### Additions and Improvements
+- Expose set finalized/safe block in plugin api BlockchainService. These method can be used by plugins to set finalized/safe block for a PoA network (such as QBFT, IBFT and Clique).[#7382](https://github.com/hyperledger/besu/pull/7382)
+- In process RPC service [#7395](https://github.com/hyperledger/besu/pull/7395)
+- Added support for tracing private transactions using `priv_traceTransaction` API. [#6161](https://github.com/hyperledger/besu/pull/6161)
+- Wrap WorldUpdater into EVMWorldupdater [#7434](https://github.com/hyperledger/besu/pull/7434)
+- Bump besu-native to 0.9.4 [#7456](https://github.com/hyperledger/besu/pull/7456)
+
 
 ### Bug fixes
+- Correct entrypoint in Docker evmtool [#7430](https://github.com/hyperledger/besu/pull/7430)
+- Fix protocol schedule check for devnets [#7429](https://github.com/hyperledger/besu/pull/7429)
+- Fix behaviour when starting in a pre-merge network [#7431](https://github.com/hyperledger/besu/pull/7431)
+- Fix Null pointer from DNS daemon [#7505](https://github.com/hyperledger/besu/issues/7505)
 
 ## 24.7.1
 
@@ -41,7 +79,7 @@
 - Force bonsai-limit-trie-logs-enabled=false when sync-mode=FULL instead of startup error [#7357](https://github.com/hyperledger/besu/pull/7357)
 - `--Xbonsai-parallel-tx-processing-enabled` option enables executing transactions in parallel during block processing for Bonsai nodes
 - Reduce default trie log pruning window size from 30,000 to 5,000 [#7365](https://github.com/hyperledger/besu/pull/7365)
-- Add option `--poa-discovery-retry-bootnodes` for PoA networks to always use bootnodes during peer refresh, not just on first start [#7314](https://github.com/hyperledger/besu/pull/7314) 
+- Add option `--poa-discovery-retry-bootnodes` for PoA networks to always use bootnodes during peer refresh, not just on first start [#7314](https://github.com/hyperledger/besu/pull/7314)
 
 ### Bug fixes
 - Fix `eth_call` deserialization to correctly ignore unknown fields in the transaction object. [#7323](https://github.com/hyperledger/besu/pull/7323)

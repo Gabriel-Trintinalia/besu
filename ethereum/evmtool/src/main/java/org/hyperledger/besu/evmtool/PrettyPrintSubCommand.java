@@ -99,7 +99,7 @@ public class PrettyPrintSubCommand implements Runnable {
         if (parentCommand.hasFork()) {
           fork = parentCommand.getFork();
         }
-        ProtocolSpec protocolSpec = ReferenceTestProtocolSchedules.create().geSpecByName(fork);
+        ProtocolSpec protocolSpec = ReferenceTestProtocolSchedules.getInstance().geSpecByName(fork);
         EVM evm = protocolSpec.getEvm();
         EOFLayout layout = evm.parseEOF(container);
         if (layout.isValid()) {
@@ -109,6 +109,11 @@ public class PrettyPrintSubCommand implements Runnable {
           }
           if (validatedCode instanceof CodeInvalid codeInvalid) {
             parentCommand.out.println("EOF code is invalid - " + codeInvalid.getInvalidReason());
+          }
+          if (layout.container().size() != container.size()) {
+            parentCommand.out.println(
+                "EOF code is invalid - dangling data after container - "
+                    + container.slice(layout.container().size()).toHexString());
           }
         } else {
           parentCommand.out.println("EOF layout is invalid - " + layout.invalidReason());
