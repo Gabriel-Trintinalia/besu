@@ -28,6 +28,7 @@ import org.hyperledger.besu.evm.internal.EvmConfiguration;
 
 import java.util.ArrayList;
 import java.util.Comparator;
+import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.Optional;
@@ -66,7 +67,7 @@ public abstract class DiffBasedCachedWorldStorageManager implements StorageSubsc
       final Supplier<DiffBasedWorldStateConfig> defaultBonsaiWorldStateConfigSupplier) {
     worldStateKeyValueStorage.subscribe(this);
     this.rootWorldStateStorage = worldStateKeyValueStorage;
-    this.cachedWorldStatesByHash = cachedWorldStatesByHash;
+    this.cachedWorldStatesByHash = new LoggingMap<>(cachedWorldStatesByHash);
     this.archive = archive;
     this.evmConfiguration = evmConfiguration;
     this.defaultBonsaiWorldStateConfigSupplier = defaultBonsaiWorldStateConfigSupplier;
@@ -139,6 +140,7 @@ public abstract class DiffBasedCachedWorldStorageManager implements StorageSubsc
           .toList()
           .forEach(
               layer -> {
+                LOG.trace("Removing {}", layer.getBlockHash());
                 cachedWorldStatesByHash.remove(layer.getBlockHash());
                 layer.close();
               });
@@ -146,6 +148,7 @@ public abstract class DiffBasedCachedWorldStorageManager implements StorageSubsc
   }
 
   public Optional<DiffBasedWorldState> getWorldState(final Hash blockHash) {
+    LOG.trace(cachedWorldStatesByHash.toString());
     if (cachedWorldStatesByHash.containsKey(blockHash)) {
       // return a new worldstate using worldstate storage and an isolated copy of the updater
       return Optional.ofNullable(cachedWorldStatesByHash.get(blockHash))
@@ -220,16 +223,26 @@ public abstract class DiffBasedCachedWorldStorageManager implements StorageSubsc
   }
 
   public void reset() {
+    LOG.trace("Cleaning cachedWorldStatesByHash");
     this.cachedWorldStatesByHash.clear();
   }
 
   public void primeRootToBlockHashCache(final Blockchain blockchain, final int numEntries) {
     // prime the stateroot-to-blockhash cache
     long head = blockchain.getChainHeadHeader().getNumber();
+    LOG.info(
+        "Loading stateRootToBlockHeaderCache from {} to {}", Math.max(0, head - numEntries), head);
     for (long i = head; i > Math.max(0, head - numEntries); i--) {
-      blockchain
-          .getBlockHeader(i)
-          .ifPresent(header -> stateRootToBlockHeaderCache.put(header.getStateRoot(), header));
+      var maybeHeader = blockchain.getBlockHeader(i);
+      if (maybeHeader.isPresent()) {
+        var header = maybeHeader.get();
+        LOG.info(
+            "Adding block {} {} StateRoot: {}", i, header.getBlockHash(), header.getStateRoot());
+
+        stateRootToBlockHeaderCache.put(header.getStateRoot(), header);
+      } else {
+        LOG.info("Dit not find {}", i);
+      }
     }
   }
 
@@ -261,27 +274,27 @@ public abstract class DiffBasedCachedWorldStorageManager implements StorageSubsc
 
   @Override
   public void onClearStorage() {
-    this.cachedWorldStatesByHash.clear();
+    this.reset();
   }
 
   @Override
   public void onClearFlatDatabaseStorage() {
-    this.cachedWorldStatesByHash.clear();
+    this.reset();
   }
 
   @Override
   public void onClearTrieLog() {
-    this.cachedWorldStatesByHash.clear();
+    this.reset();
   }
 
   @Override
   public void onClearTrie() {
-    this.cachedWorldStatesByHash.clear();
+    this.reset();
   }
 
   @Override
   public void onCloseStorage() {
-    this.cachedWorldStatesByHash.clear();
+    this.reset();
   }
 
   public abstract DiffBasedWorldState createWorldState(
@@ -294,4 +307,32 @@ public abstract class DiffBasedCachedWorldStorageManager implements StorageSubsc
 
   public abstract DiffBasedWorldStateKeyValueStorage createSnapshotKeyValueStorage(
       final DiffBasedWorldStateKeyValueStorage worldStateKeyValueStorage);
+
+  private static class LoggingMap<K, V> extends HashMap<K, V> {
+    private static final Logger logger = LoggerFactory.getLogger(LoggingMap.class);
+
+    public LoggingMap(final Map<? extends K, ? extends V> m) {
+      super(m);
+    }
+
+    @Override
+    public V put(final K key, final V value) {
+      logger.info("Putting key: " + key + ", value: " + value);
+      return super.put(key, value);
+    }
+
+    @Override
+    public V remove(final Object key) {
+      logger.info("Removing key: " + key);
+      return super.remove(key);
+    }
+
+    @Override
+    public void clear() {
+      logger.info("Clearing map");
+      super.clear();
+    }
+
+    // Override other modifying methods if needed
+  }
 }

@@ -33,6 +33,10 @@ task testJar(type: Jar) {
   from sourceSets.test.output
 }
 
+test {
+  useJUnitPlatform()
+}
+
 dependencies {
   api 'org.slf4j:slf4j-api'
   api project(':util')

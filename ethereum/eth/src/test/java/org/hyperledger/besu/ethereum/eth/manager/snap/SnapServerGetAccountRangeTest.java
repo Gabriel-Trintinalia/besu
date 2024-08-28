@@ -15,6 +15,7 @@
 package org.hyperledger.besu.ethereum.eth.manager.snap;
 
 import static org.assertj.core.api.AssertionsForClassTypes.assertThat;
+import static org.hyperledger.besu.ethereum.storage.keyvalue.KeyValueSegmentIdentifier.ACCOUNT_INFO_STATE;
 
 import org.hyperledger.besu.datatypes.Hash;
 import org.hyperledger.besu.ethereum.ProtocolContext;
@@ -70,8 +71,45 @@ public class SnapServerGetAccountRangeTest {
                 worldStateStorageCoordinator,
                 protocolContext)
             .start();
-
     initAccounts();
+  }
+
+  @Test
+  @SuppressWarnings("UnusedVariable")
+  public void testBlock() {
+
+    var diffBasedCachedWorldStorageManager = snapServer.getDiffBasedCachedWorldStorageManager();
+
+    Hash hash =
+        protocolContext
+            .getBlockchain()
+            .getBlockHeader((protocolContext.getBlockchain().getChainHeadBlockNumber() - 1))
+            .orElseThrow()
+            .getStateRoot();
+
+    Hash headRoot =
+        protocolContext
+            .getBlockchain()
+            .getBlockHeader((protocolContext.getBlockchain().getChainHeadBlockNumber()))
+            .orElseThrow()
+            .getStateRoot();
+
+    var cachedState = diffBasedCachedWorldStorageManager.getStorageByRootHash(hash);
+
+    var totalCachedAccounts =
+        cachedState.get().getComposedWorldStateStorage().stream(ACCOUNT_INFO_STATE).toList().size();
+
+    // Clear cache
+    diffBasedCachedWorldStorageManager.reset();
+
+    var rollbackState = diffBasedCachedWorldStorageManager.getStorageByRootHash(hash);
+
+    var totalRollbackAccounts =
+        rollbackState.get().getComposedWorldStateStorage().stream(ACCOUNT_INFO_STATE)
+            .toList()
+            .size();
+
+    assertThat(totalRollbackAccounts).isEqualTo(totalCachedAccounts);
   }
 
   /**
@@ -276,8 +314,13 @@ public class SnapServerGetAccountRangeTest {
    */
   @Test
   public void test12_RequestStateRoot127BlocksOld() {
+
     Hash rootHash =
-        Hash.fromHexString("e5a5661f0d0f149de13c6a68eadbb59e31cb30cf6e18629346fe80789b1f3fbc");
+        protocolContext
+            .getBlockchain()
+            .getBlockHeader((protocolContext.getBlockchain().getChainHeadBlockNumber() - 127))
+            .orElseThrow()
+            .getStateRoot();
     testAccountRangeRequest(
         new AccountRangeRequestParams.Builder()
             .rootHash(rootHash)
@@ -353,6 +396,16 @@ public class SnapServerGetAccountRangeTest {
   }
 
   private void testAccountRangeRequest(final AccountRangeRequestParams params) {
+    NavigableMap<Bytes32, Bytes> accounts = getAccountRange(params);
+    assertThat(accounts.size()).isEqualTo(params.getExpectedAccounts());
+
+    if (params.getExpectedAccounts() > 0) {
+      assertThat(accounts.firstKey()).isEqualTo(params.getExpectedFirstAccount());
+      assertThat(accounts.lastKey()).isEqualTo(params.getExpectedLastAccount());
+    }
+  }
+
+  private NavigableMap<Bytes32, Bytes> getAccountRange(final AccountRangeRequestParams params) {
     Hash rootHash = params.getRootHash();
     Bytes32 startHash = params.getStartHash();
     Bytes32 limitHash = params.getLimitHash();
@@ -366,15 +419,10 @@ public class SnapServerGetAccountRangeTest {
             snapServer.constructGetAccountRangeResponse(
                 requestMessage.wrapMessageData(BigInteger.ONE)));
     NavigableMap<Bytes32, Bytes> accounts = resultMessage.accountData(false).accounts();
-    assertThat(resultMessage.accountData(false).accounts().size())
-        .isEqualTo(params.getExpectedAccounts());
-
-    if (params.getExpectedAccounts() > 0) {
-      assertThat(accounts.firstKey()).isEqualTo(params.getExpectedFirstAccount());
-      assertThat(accounts.lastKey()).isEqualTo(params.getExpectedLastAccount());
-    }
+    return accounts;
   }
 
+  @SuppressWarnings("UnusedVariable")
   private void initAccounts() {
     rootHash = protocolContext.getWorldStateArchive().getMutable().rootHash();
     GetAccountRangeMessage requestMessage =

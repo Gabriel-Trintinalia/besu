@@ -36,6 +36,8 @@ import org.hyperledger.besu.ethereum.trie.CompactEncoding;
 import org.hyperledger.besu.ethereum.trie.MerkleTrie;
 import org.hyperledger.besu.ethereum.trie.diffbased.bonsai.BonsaiWorldStateProvider;
 import org.hyperledger.besu.ethereum.trie.diffbased.bonsai.storage.BonsaiWorldStateKeyValueStorage;
+import org.hyperledger.besu.ethereum.trie.diffbased.common.DiffBasedWorldStateProvider;
+import org.hyperledger.besu.ethereum.trie.diffbased.common.cache.DiffBasedCachedWorldStorageManager;
 import org.hyperledger.besu.ethereum.worldstate.FlatDbMode;
 import org.hyperledger.besu.ethereum.worldstate.WorldStateStorageCoordinator;
 import org.hyperledger.besu.plugin.services.BesuEvents;
@@ -193,6 +195,30 @@ class SnapServer implements BesuEvents.InitialSyncCompletionListener {
     return this;
   }
 
+  public void clearCachedStorageManager() {
+    var bonsaiArchive =
+        protocolContext
+            .map(ProtocolContext::getWorldStateArchive)
+            .map(BonsaiWorldStateProvider.class::cast);
+    var cachedStorageManagerOpt =
+        bonsaiArchive.map(DiffBasedWorldStateProvider::getCachedWorldStorageManager);
+
+    if (cachedStorageManagerOpt.isPresent()) {
+      var cachedStorageManager = cachedStorageManagerOpt.get();
+      cachedStorageManager.reset();
+    }
+  }
+
+  public DiffBasedCachedWorldStorageManager getDiffBasedCachedWorldStorageManager() {
+    var bonsaiArchive =
+        protocolContext
+            .map(ProtocolContext::getWorldStateArchive)
+            .map(BonsaiWorldStateProvider.class::cast);
+    var cachedStorageManagerOpt =
+        bonsaiArchive.map(DiffBasedWorldStateProvider::getCachedWorldStorageManager);
+    return cachedStorageManagerOpt.orElse(null);
+  }
+
   public synchronized SnapServer stop() {
     isStarted.set(false);
     return this;
@@ -222,9 +248,9 @@ class SnapServer implements BesuEvents.InitialSyncCompletionListener {
     LOGGER
         .atTrace()
         .setMessage("Received getAccountRangeMessage for {} from {} to {}")
-        .addArgument(() -> asLogHash(range.worldStateRootHash()))
-        .addArgument(() -> asLogHash(range.startKeyHash()))
-        .addArgument(() -> asLogHash(range.endKeyHash()))
+        .addArgument(range::worldStateRootHash)
+        .addArgument(range::startKeyHash)
+        .addArgument(range::endKeyHash)
         .log();
     try {
       if (range.worldStateRootHash().equals(Hash.EMPTY_TRIE_HASH)) {
@@ -623,7 +649,7 @@ class SnapServer implements BesuEvents.InitialSyncCompletionListener {
 
   static class ResponseSizePredicate implements Predicate<Pair<Bytes32, Bytes>> {
     // default to a max of 4 seconds per request
-    static final long MAX_MILLIS_PER_REQUEST = 4000;
+    static final long MAX_MILLIS_PER_REQUEST = Integer.MAX_VALUE;
 
     final AtomicInteger byteLimit = new AtomicInteger(0);
     final AtomicInteger recordLimit = new AtomicInteger(0);
@@ -663,6 +689,8 @@ class SnapServer implements BesuEvents.InitialSyncCompletionListener {
             byteLimit.get());
         return false;
       }
+
+      LOGGER.atTrace().setMessage("Testing {}}").addArgument(pair).log();
 
       var underRecordLimit = recordLimit.addAndGet(1) <= MAX_ENTRIES_PER_REQUEST;
       var underByteLimit =

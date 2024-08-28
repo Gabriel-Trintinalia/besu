@@ -96,6 +96,13 @@ public class BlockchainSetupUtil {
     importBlocks(blocks.subList(0, count));
   }
 
+  public void importFirstBlocks(
+      final int count,
+      final HeaderValidationMode headerValidationMode,
+      final HeaderValidationMode ommerValidationMode) {
+    importBlocks(blocks.subList(0, count), headerValidationMode, ommerValidationMode);
+  }
+
   public void importBlockAtIndex(final int index) {
     importBlocks(Collections.singletonList(blocks.get(index)));
   }
