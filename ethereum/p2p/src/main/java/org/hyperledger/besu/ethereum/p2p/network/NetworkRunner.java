@@ -35,6 +35,7 @@ import java.util.concurrent.atomic.AtomicBoolean;
 import java.util.function.BiFunction;
 import java.util.stream.Collectors;
 
+import com.google.common.graph.NetworkBuilder;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 

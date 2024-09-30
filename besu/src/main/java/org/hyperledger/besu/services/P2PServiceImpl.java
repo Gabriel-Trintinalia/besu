@@ -14,8 +14,13 @@
  */
 package org.hyperledger.besu.services;
 
+import org.hyperledger.besu.datatypes.PeerInfo;
 import org.hyperledger.besu.ethereum.p2p.network.P2PNetwork;
+import org.hyperledger.besu.ethereum.p2p.rlpx.connections.PeerConnection;
+import org.hyperledger.besu.ethereum.p2p.rlpx.wire.Capability;
 import org.hyperledger.besu.plugin.services.p2p.P2PService;
+
+import java.util.stream.Stream;
 
 /** Service to enable and disable P2P discovery. */
 public class P2PServiceImpl implements P2PService {
@@ -40,5 +45,46 @@ public class P2PServiceImpl implements P2PService {
   @Override
   public void disableDiscovery() {
     p2PNetwork.stop();
+  }
+
+  /**
+   * Adds a message listener for a given message name and version.
+   *
+   * @param protocol the message name.
+   * @param version the message version.
+   * @param listener the listener to add.
+   */
+  @Override
+  public void addMessageListener(
+      final String protocol, final int version, final MessageListener listener) {
+    p2PNetwork.subscribe(
+        Capability.create(protocol, version),
+        (capability, message) ->
+            listener.onMessage(message.getConnection().getPeerInfo(), message.getData()));
+  }
+
+  @Override
+  public Stream<PeerInfo> getConnectedPeers() {
+    return p2PNetwork.getPeers().stream().map(PeerConnection::getPeerInfo);
+  }
+
+  @Override
+  public void addPeerConnectListener(final PeerConnectListener peerConnectListener) {
+    p2PNetwork.subscribeConnect(
+        (peerConnection) -> {
+          peerConnectListener.onConnect(peerConnection.getPeerInfo(), peerConnection.hashCode());
+        });
+  }
+
+  @Override
+  public void addPeerDisconnectListener(final PeerDisconnectListener peerDisconnectListener) {
+    p2PNetwork.subscribeDisconnect(
+        (peerConnection, disconnectReason, initiatedByPeer) -> {
+          peerDisconnectListener.onDisconnect(
+              peerConnection.getPeerInfo(),
+              disconnectReason.getMessage(),
+              initiatedByPeer,
+              peerConnection.hashCode());
+        });
   }
 }

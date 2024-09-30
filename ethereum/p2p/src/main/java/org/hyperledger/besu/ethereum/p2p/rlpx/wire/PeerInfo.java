@@ -38,7 +38,7 @@ import org.owasp.encoder.Encode;
  *
  * <p>The peer info is shared between peers during the <code>HELLO</code> wire protocol handshake.
  */
-public class PeerInfo implements Comparable<PeerInfo> {
+public class PeerInfo implements Comparable<PeerInfo>, org.hyperledger.besu.datatypes.PeerInfo {
   private final int version;
   private final String clientId;
   private final List<Capability> capabilities;
@@ -75,6 +75,7 @@ public class PeerInfo implements Comparable<PeerInfo> {
     return version;
   }
 
+  @Override
   public String getClientId() {
     return clientId;
   }
@@ -94,8 +95,14 @@ public class PeerInfo implements Comparable<PeerInfo> {
     return port;
   }
 
+  @Override
   public Bytes getNodeId() {
     return nodeId;
+  }
+
+  @Override
+  public String getDescription() {
+    return capabilities.toString();
   }
 
   public Address getAddress() {

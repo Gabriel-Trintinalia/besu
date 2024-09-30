@@ -25,27 +25,7 @@ import java.util.Map;
 import org.apache.tuweni.bytes.Bytes;
 
 /** A P2P Network Message's Data. */
-public interface MessageData {
-  /**
-   * Returns the size of the message.
-   *
-   * @return Number of bytes in this data.
-   */
-  int getSize();
-
-  /**
-   * Returns the message's code.
-   *
-   * @return Message Code
-   */
-  int getCode();
-
-  /**
-   * Get the serialized representation for this message
-   *
-   * @return the serialized representation of this message
-   */
-  Bytes getData();
+public interface MessageData extends org.hyperledger.besu.datatypes.MessageData {
 
   default MessageData wrapMessageData(final BigInteger requestId) {
     final BytesValueRLPOutput rlpOutput = new BytesValueRLPOutput();
