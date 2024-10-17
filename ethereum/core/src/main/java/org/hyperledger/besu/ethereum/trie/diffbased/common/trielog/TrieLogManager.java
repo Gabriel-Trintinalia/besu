@@ -140,6 +140,7 @@ public class TrieLogManager {
             .flatMap(context -> context.getService(TrieLogService.class));
 
     if (trieLogServicez.isPresent()) {
+      LOG.debug("Using TrieLogService for TrieLogFactory");
       var trieLogService = trieLogServicez.get();
       // push the TrieLogProvider into the TrieLogService
       trieLogService.configureTrieLogProvider(getTrieLogProvider());
@@ -152,6 +153,7 @@ public class TrieLogManager {
         return trieLogService.getTrieLogFactory().get();
       }
     }
+    LOG.info("Using default TrieLogFactoryImpl");
     // Otherwise default to TrieLogFactoryImpl
     return new TrieLogFactoryImpl();
   }

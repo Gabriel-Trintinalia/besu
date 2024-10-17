@@ -103,6 +103,12 @@ public interface MiningCoordinator {
       final List<Transaction> transactions,
       final List<BlockHeader> ommers);
 
+  Optional<Block> createBlock(
+      final BlockHeader parentHeader,
+      final List<Transaction> transactions,
+      final List<BlockHeader> ommers,
+      final long timestamp);
+
   /**
    * Creates a block if possible, otherwise return an empty result
    *

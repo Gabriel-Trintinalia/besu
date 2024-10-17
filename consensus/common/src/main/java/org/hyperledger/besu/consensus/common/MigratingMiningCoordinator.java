@@ -121,6 +121,15 @@ public class MigratingMiningCoordinator implements MiningCoordinator, BlockAdded
   }
 
   @Override
+  public Optional<Block> createBlock(
+      final BlockHeader parentHeader,
+      final List<Transaction> transactions,
+      final List<BlockHeader> ommers,
+      final long timestamp) {
+    return activeMiningCoordinator.createBlock(parentHeader, transactions, ommers, timestamp);
+  }
+
+  @Override
   public Optional<Block> createBlock(final BlockHeader parentHeader, final long timestamp) {
     return Optional.empty();
   }

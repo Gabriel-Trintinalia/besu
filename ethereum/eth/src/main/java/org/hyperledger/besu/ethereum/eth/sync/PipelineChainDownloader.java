@@ -173,7 +173,18 @@ public class PipelineChainDownloader implements ChainDownloader {
         .addArgument(() -> target.commonAncestor().getBlockHash())
         .log();
     currentDownloadPipeline = downloadPipelineFactory.createDownloadPipelineForSyncTarget(target);
-    return downloadPipelineFactory.startPipeline(
-        scheduler, syncState, target, currentDownloadPipeline);
+
+    CompletionStage<Void> downloadStage =
+        downloadPipelineFactory.startPipeline(
+            scheduler, syncState, target, currentDownloadPipeline);
+
+    // Log when the download pipeline is cancelled.
+    downloadStage.whenComplete(
+        (result, error) -> {
+          if (error instanceof CancellationException) {
+            LOG.info("Download pipeline cancelled");
+          }
+        });
+    return downloadStage;
   }
 }

@@ -51,6 +51,7 @@ public class FastSyncDownloader<REQUEST> {
 
   private final WorldStateStorageCoordinator worldStateStorageCoordinator;
   private final WorldStateDownloader worldStateDownloader;
+  private ChainDownloader chainDownloader;
   private final TaskCollection<REQUEST> taskCollection;
   private final Path fastSyncDataDirectory;
   private final SyncDurationMetrics syncDurationMetrics;
@@ -149,6 +150,9 @@ public class FastSyncDownloader<REQUEST> {
         LOG.info("Stopping sync");
         // Cancelling the world state download will also cause the chain download to be cancelled.
         worldStateDownloader.cancel();
+        if (chainDownloader != null) {
+          chainDownloader.cancel();
+        }
       }
     }
   }
@@ -194,8 +198,8 @@ public class FastSyncDownloader<REQUEST> {
       }
       final CompletableFuture<Void> worldStateFuture =
           worldStateDownloader.run(fastSyncActions, currentState);
-      final ChainDownloader chainDownloader =
-          fastSyncActions.createChainDownloader(currentState, syncDurationMetrics);
+
+      chainDownloader = fastSyncActions.createChainDownloader(currentState, syncDurationMetrics);
       final CompletableFuture<Void> chainFuture = chainDownloader.start();
 
       // If either download fails, cancel the other one.

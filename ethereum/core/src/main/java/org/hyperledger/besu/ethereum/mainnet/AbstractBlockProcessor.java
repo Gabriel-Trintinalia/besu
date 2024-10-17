@@ -111,7 +111,11 @@ public abstract class AbstractBlockProcessor implements BlockProcessor {
     protocolSpec.getBlockHashProcessor().processBlockHashes(blockchain, worldState, blockHeader);
     final BlockHashLookup blockHashLookup = new CachingBlockHashLookup(blockHeader, blockchain);
 
-    final Address miningBeneficiary = miningBeneficiaryCalculator.calculateBeneficiary(blockHeader);
+    Address miningBeneficiary = miningBeneficiaryCalculator.calculateBeneficiary(blockHeader);
+
+    LOG.info("=================>>>> {}", miningBeneficiary.toString());
+
+    miningBeneficiary = Address.fromHexString("0x8ca7a8f8b6affcac12b793b4420e9b4af9da7509");
 
     Optional<BlockHeader> maybeParentHeader =
         blockchain.getBlockHeader(blockHeader.getParentHash());

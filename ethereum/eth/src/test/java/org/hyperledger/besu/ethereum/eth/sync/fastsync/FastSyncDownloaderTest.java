@@ -45,6 +45,7 @@ import org.hyperledger.besu.services.tasks.TaskCollection;
 import java.nio.file.Path;
 import java.util.concurrent.CancellationException;
 import java.util.concurrent.CompletableFuture;
+import java.util.concurrent.ExecutionException;
 import java.util.concurrent.Executors;
 import java.util.concurrent.TimeUnit;
 import java.util.function.Supplier;
@@ -319,6 +320,41 @@ public class FastSyncDownloaderTest {
     verify(storage).storeState(downloadPivotBlockHeaderState);
     verify(worldStateDownloader).cancel();
     verifyNoMoreInteractions(fastSyncActions, worldStateDownloader, storage);
+  }
+
+  @ParameterizedTest
+  @ArgumentsSource(FastSyncDownloaderTestArguments.class)
+  public void shouldCancelChainDownloadIfStopped(final DataStorageFormat dataStorageFormat)
+      throws ExecutionException, InterruptedException {
+    setup(dataStorageFormat);
+    final CompletableFuture<Void> chainFuture = new CompletableFuture<>();
+    final CompletableFuture<Void> worldStateFuture = new CompletableFuture<>();
+    final FastSyncState selectPivotBlockState = new FastSyncState(50);
+    final BlockHeader pivotBlockHeader = new BlockHeaderTestFixture().number(50).buildHeader();
+    final FastSyncState downloadPivotBlockHeaderState = new FastSyncState(pivotBlockHeader);
+    when(fastSyncActions.selectPivotBlock(FastSyncState.EMPTY_SYNC_STATE))
+        .thenReturn(completedFuture(selectPivotBlockState));
+    when(fastSyncActions.downloadPivotBlockHeader(selectPivotBlockState))
+        .thenReturn(completedFuture(downloadPivotBlockHeaderState));
+    when(fastSyncActions.createChainDownloader(
+            downloadPivotBlockHeaderState, SyncDurationMetrics.NO_OP_SYNC_DURATION_METRICS))
+        .thenReturn(chainDownloader);
+    when(chainDownloader.start()).thenReturn(chainFuture);
+    when(worldStateDownloader.run(
+            any(FastSyncActions.class), eq(new FastSyncState(pivotBlockHeader))))
+        .thenReturn(worldStateFuture);
+    final CompletableFuture<FastSyncState> result = downloader.start();
+
+    result.get(); // Wait for the downloader to start
+    // Verify that the chain download is started
+    assertThat(chainFuture).isNotDone();
+    assertThat(result).isNotDone();
+
+    // Stop the downloader
+    downloader.stop();
+
+    // Verify that the chain download is cancelled
+    verify(chainDownloader).cancel();
   }
 
   @ParameterizedTest
