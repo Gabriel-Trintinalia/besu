@@ -113,7 +113,7 @@ public abstract class AbstractBlockProcessor implements BlockProcessor {
 
     Address miningBeneficiary = miningBeneficiaryCalculator.calculateBeneficiary(blockHeader);
 
-    LOG.info("=================>>>> {}", miningBeneficiary.toString());
+    LOG.debug("=================>>>> {}", miningBeneficiary.toString());
 
     miningBeneficiary = Address.fromHexString("0x8ca7a8f8b6affcac12b793b4420e9b4af9da7509");
 
