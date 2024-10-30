@@ -285,40 +285,6 @@ public class BlockHeader extends SealableBlockHeader
     return sb.append("}").toString();
   }
 
-  public static org.hyperledger.besu.ethereum.core.BlockHeader convertPluginBlockHeader(
-      final org.hyperledger.besu.plugin.data.BlockHeader pluginBlockHeader,
-      final BlockHeaderFunctions blockHeaderFunctions) {
-    return new org.hyperledger.besu.ethereum.core.BlockHeader(
-        Hash.fromHexString(pluginBlockHeader.getParentHash().toHexString()),
-        Hash.fromHexString(pluginBlockHeader.getOmmersHash().toHexString()),
-        Address.fromHexString(pluginBlockHeader.getCoinbase().toHexString()),
-        Hash.fromHexString(pluginBlockHeader.getStateRoot().toHexString()),
-        Hash.fromHexString(pluginBlockHeader.getTransactionsRoot().toHexString()),
-        Hash.fromHexString(pluginBlockHeader.getReceiptsRoot().toHexString()),
-        LogsBloomFilter.fromHexString(pluginBlockHeader.getLogsBloom().toHexString()),
-        Difficulty.fromHexString(pluginBlockHeader.getDifficulty().toHexString()),
-        pluginBlockHeader.getNumber(),
-        pluginBlockHeader.getGasLimit(),
-        pluginBlockHeader.getGasUsed(),
-        pluginBlockHeader.getTimestamp(),
-        pluginBlockHeader.getExtraData(),
-        pluginBlockHeader.getBaseFee().map(Wei::fromQuantity).orElse(null),
-        pluginBlockHeader.getPrevRandao().orElse(null),
-        pluginBlockHeader.getNonce(),
-        pluginBlockHeader
-            .getWithdrawalsRoot()
-            .map(h -> Hash.fromHexString(h.toHexString()))
-            .orElse(null),
-        pluginBlockHeader.getBlobGasUsed().map(Long::longValue).orElse(null),
-        pluginBlockHeader.getExcessBlobGas().map(BlobGas.class::cast).orElse(null),
-        pluginBlockHeader.getParentBeaconBlockRoot().orElse(null),
-        pluginBlockHeader
-            .getRequestsRoot()
-            .map(h -> Hash.fromHexString(h.toHexString()))
-            .orElse(null),
-        blockHeaderFunctions);
-  }
-
   @Override
   public String toLogString() {
     return getNumber() + " (" + getHash() + ")";

@@ -20,6 +20,7 @@ import org.hyperledger.besu.consensus.common.validator.VoteType;
 import org.hyperledger.besu.datatypes.Address;
 import org.hyperledger.besu.ethereum.core.BlockHeader;
 import org.hyperledger.besu.ethereum.core.BlockHeaderBuilder;
+import org.hyperledger.besu.ethereum.core.plugins.PluginConverter;
 
 import java.util.Collection;
 import java.util.Optional;
@@ -55,7 +56,7 @@ public class CliqueBlockInterface implements BlockInterface {
   @Override
   public Address getProposerOfBlock(final org.hyperledger.besu.plugin.data.BlockHeader header) {
     return getProposerOfBlock(
-        BlockHeader.convertPluginBlockHeader(header, new CliqueBlockHeaderFunctions()));
+        PluginConverter.toBlockHeader(header, new CliqueBlockHeaderFunctions()));
   }
 
   @Override

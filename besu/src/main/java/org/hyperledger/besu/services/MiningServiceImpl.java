@@ -1,0 +1,39 @@
+/*
+ * Copyright contributors to Hyperledger Besu.
+ *
+ * Licensed under the Apache License, Version 2.0 (the "License"); you may not use this file except in compliance with
+ * the License. You may obtain a copy of the License at
+ *
+ * http://www.apache.org/licenses/LICENSE-2.0
+ *
+ * Unless required by applicable law or agreed to in writing, software distributed under the License is distributed on
+ * an "AS IS" BASIS, WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied. See the License for the
+ * specific language governing permissions and limitations under the License.
+ *
+ * SPDX-License-Identifier: Apache-2.0
+ */
+package org.hyperledger.besu.services;
+
+import org.hyperledger.besu.ethereum.blockcreation.MiningCoordinator;
+import org.hyperledger.besu.plugin.services.mining.MiningService;
+
+/** Service to control mining. */
+public class MiningServiceImpl implements MiningService {
+
+  private final MiningCoordinator miningCoordinator;
+
+  /**
+   * Creates a new MiningServiceImpl.
+   *
+   * @param miningCoordinator the miningCoordinator to enable and disable.
+   */
+  public MiningServiceImpl(final MiningCoordinator miningCoordinator) {
+    this.miningCoordinator = miningCoordinator;
+  }
+
+  /** Stop mining */
+  @Override
+  public void stop() {
+    miningCoordinator.stop();
+  }
+}

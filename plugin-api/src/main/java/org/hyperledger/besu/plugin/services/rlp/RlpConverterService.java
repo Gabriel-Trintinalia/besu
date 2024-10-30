@@ -14,7 +14,9 @@
  */
 package org.hyperledger.besu.plugin.services.rlp;
 
+import org.hyperledger.besu.datatypes.Transaction;
 import org.hyperledger.besu.plugin.data.BlockBody;
+import org.hyperledger.besu.plugin.data.BlockContext;
 import org.hyperledger.besu.plugin.data.BlockHeader;
 import org.hyperledger.besu.plugin.data.TransactionReceipt;
 import org.hyperledger.besu.plugin.services.BesuService;
@@ -23,6 +25,13 @@ import org.apache.tuweni.bytes.Bytes;
 
 /** RLP Serialiaztion/Deserialization service. */
 public interface RlpConverterService extends BesuService {
+  /**
+   * Builds a block from RLP.
+   *
+   * @param rlp the RLP to build the block from.
+   * @return the block.
+   */
+  BlockContext buildBlockFromRlp(final Bytes rlp);
 
   /**
    * Builds a block header from RLP.
@@ -39,6 +48,14 @@ public interface RlpConverterService extends BesuService {
    * @return the block body.
    */
   BlockBody buildBodyFromRlp(final Bytes rlp);
+
+  /**
+   * Builds a transaction from RLP.
+   *
+   * @param rlp the RLP to build the transaction from.
+   * @return the transaction.
+   */
+  Transaction buildTransactionFromRlp(final Bytes rlp);
 
   /**
    * Builds a transaction receipt from RLP.

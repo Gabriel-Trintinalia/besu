@@ -12,28 +12,12 @@
  *
  * SPDX-License-Identifier: Apache-2.0
  */
-package org.hyperledger.besu.services;
+package org.hyperledger.besu.plugin.services.mining;
 
-import org.hyperledger.besu.ethereum.blockcreation.MiningCoordinator;
-import org.hyperledger.besu.plugin.services.mining.MinerService;
-
+import org.hyperledger.besu.plugin.services.BesuService;
 
 /** Service to control mining. */
-public class MinerServiceImpl implements MinerService {
-
-  private final MiningCoordinator miningCoordinator;
-  /**
-   * Creates a new MinerServiceImpl.
-   *
-   * @param miningCoordinator the miningCoordinator to enable and disable.
-   */
-  public MinerServiceImpl(final MiningCoordinator miningCoordinator) {
-    this.miningCoordinator = miningCoordinator;
-  }
-
+public interface MiningService extends BesuService {
   /** Stop mining */
-  @Override
-  public void stop() {
-    miningCoordinator.stop();
-  }
+  void stop();
 }
