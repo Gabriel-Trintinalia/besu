@@ -20,6 +20,7 @@ import org.hyperledger.besu.ethereum.core.BlockBody;
 import org.hyperledger.besu.ethereum.core.BlockHeader;
 import org.hyperledger.besu.ethereum.core.Transaction;
 import org.hyperledger.besu.ethereum.core.TransactionReceipt;
+import org.hyperledger.besu.ethereum.core.encoding.BlockHeaderEncoder;
 import org.hyperledger.besu.ethereum.core.encoding.EncodingContext;
 import org.hyperledger.besu.ethereum.core.encoding.TransactionEncoder;
 import org.hyperledger.besu.ethereum.eth.EthProtocolConfiguration;
@@ -144,7 +145,8 @@ class EthServer {
     int responseSizeEstimate = RLP.MAX_PREFIX_SIZE;
     final BytesValueRLPOutput rlp = new BytesValueRLPOutput();
     rlp.startList();
-    final Bytes firstEncodedHeader = RLP.encode(firstHeader::writeTo);
+    final Bytes firstEncodedHeader =
+        RLP.encode((out) -> BlockHeaderEncoder.writeTo(firstHeader, out));
     if (responseSizeEstimate + firstEncodedHeader.size() > maxMessageSize) {
       return BlockHeadersMessage.create(Collections.emptyList());
     }
@@ -162,7 +164,7 @@ class EthServer {
         break;
       }
       final BytesValueRLPOutput headerRlp = new BytesValueRLPOutput();
-      maybeHeader.get().writeTo(headerRlp);
+      BlockHeaderEncoder.writeTo(maybeHeader.get(), headerRlp);
       final int encodedSize = headerRlp.encodedSize();
       if (responseSizeEstimate + encodedSize > maxMessageSize) {
         break;

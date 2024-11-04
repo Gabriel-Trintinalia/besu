@@ -19,6 +19,7 @@ import org.hyperledger.besu.datatypes.Hash;
 import org.hyperledger.besu.ethereum.core.BlockHeader;
 import org.hyperledger.besu.ethereum.core.BlockHeaderBuilder;
 import org.hyperledger.besu.ethereum.core.Util;
+import org.hyperledger.besu.ethereum.core.encoding.BlockHeaderEncoder;
 import org.hyperledger.besu.ethereum.rlp.BytesValueRLPOutput;
 
 import java.util.List;
@@ -132,7 +133,7 @@ public class BftBlockHashing {
     }
 
     final BytesValueRLPOutput out = new BytesValueRLPOutput();
-    builder.buildBlockHeader().writeTo(out);
+    BlockHeaderEncoder.writeTo(builder.buildBlockHeader(), out);
     return out.encoded();
   }
 }

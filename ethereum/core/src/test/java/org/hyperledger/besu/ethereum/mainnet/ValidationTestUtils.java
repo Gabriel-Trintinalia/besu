@@ -19,6 +19,7 @@ import org.hyperledger.besu.ethereum.core.BlockBody;
 import org.hyperledger.besu.ethereum.core.BlockHeader;
 import org.hyperledger.besu.ethereum.core.Transaction;
 import org.hyperledger.besu.ethereum.core.Withdrawal;
+import org.hyperledger.besu.ethereum.core.encoding.BlockHeaderDecoder;
 import org.hyperledger.besu.ethereum.rlp.BytesValueRLPInput;
 import org.hyperledger.besu.ethereum.rlp.RLPInput;
 
@@ -39,7 +40,7 @@ public final class ValidationTestUtils {
                     EthHashTest.class.getResource(String.format("block_%d.blocks", num)))),
             false);
     input.enterList();
-    return BlockHeader.readFrom(input, new MainnetBlockHeaderFunctions());
+    return BlockHeaderDecoder.decode(input, new MainnetBlockHeaderFunctions());
   }
 
   public static BlockBody readBody(final long num) throws IOException {
@@ -53,7 +54,7 @@ public final class ValidationTestUtils {
     input.skipNext();
     final List<Transaction> transactions = input.readList(Transaction::readFrom);
     final List<BlockHeader> ommers =
-        input.readList(rlp -> BlockHeader.readFrom(rlp, new MainnetBlockHeaderFunctions()));
+        input.readList(rlp -> BlockHeaderDecoder.decode(rlp, new MainnetBlockHeaderFunctions()));
     final Optional<List<Withdrawal>> withdrawals =
         input.isEndOfCurrentList()
             ? Optional.empty()

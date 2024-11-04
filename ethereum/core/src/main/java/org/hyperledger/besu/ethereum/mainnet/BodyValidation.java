@@ -23,6 +23,7 @@ import org.hyperledger.besu.ethereum.core.Request;
 import org.hyperledger.besu.ethereum.core.Transaction;
 import org.hyperledger.besu.ethereum.core.TransactionReceipt;
 import org.hyperledger.besu.ethereum.core.Withdrawal;
+import org.hyperledger.besu.ethereum.core.encoding.BlockHeaderEncoder;
 import org.hyperledger.besu.ethereum.core.encoding.EncodingContext;
 import org.hyperledger.besu.ethereum.core.encoding.TransactionEncoder;
 import org.hyperledger.besu.ethereum.core.encoding.WithdrawalEncoder;
@@ -138,7 +139,8 @@ public final class BodyValidation {
    * @return the ommers hash
    */
   public static Hash ommersHash(final List<BlockHeader> ommers) {
-    return Hash.wrap(keccak256(RLP.encode(out -> out.writeList(ommers, BlockHeader::writeTo))));
+    return Hash.wrap(
+        keccak256(RLP.encode(out -> out.writeList(ommers, BlockHeaderEncoder::writeTo))));
   }
 
   /**

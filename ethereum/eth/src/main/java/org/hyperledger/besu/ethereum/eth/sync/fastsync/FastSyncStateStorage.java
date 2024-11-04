@@ -14,8 +14,9 @@
  */
 package org.hyperledger.besu.ethereum.eth.sync.fastsync;
 
-import org.hyperledger.besu.ethereum.core.BlockHeader;
 import org.hyperledger.besu.ethereum.core.BlockHeaderFunctions;
+import org.hyperledger.besu.ethereum.core.encoding.BlockHeaderDecoder;
+import org.hyperledger.besu.ethereum.core.encoding.BlockHeaderEncoder;
 import org.hyperledger.besu.ethereum.rlp.BytesValueRLPInput;
 import org.hyperledger.besu.ethereum.rlp.BytesValueRLPOutput;
 
@@ -56,7 +57,7 @@ public class FastSyncStateStorage {
       }
       final Bytes rlp = Bytes.wrap(Files.toByteArray(pivotBlockHeaderFile));
       return new FastSyncState(
-          BlockHeader.readFrom(new BytesValueRLPInput(rlp, false), blockHeaderFunctions));
+          BlockHeaderDecoder.decode(new BytesValueRLPInput(rlp, false), blockHeaderFunctions));
     } catch (final IOException e) {
       throw new IllegalStateException(
           "Unable to read fast sync status file: " + pivotBlockHeaderFile.getAbsolutePath());
@@ -73,7 +74,7 @@ public class FastSyncStateStorage {
     }
     try {
       final BytesValueRLPOutput output = new BytesValueRLPOutput();
-      state.getPivotBlockHeader().get().writeTo(output);
+      BlockHeaderEncoder.writeTo(state.getPivotBlockHeader().get(), output);
       Files.write(output.encoded().toArrayUnsafe(), pivotBlockHeaderFile);
     } catch (final IOException e) {
       throw new IllegalStateException(

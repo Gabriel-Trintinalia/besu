@@ -15,6 +15,8 @@
 package org.hyperledger.besu.services;
 
 import org.hyperledger.besu.ethereum.core.BlockHeaderFunctions;
+import org.hyperledger.besu.ethereum.core.encoding.BlockHeaderDecoder;
+import org.hyperledger.besu.ethereum.core.encoding.BlockHeaderEncoder;
 import org.hyperledger.besu.ethereum.mainnet.ProtocolSchedule;
 import org.hyperledger.besu.ethereum.mainnet.ScheduleBasedBlockHeaderFunctions;
 import org.hyperledger.besu.ethereum.rlp.RLP;
@@ -41,8 +43,7 @@ public class RlpConverterServiceImpl implements RlpConverterService {
 
   @Override
   public BlockHeader buildHeaderFromRlp(final Bytes rlp) {
-    return org.hyperledger.besu.ethereum.core.BlockHeader.readFrom(
-        RLP.input(rlp), blockHeaderFunctions);
+    return BlockHeaderDecoder.decode(RLP.input(rlp), blockHeaderFunctions);
   }
 
   @Override
@@ -58,10 +59,11 @@ public class RlpConverterServiceImpl implements RlpConverterService {
 
   @Override
   public Bytes buildRlpFromHeader(final BlockHeader blockHeader) {
-    return RLP.encode(
+
+    org.hyperledger.besu.ethereum.core.BlockHeader coreBlock =
         org.hyperledger.besu.ethereum.core.BlockHeader.convertPluginBlockHeader(
-                blockHeader, blockHeaderFunctions)
-            ::writeTo);
+            blockHeader, blockHeaderFunctions);
+    return RLP.encode(output -> BlockHeaderEncoder.writeTo(coreBlock, output));
   }
 
   @Override

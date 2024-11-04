@@ -18,9 +18,9 @@ import static org.assertj.core.api.Assertions.assertThat;
 
 import org.hyperledger.besu.ethereum.core.Block;
 import org.hyperledger.besu.ethereum.core.BlockDataGenerator;
-import org.hyperledger.besu.ethereum.core.BlockHeader;
 import org.hyperledger.besu.ethereum.core.BlockHeaderFunctions;
 import org.hyperledger.besu.ethereum.core.Transaction;
+import org.hyperledger.besu.ethereum.core.encoding.BlockHeaderEncoder;
 import org.hyperledger.besu.ethereum.mainnet.MainnetBlockHeaderFunctions;
 import org.hyperledger.besu.ethereum.rlp.BytesValueRLPOutput;
 
@@ -98,9 +98,9 @@ public class RawBlockIteratorTest {
   private byte[] serializeBlock(final Block block) {
     final BytesValueRLPOutput out = new BytesValueRLPOutput();
     out.startList();
-    block.getHeader().writeTo(out);
+    BlockHeaderEncoder.writeTo(block.getHeader(), out);
     out.writeList(block.getBody().getTransactions(), Transaction::writeTo);
-    out.writeList(block.getBody().getOmmers(), BlockHeader::writeTo);
+    out.writeList(block.getBody().getOmmers(), BlockHeaderEncoder::writeTo);
     out.endList();
     return out.encoded().toArray();
   }

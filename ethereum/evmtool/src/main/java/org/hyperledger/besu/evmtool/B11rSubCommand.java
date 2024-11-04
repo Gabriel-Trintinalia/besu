@@ -19,6 +19,7 @@ import static org.hyperledger.besu.evmtool.B11rSubCommand.COMMAND_NAME;
 
 import org.hyperledger.besu.crypto.SignatureAlgorithmFactory;
 import org.hyperledger.besu.ethereum.core.BlockHeaderBuilder;
+import org.hyperledger.besu.ethereum.core.encoding.BlockHeaderEncoder;
 import org.hyperledger.besu.ethereum.mainnet.MainnetBlockHeaderFunctions;
 import org.hyperledger.besu.ethereum.referencetests.BlockchainReferenceTestCaseSpec.ReferenceTestBlockHeader;
 import org.hyperledger.besu.ethereum.rlp.BytesValueRLPOutput;
@@ -235,7 +236,7 @@ public class B11rSubCommand implements Runnable {
             .buildBlockHeader();
     BytesValueRLPOutput rlpOut = new BytesValueRLPOutput();
     rlpOut.startList();
-    newHeader.writeTo(rlpOut);
+    BlockHeaderEncoder.writeTo(newHeader, rlpOut);
     if (txsBytes != null && !txsBytes.isEmpty()) {
       rlpOut.writeRaw(txsBytes);
     } else {

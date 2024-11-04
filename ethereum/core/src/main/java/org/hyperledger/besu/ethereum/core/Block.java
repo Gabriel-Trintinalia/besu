@@ -15,6 +15,8 @@
 package org.hyperledger.besu.ethereum.core;
 
 import org.hyperledger.besu.datatypes.Hash;
+import org.hyperledger.besu.ethereum.core.encoding.BlockHeaderDecoder;
+import org.hyperledger.besu.ethereum.core.encoding.BlockHeaderEncoder;
 import org.hyperledger.besu.ethereum.rlp.RLP;
 import org.hyperledger.besu.ethereum.rlp.RLPInput;
 import org.hyperledger.besu.ethereum.rlp.RLPOutput;
@@ -58,9 +60,10 @@ public class Block {
   public void writeTo(final RLPOutput out) {
     out.startList();
 
-    header.writeTo(out);
+    BlockHeaderEncoder.writeTo(header, out);
+
     out.writeList(body.getTransactions(), Transaction::writeTo);
-    out.writeList(body.getOmmers(), BlockHeader::writeTo);
+    out.writeList(body.getOmmers(), BlockHeaderEncoder::writeTo);
     body.getWithdrawals().ifPresent(withdrawals -> out.writeList(withdrawals, Withdrawal::writeTo));
 
     out.endList();
@@ -68,9 +71,10 @@ public class Block {
 
   public static Block readFrom(final RLPInput in, final BlockHeaderFunctions hashFunction) {
     in.enterList();
-    final BlockHeader header = BlockHeader.readFrom(in, hashFunction);
+    final BlockHeader header = BlockHeaderDecoder.decode(in, hashFunction);
     final List<Transaction> transactions = in.readList(Transaction::readFrom);
-    final List<BlockHeader> ommers = in.readList(rlp -> BlockHeader.readFrom(rlp, hashFunction));
+    final List<BlockHeader> ommers =
+        in.readList(rlp -> BlockHeaderDecoder.decode(rlp, hashFunction));
     final Optional<List<Withdrawal>> withdrawals =
         in.isEndOfCurrentList() ? Optional.empty() : Optional.of(in.readList(Withdrawal::readFrom));
     in.leaveList();

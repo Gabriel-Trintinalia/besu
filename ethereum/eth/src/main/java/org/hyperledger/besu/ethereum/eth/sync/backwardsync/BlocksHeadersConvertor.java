@@ -16,6 +16,8 @@ package org.hyperledger.besu.ethereum.eth.sync.backwardsync;
 
 import org.hyperledger.besu.ethereum.core.BlockHeader;
 import org.hyperledger.besu.ethereum.core.BlockHeaderFunctions;
+import org.hyperledger.besu.ethereum.core.encoding.BlockHeaderDecoder;
+import org.hyperledger.besu.ethereum.core.encoding.BlockHeaderEncoder;
 import org.hyperledger.besu.ethereum.rlp.BytesValueRLPOutput;
 import org.hyperledger.besu.ethereum.rlp.RLP;
 
@@ -34,13 +36,13 @@ public class BlocksHeadersConvertor implements ValueConvertor<BlockHeader> {
 
   @Override
   public BlockHeader fromBytes(final byte[] bytes) {
-    return BlockHeader.readFrom(RLP.input(Bytes.wrap(bytes)), blockHeaderFunctions);
+    return BlockHeaderDecoder.decode(RLP.input(Bytes.wrap(bytes)), blockHeaderFunctions);
   }
 
   @Override
   public byte[] toBytes(final BlockHeader value) {
     BytesValueRLPOutput output = new BytesValueRLPOutput();
-    value.writeTo(output);
+    BlockHeaderEncoder.writeTo(value, output);
     return output.encoded().toArrayUnsafe();
   }
 }

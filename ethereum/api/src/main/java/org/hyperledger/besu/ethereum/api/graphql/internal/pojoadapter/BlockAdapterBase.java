@@ -26,6 +26,7 @@ import org.hyperledger.besu.ethereum.api.query.TransactionWithMetadata;
 import org.hyperledger.besu.ethereum.core.BlockHeader;
 import org.hyperledger.besu.ethereum.core.Difficulty;
 import org.hyperledger.besu.ethereum.core.LogWithMetadata;
+import org.hyperledger.besu.ethereum.core.encoding.BlockHeaderEncoder;
 import org.hyperledger.besu.ethereum.mainnet.ImmutableTransactionValidationParams;
 import org.hyperledger.besu.ethereum.mainnet.ProtocolSchedule;
 import org.hyperledger.besu.ethereum.mainnet.TransactionValidationParams;
@@ -389,7 +390,7 @@ public class BlockAdapterBase extends AdapterBase {
    */
   Bytes getRawHeader() {
     final BytesValueRLPOutput rlpOutput = new BytesValueRLPOutput();
-    header.writeTo(rlpOutput);
+    BlockHeaderEncoder.writeTo(header, rlpOutput);
     return rlpOutput.encoded();
   }
 

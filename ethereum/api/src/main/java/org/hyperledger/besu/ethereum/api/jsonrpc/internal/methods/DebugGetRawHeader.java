@@ -22,6 +22,7 @@ import org.hyperledger.besu.ethereum.api.jsonrpc.internal.parameters.JsonRpcPara
 import org.hyperledger.besu.ethereum.api.jsonrpc.internal.response.JsonRpcErrorResponse;
 import org.hyperledger.besu.ethereum.api.jsonrpc.internal.response.RpcErrorType;
 import org.hyperledger.besu.ethereum.api.query.BlockchainQueries;
+import org.hyperledger.besu.ethereum.core.encoding.BlockHeaderEncoder;
 import org.hyperledger.besu.ethereum.rlp.RLP;
 
 import com.google.common.base.Suppliers;
@@ -53,7 +54,9 @@ public class DebugGetRawHeader extends AbstractBlockParameterMethod {
 
     return getBlockchainQueries()
         .blockByNumber(blockNumber)
-        .<Object>map(block -> RLP.encode(block.getHeader()::writeTo).toString())
+        .<Object>map(
+            block ->
+                RLP.encode((out) -> BlockHeaderEncoder.writeTo(block.getHeader(), out)).toString())
         .orElseGet(
             () ->
                 new JsonRpcErrorResponse(

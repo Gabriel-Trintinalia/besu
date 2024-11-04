@@ -18,8 +18,6 @@ import org.hyperledger.besu.datatypes.Address;
 import org.hyperledger.besu.datatypes.BlobGas;
 import org.hyperledger.besu.datatypes.Hash;
 import org.hyperledger.besu.datatypes.Wei;
-import org.hyperledger.besu.ethereum.rlp.RLPInput;
-import org.hyperledger.besu.ethereum.rlp.RLPOutput;
 import org.hyperledger.besu.evm.log.LogsBloomFilter;
 
 import java.util.Objects;
@@ -149,108 +147,6 @@ public class BlockHeader extends SealableBlockHeader
   @Override
   public Hash getBlockHash() {
     return hash.get();
-  }
-
-  /**
-   * Write an RLP representation.
-   *
-   * @param out The RLP output to write to
-   */
-  public void writeTo(final RLPOutput out) {
-    out.startList();
-
-    out.writeBytes(parentHash);
-    out.writeBytes(ommersHash);
-    out.writeBytes(coinbase);
-    out.writeBytes(stateRoot);
-    out.writeBytes(transactionsRoot);
-    out.writeBytes(receiptsRoot);
-    out.writeBytes(logsBloom);
-    out.writeUInt256Scalar(difficulty);
-    out.writeLongScalar(number);
-    out.writeLongScalar(gasLimit);
-    out.writeLongScalar(gasUsed);
-    out.writeLongScalar(timestamp);
-    out.writeBytes(extraData);
-    out.writeBytes(mixHashOrPrevRandao);
-    out.writeLong(nonce);
-    do {
-      if (baseFee == null) break;
-      out.writeUInt256Scalar(baseFee);
-
-      if (withdrawalsRoot == null) break;
-      out.writeBytes(withdrawalsRoot);
-
-      if (excessBlobGas == null || blobGasUsed == null) break;
-      out.writeLongScalar(blobGasUsed);
-      out.writeUInt64Scalar(excessBlobGas);
-
-      if (parentBeaconBlockRoot == null) break;
-      out.writeBytes(parentBeaconBlockRoot);
-
-      if (requestsHash == null) break;
-      out.writeBytes(requestsHash);
-
-      if (targetBlobCount == null) break;
-      out.writeUInt64Scalar(targetBlobCount);
-    } while (false);
-    out.endList();
-  }
-
-  public static BlockHeader readFrom(
-      final RLPInput input, final BlockHeaderFunctions blockHeaderFunctions) {
-    input.enterList();
-    final Hash parentHash = Hash.wrap(input.readBytes32());
-    final Hash ommersHash = Hash.wrap(input.readBytes32());
-    final Address coinbase = Address.readFrom(input);
-    final Hash stateRoot = Hash.wrap(input.readBytes32());
-    final Hash transactionsRoot = Hash.wrap(input.readBytes32());
-    final Hash receiptsRoot = Hash.wrap(input.readBytes32());
-    final LogsBloomFilter logsBloom = LogsBloomFilter.readFrom(input);
-    final Difficulty difficulty = Difficulty.of(input.readUInt256Scalar());
-    final long number = input.readLongScalar();
-    final long gasLimit = input.readLongScalar();
-    final long gasUsed = input.readLongScalar();
-    final long timestamp = input.readLongScalar();
-    final Bytes extraData = input.readBytes();
-    final Bytes32 mixHashOrPrevRandao = input.readBytes32();
-    final long nonce = input.readLong();
-    final Wei baseFee = !input.isEndOfCurrentList() ? Wei.of(input.readUInt256Scalar()) : null;
-    final Hash withdrawalHashRoot =
-        !(input.isEndOfCurrentList() || input.isZeroLengthString())
-            ? Hash.wrap(input.readBytes32())
-            : null;
-    final Long blobGasUsed = !input.isEndOfCurrentList() ? input.readLongScalar() : null;
-    final BlobGas excessBlobGas =
-        !input.isEndOfCurrentList() ? BlobGas.of(input.readUInt64Scalar()) : null;
-    final Bytes32 parentBeaconBlockRoot = !input.isEndOfCurrentList() ? input.readBytes32() : null;
-    final Hash requestsHash = !input.isEndOfCurrentList() ? Hash.wrap(input.readBytes32()) : null;
-    final UInt64 targetBlobCount = !input.isEndOfCurrentList() ? input.readUInt64Scalar() : null;
-    input.leaveList();
-    return new BlockHeader(
-        parentHash,
-        ommersHash,
-        coinbase,
-        stateRoot,
-        transactionsRoot,
-        receiptsRoot,
-        logsBloom,
-        difficulty,
-        number,
-        gasLimit,
-        gasUsed,
-        timestamp,
-        extraData,
-        baseFee,
-        mixHashOrPrevRandao,
-        nonce,
-        withdrawalHashRoot,
-        blobGasUsed,
-        excessBlobGas,
-        parentBeaconBlockRoot,
-        requestsHash,
-        targetBlobCount,
-        blockHeaderFunctions);
   }
 
   @Override

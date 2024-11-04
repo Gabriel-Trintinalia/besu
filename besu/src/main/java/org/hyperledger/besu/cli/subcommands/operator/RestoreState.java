@@ -28,6 +28,7 @@ import org.hyperledger.besu.ethereum.core.BlockBody;
 import org.hyperledger.besu.ethereum.core.BlockHeader;
 import org.hyperledger.besu.ethereum.core.BlockHeaderFunctions;
 import org.hyperledger.besu.ethereum.core.TransactionReceipt;
+import org.hyperledger.besu.ethereum.core.encoding.BlockHeaderDecoder;
 import org.hyperledger.besu.ethereum.mainnet.MainnetBlockHeaderFunctions;
 import org.hyperledger.besu.ethereum.rlp.BytesValueRLPInput;
 import org.hyperledger.besu.ethereum.rlp.RLPInput;
@@ -145,7 +146,7 @@ public class RestoreState implements Runnable {
         final BlockHeaderFunctions functions = new MainnetBlockHeaderFunctions();
 
         final BlockHeader header =
-            BlockHeader.readFrom(
+            BlockHeaderDecoder.decode(
                 new BytesValueRLPInput(Bytes.wrap(headerEntry), false, true), functions);
         final BlockBody body =
             BlockBody.readWrappedBodyFrom(

@@ -28,6 +28,7 @@ import org.hyperledger.besu.datatypes.Address;
 import org.hyperledger.besu.datatypes.Hash;
 import org.hyperledger.besu.ethereum.core.BlockHeader;
 import org.hyperledger.besu.ethereum.core.Transaction;
+import org.hyperledger.besu.ethereum.core.encoding.BlockHeaderEncoder;
 import org.hyperledger.besu.ethereum.eth.manager.EthScheduler;
 import org.hyperledger.besu.ethereum.eth.transactions.PendingTransaction;
 import org.hyperledger.besu.ethereum.eth.transactions.PendingTransactionAddedListener;
@@ -491,7 +492,7 @@ public class LayeredPendingTransactions implements PendingTransactions {
         .addArgument(
             () -> {
               final BytesValueRLPOutput rlp = new BytesValueRLPOutput();
-              blockHeader.writeTo(rlp);
+              BlockHeaderEncoder.writeTo(blockHeader, rlp);
               return rlp.encoded().toHexString();
             })
         .log();
