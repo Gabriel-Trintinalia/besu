@@ -14,11 +14,22 @@
  */
 package org.hyperledger.besu.services;
 
+import org.hyperledger.besu.datatypes.Transaction;
+import org.hyperledger.besu.ethereum.ProtocolContext;
 import org.hyperledger.besu.ethereum.blockcreation.MiningCoordinator;
+import org.hyperledger.besu.ethereum.core.Block;
+import org.hyperledger.besu.plugin.data.BlockBody;
+import org.hyperledger.besu.plugin.data.BlockContext;
+import org.hyperledger.besu.plugin.data.BlockHeader;
 import org.hyperledger.besu.plugin.services.mining.MiningService;
+
+import java.util.Collections;
+import java.util.List;
+import java.util.function.Supplier;
 
 /** Service to control mining. */
 public class MiningServiceImpl implements MiningService {
+  private final ProtocolContext protocolContext;
 
   private final MiningCoordinator miningCoordinator;
 
@@ -27,7 +38,9 @@ public class MiningServiceImpl implements MiningService {
    *
    * @param miningCoordinator the miningCoordinator to enable and disable.
    */
-  public MiningServiceImpl(final MiningCoordinator miningCoordinator) {
+  public MiningServiceImpl(
+      final ProtocolContext protocolContext, final MiningCoordinator miningCoordinator) {
+    this.protocolContext = protocolContext;
     this.miningCoordinator = miningCoordinator;
   }
 
@@ -35,5 +48,35 @@ public class MiningServiceImpl implements MiningService {
   @Override
   public void stop() {
     miningCoordinator.stop();
+  }
+
+  @Override
+  public BlockContext createBlock(final List<Transaction> transactions, final long timestamp) {
+    org.hyperledger.besu.ethereum.core.BlockHeader parentHeader =
+        protocolContext.getBlockchain().getChainHeadHeader();
+
+    List<org.hyperledger.besu.ethereum.core.Transaction> coreTransactions =
+        transactions.stream().map(t -> (org.hyperledger.besu.ethereum.core.Transaction) t).toList();
+    Block block =
+        miningCoordinator
+            .createBlock(parentHeader, coreTransactions, Collections.emptyList(), timestamp)
+            .orElseThrow(() -> new IllegalArgumentException("Unable to create block."));
+
+    return blockContext(block::getHeader, block::getBody);
+  }
+
+  private BlockContext blockContext(
+      final Supplier<BlockHeader> headerSupplier, final Supplier<BlockBody> bodySupplier) {
+    return new BlockContext() {
+      @Override
+      public BlockHeader getBlockHeader() {
+        return headerSupplier.get();
+      }
+
+      @Override
+      public BlockBody getBlockBody() {
+        return bodySupplier.get();
+      }
+    };
   }
 }

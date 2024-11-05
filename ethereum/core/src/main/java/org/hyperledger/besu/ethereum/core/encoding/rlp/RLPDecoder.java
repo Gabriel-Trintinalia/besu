@@ -21,7 +21,6 @@ import org.hyperledger.besu.ethereum.core.BlockHeaderFunctions;
 import org.hyperledger.besu.ethereum.core.Request;
 import org.hyperledger.besu.ethereum.core.Transaction;
 import org.hyperledger.besu.ethereum.core.Withdrawal;
-import org.hyperledger.besu.ethereum.core.encoding.WithdrawalDecoder;
 import org.hyperledger.besu.ethereum.rlp.RLPInput;
 
 import java.util.List;
@@ -30,6 +29,7 @@ import java.util.function.Supplier;
 
 import com.google.common.base.Suppliers;
 
+@SuppressWarnings({"UnusedVariable","MissingOverride"})
 public class RLPDecoder {
 
   public interface RequestDecoder {
@@ -82,10 +82,7 @@ public class RLPDecoder {
                     .getDecoder(org.hyperledger.besu.datatypes.Transaction.class));
 
     private final Supplier<Decoder<Withdrawal>> withdrawalsDecoder =
-      Suppliers.memoize(
-        () ->
-          DecoderRegistry.getInstance()
-            .getDecoder(Withdrawal.class));
+        Suppliers.memoize(() -> DecoderRegistry.getInstance().getDecoder(Withdrawal.class));
 
     private final RequestDecoder requestDecoder = new DefaultRequestDecoder();
 
@@ -97,13 +94,12 @@ public class RLPDecoder {
       final List<Transaction> transactions =
           in.readList(input -> (Transaction) transactionDecoder.get().decode(input));
 
-      final List<BlockHeader> ommers =
-        in.readList(rlp -> BlockHeader.readFrom(rlp, hashFunction));
+      final List<BlockHeader> ommers = in.readList(rlp -> BlockHeader.readFrom(rlp, hashFunction));
 
       final Optional<List<Withdrawal>> withdrawals =
-        in.isEndOfCurrentList()
-        ? Optional.empty()
-        : Optional.of(in.readList(Withdrawal::readFrom));
+          in.isEndOfCurrentList()
+              ? Optional.empty()
+              : Optional.of(in.readList(Withdrawal::readFrom));
 
       final Optional<List<Request>> requests = requestDecoder.decode(in);
       in.leaveList();

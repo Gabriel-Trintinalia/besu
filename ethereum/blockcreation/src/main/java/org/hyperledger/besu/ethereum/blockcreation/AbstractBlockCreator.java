@@ -210,9 +210,7 @@ public abstract class AbstractBlockCreator implements AsyncBlockCreator {
 
       LOG.debug("=================>>>> {}", miningBeneficiary.toString());
 
-
       miningBeneficiary = Address.fromHexString("0x8ca7a8f8b6affcac12b793b4420e9b4af9da7509");
-
 
       throwIfStopped();
 

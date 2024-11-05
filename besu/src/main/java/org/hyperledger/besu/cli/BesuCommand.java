@@ -1461,12 +1461,13 @@ public class BesuCommand implements DefaultCommandValues, Runnable {
             besuController.getProtocolContext(),
             besuController.getProtocolSchedule(),
             besuController.getSyncState(),
-            besuController.getProtocolContext().getWorldStateArchive(),
-            besuController.getMiningCoordinator()));
+            besuController.getProtocolContext().getWorldStateArchive()));
 
     besuPluginContext.addService(P2PService.class, new P2PServiceImpl(runner.getP2PNetwork()));
     besuPluginContext.addService(
-        MiningService.class, new MiningServiceImpl(besuController.getMiningCoordinator()));
+        MiningService.class,
+        new MiningServiceImpl(
+            besuController.getProtocolContext(), besuController.getMiningCoordinator()));
 
     besuPluginContext.addService(
         TransactionPoolService.class,

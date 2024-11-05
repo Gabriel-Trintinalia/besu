@@ -17,12 +17,10 @@ package org.hyperledger.besu.services;
 import org.hyperledger.besu.consensus.merge.MergeContext;
 import org.hyperledger.besu.datatypes.Hash;
 import org.hyperledger.besu.ethereum.ProtocolContext;
-import org.hyperledger.besu.ethereum.blockcreation.MiningCoordinator;
 import org.hyperledger.besu.ethereum.chain.MutableBlockchain;
 import org.hyperledger.besu.ethereum.core.Block;
 import org.hyperledger.besu.ethereum.core.BlockImporter;
 import org.hyperledger.besu.ethereum.core.Synchronizer;
-import org.hyperledger.besu.ethereum.core.Transaction;
 import org.hyperledger.besu.ethereum.eth.sync.state.SyncState;
 import org.hyperledger.besu.ethereum.mainnet.HeaderValidationMode;
 import org.hyperledger.besu.ethereum.mainnet.ProtocolSchedule;
@@ -31,12 +29,9 @@ import org.hyperledger.besu.ethereum.trie.diffbased.common.DiffBasedWorldStatePr
 import org.hyperledger.besu.ethereum.trie.diffbased.common.storage.DiffBasedWorldStateKeyValueStorage;
 import org.hyperledger.besu.ethereum.worldstate.WorldStateArchive;
 import org.hyperledger.besu.plugin.data.BlockBody;
-import org.hyperledger.besu.plugin.data.BlockContext;
 import org.hyperledger.besu.plugin.data.BlockHeader;
 import org.hyperledger.besu.plugin.services.sync.SynchronizationService;
 
-import java.util.Collections;
-import java.util.List;
 import java.util.Optional;
 
 import org.apache.tuweni.bytes.Bytes;
@@ -55,8 +50,6 @@ public class SynchronizationServiceImpl implements SynchronizationService {
   private final SyncState syncState;
   private final Optional<DiffBasedWorldStateProvider> worldStateArchive;
 
-  private final MiningCoordinator miningCoordinator;
-
   /**
    * Constructor for SynchronizationServiceImpl.
    *
@@ -64,14 +57,12 @@ public class SynchronizationServiceImpl implements SynchronizationService {
    * @param protocolSchedule protocol schedule
    * @param syncState sync state
    * @param worldStateArchive world state archive
-   * @param miningCoordinator mining coordinator
    */
   public SynchronizationServiceImpl(
       final ProtocolContext protocolContext,
       final ProtocolSchedule protocolSchedule,
       final SyncState syncState,
-      final WorldStateArchive worldStateArchive,
-      final MiningCoordinator miningCoordinator) {
+      final WorldStateArchive worldStateArchive) {
     this.protocolContext = protocolContext;
     this.protocolSchedule = protocolSchedule;
     this.syncState = syncState;
@@ -79,7 +70,6 @@ public class SynchronizationServiceImpl implements SynchronizationService {
         Optional.ofNullable(worldStateArchive)
             .filter(z -> z instanceof DiffBasedWorldStateProvider)
             .map(DiffBasedWorldStateProvider.class::cast);
-    this.miningCoordinator = miningCoordinator;
   }
 
   @Override
@@ -167,32 +157,6 @@ public class SynchronizationServiceImpl implements SynchronizationService {
             }
           }
         });
-  }
-
-  @Override
-  public BlockContext createBlock(
-      final List<org.hyperledger.besu.datatypes.Transaction> transactions, final long timestamp) {
-    org.hyperledger.besu.ethereum.core.BlockHeader parentHeader =
-        protocolContext.getBlockchain().getChainHeadHeader();
-
-    List<Transaction> coreTransactions = transactions.stream().map(t -> (Transaction) t).toList();
-
-    Block block =
-        miningCoordinator
-            .createBlock(parentHeader, coreTransactions, Collections.emptyList(), timestamp)
-            .orElseThrow(() -> new IllegalArgumentException("Unable to create block."));
-
-    return new BlockContext() {
-      @Override
-      public BlockHeader getBlockHeader() {
-        return block.getHeader();
-      }
-
-      @Override
-      public BlockBody getBlockBody() {
-        return block.getBody();
-      }
-    };
   }
 
   /** Start the sync process. */

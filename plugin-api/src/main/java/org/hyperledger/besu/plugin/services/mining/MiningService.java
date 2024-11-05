@@ -14,10 +14,23 @@
  */
 package org.hyperledger.besu.plugin.services.mining;
 
+import org.hyperledger.besu.datatypes.Transaction;
+import org.hyperledger.besu.plugin.data.BlockContext;
 import org.hyperledger.besu.plugin.services.BesuService;
+
+import java.util.List;
 
 /** Service to control mining. */
 public interface MiningService extends BesuService {
   /** Stop mining */
   void stop();
+
+  /**
+   * createBlock
+   *
+   * @param transactions the transactions
+   * @param timestamp the timestamp
+   * @return the block context
+   */
+  BlockContext createBlock(List<Transaction> transactions, long timestamp);
 }

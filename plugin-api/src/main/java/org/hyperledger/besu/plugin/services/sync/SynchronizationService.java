@@ -15,13 +15,9 @@
 package org.hyperledger.besu.plugin.services.sync;
 
 import org.hyperledger.besu.datatypes.Hash;
-import org.hyperledger.besu.datatypes.Transaction;
 import org.hyperledger.besu.plugin.data.BlockBody;
-import org.hyperledger.besu.plugin.data.BlockContext;
 import org.hyperledger.besu.plugin.data.BlockHeader;
 import org.hyperledger.besu.plugin.services.BesuService;
-
-import java.util.List;
 
 /** Synchronization service wraps the sync state and sync event lifecycle. */
 public interface SynchronizationService extends BesuService {
@@ -63,15 +59,6 @@ public interface SynchronizationService extends BesuService {
 
   /** Disables the worldstate trie for update. */
   void disableWorldStateTrie();
-
-  /**
-   * createBlock
-   *
-   * @param transactions the transactions
-   * @param timestamp the timestamp
-   * @return the block context
-   */
-  BlockContext createBlock(List<Transaction> transactions, long timestamp);
 
   /** Start Sync */
   void startSync();
