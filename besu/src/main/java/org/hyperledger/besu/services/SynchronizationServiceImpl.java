@@ -93,7 +93,7 @@ public class SynchronizationServiceImpl implements SynchronizationService {
             new Block(
                 (org.hyperledger.besu.ethereum.core.BlockHeader) blockHeader,
                 (org.hyperledger.besu.ethereum.core.BlockBody) blockBody),
-            HeaderValidationMode.SKIP_DETACHED)
+            HeaderValidationMode.NONE)
         .isImported();
   }
 

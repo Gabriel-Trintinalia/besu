@@ -113,6 +113,26 @@ public class BlockMiner<M extends AbstractBlockCreator> implements Runnable {
   }
 
   /**
+   * Create a block with the given transactions and ommers. The list of transactions are validated
+   * as they are processed, and are not guaranteed to be included in the final block. If
+   * transactions must match exactly, the caller must verify they were all able to be included.
+   *
+   * @param parentHeader The header of the parent of the block to be produced
+   * @param transactions The list of transactions which may be included.
+   * @param ommers The list of ommers to include.
+   * @param timestamp unix timestamp of the new block.
+   * @return the newly created block.
+   */
+  public BlockCreationResult createBlock(
+      final BlockHeader parentHeader,
+      final List<Transaction> transactions,
+      final List<BlockHeader> ommers,
+      final long timestamp) {
+    final BlockCreator blockCreator = this.blockCreatorFactory.apply(parentHeader);
+    return blockCreator.createBlock(transactions, ommers, timestamp, parentHeader);
+  }
+
+  /**
    * Create a block with the given timestamp.
    *
    * @param parentHeader The header of the parent of the block to be produced

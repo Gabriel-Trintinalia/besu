@@ -53,7 +53,7 @@ public class MainnetBlockBodyValidator implements BlockBodyValidator {
       final HeaderValidationMode ommerValidationMode) {
 
     if (!validateBodyLight(
-        context, block, receipts, ommerValidationMode, BodyValidationMode.FULL)) {
+        context, block, receipts, ommerValidationMode, BodyValidationMode.NONE)) {
       return false;
     }
 

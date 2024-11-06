@@ -175,6 +175,16 @@ public class BftMiningCoordinator implements MiningCoordinator, BlockAddedObserv
   }
 
   @Override
+  public Optional<Block> createBlock(
+      final BlockHeader parentHeader,
+      final List<Transaction> transactions,
+      final List<BlockHeader> ommers,
+      final long timestamp) {
+    // One-off block creation has not been implemented
+    return Optional.empty();
+  }
+
+  @Override
   public Optional<Block> createBlock(final BlockHeader parentHeader, final long timestamp) {
     // One-off block creation has not been implemented
     return Optional.empty();

@@ -47,6 +47,7 @@ import java.text.MessageFormat;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.Optional;
+import java.util.function.Supplier;
 
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
@@ -76,7 +77,7 @@ public abstract class AbstractBlockProcessor implements BlockProcessor {
   protected final boolean skipZeroBlockRewards;
   private final ProtocolSchedule protocolSchedule;
 
-  protected final MiningBeneficiaryCalculator miningBeneficiaryCalculator;
+  protected final Supplier<MiningBeneficiaryCalculator> miningBeneficiaryCalculator;
 
   protected AbstractBlockProcessor(
       final MainnetTransactionProcessor transactionProcessor,
@@ -88,7 +89,7 @@ public abstract class AbstractBlockProcessor implements BlockProcessor {
     this.transactionProcessor = transactionProcessor;
     this.transactionReceiptFactory = transactionReceiptFactory;
     this.blockReward = blockReward;
-    this.miningBeneficiaryCalculator = miningBeneficiaryCalculator;
+    this.miningBeneficiaryCalculator = () -> miningBeneficiaryCalculator;
     this.skipZeroBlockRewards = skipZeroBlockRewards;
     this.protocolSchedule = protocolSchedule;
   }
@@ -111,7 +112,8 @@ public abstract class AbstractBlockProcessor implements BlockProcessor {
     protocolSpec.getBlockHashProcessor().processBlockHashes(blockchain, worldState, blockHeader);
     final BlockHashLookup blockHashLookup = new CachingBlockHashLookup(blockHeader, blockchain);
 
-    final Address miningBeneficiary = miningBeneficiaryCalculator.calculateBeneficiary(blockHeader);
+    final Address miningBeneficiary =
+        getMiningBeneficiaryCalculator().calculateBeneficiary(blockHeader);
 
     Optional<BlockHeader> maybeParentHeader =
         blockchain.getBlockHeader(blockHeader.getParentHash());
@@ -230,7 +232,7 @@ public abstract class AbstractBlockProcessor implements BlockProcessor {
     }
 
     try {
-      worldState.persist(blockHeader);
+      persistWorldState(worldState, blockHeader);
     } catch (MerkleTrieException e) {
       LOG.trace("Merkle trie exception during Transaction processing ", e);
       if (worldState instanceof BonsaiWorldState) {
@@ -281,6 +283,11 @@ public abstract class AbstractBlockProcessor implements BlockProcessor {
         blobGasPrice);
   }
 
+  protected void persistWorldState(
+      final MutableWorldState worldState, final BlockHeader blockHeader) {
+    worldState.persist(blockHeader);
+  }
+
   protected boolean hasAvailableBlockBudget(
       final BlockHeader blockHeader, final Transaction transaction, final long currentGasUsed) {
     final long remainingGasBudget = blockHeader.getGasLimit() - currentGasUsed;
@@ -299,7 +306,7 @@ public abstract class AbstractBlockProcessor implements BlockProcessor {
   }
 
   protected MiningBeneficiaryCalculator getMiningBeneficiaryCalculator() {
-    return miningBeneficiaryCalculator;
+    return miningBeneficiaryCalculator.get();
   }
 
   abstract boolean rewardCoinbase(
@@ -309,5 +316,4 @@ public abstract class AbstractBlockProcessor implements BlockProcessor {
       final boolean skipZeroBlockRewards);
 
   public interface PreprocessingContext {}
-  ;
 }
