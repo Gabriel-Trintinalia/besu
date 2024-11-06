@@ -17,9 +17,9 @@ package org.hyperledger.besu.consensus.qbft.validator;
 import org.hyperledger.besu.datatypes.Address;
 import org.hyperledger.besu.ethereum.mainnet.ImmutableTransactionValidationParams;
 import org.hyperledger.besu.ethereum.mainnet.TransactionValidationParams;
+import org.hyperledger.besu.ethereum.simulation.TransactionSimulator;
+import org.hyperledger.besu.ethereum.simulation.TransactionSimulatorResult;
 import org.hyperledger.besu.ethereum.transaction.CallParameter;
-import org.hyperledger.besu.ethereum.transaction.TransactionSimulator;
-import org.hyperledger.besu.ethereum.transaction.TransactionSimulatorResult;
 import org.hyperledger.besu.evm.tracing.OperationTracer;
 
 import java.util.Collection;

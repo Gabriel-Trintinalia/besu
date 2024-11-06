@@ -12,7 +12,7 @@
  *
  * SPDX-License-Identifier: Apache-2.0
  */
-package org.hyperledger.besu.ethereum.transaction;
+package org.hyperledger.besu.ethereum.simulation;
 
 import org.hyperledger.besu.ethereum.core.MutableWorldState;
 

@@ -29,7 +29,7 @@ import org.hyperledger.besu.ethereum.permissioning.NodePermissioningControllerFa
 import org.hyperledger.besu.ethereum.permissioning.NodeSmartContractPermissioningController;
 import org.hyperledger.besu.ethereum.permissioning.PermissioningConfiguration;
 import org.hyperledger.besu.ethereum.permissioning.SmartContractPermissioningConfiguration;
-import org.hyperledger.besu.ethereum.transaction.TransactionSimulator;
+import org.hyperledger.besu.ethereum.simulation.TransactionSimulator;
 import org.hyperledger.besu.metrics.noop.NoOpMetricsSystem;
 import org.hyperledger.besu.plugin.data.EnodeURL;
 import org.hyperledger.besu.plugin.services.permissioning.NodeConnectionPermissioningProvider;
