@@ -58,7 +58,7 @@ public class BlobTransactionEncodingTest {
     Bytes bytes = argument.bytes;
     // Decode the transaction from the wire using the TransactionDecoder.
     final Transaction transaction =
-        TransactionDecoder.decodeOpaqueBytes(bytes, EncodingContext.POOLED_TRANSACTION);
+        MainnetTransactionDecoder.decodeOpaqueBytes(bytes, EncodingContext.POOLED_TRANSACTION);
 
     final BytesValueRLPOutput output = new BytesValueRLPOutput();
     TransactionEncoder.encodeRLP(transaction.getType(), bytes, output);
@@ -75,7 +75,7 @@ public class BlobTransactionEncodingTest {
     Bytes bytes = argument.bytes;
     // Decode the transaction from the wire using the TransactionDecoder.
     final Transaction transaction =
-        TransactionDecoder.decodeOpaqueBytes(bytes, EncodingContext.BLOCK_BODY);
+        MainnetTransactionDecoder.decodeOpaqueBytes(bytes, EncodingContext.BLOCK_BODY);
 
     // Encode the transaction for wire using the TransactionEncoder.
     Bytes encoded = TransactionEncoder.encodeOpaqueBytes(transaction, EncodingContext.BLOCK_BODY);

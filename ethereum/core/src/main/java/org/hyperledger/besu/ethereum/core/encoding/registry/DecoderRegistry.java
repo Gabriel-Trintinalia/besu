@@ -16,6 +16,7 @@ package org.hyperledger.besu.ethereum.core.encoding.registry;
 
 import org.hyperledger.besu.datatypes.Transaction;
 import org.hyperledger.besu.ethereum.core.Block;
+import org.hyperledger.besu.ethereum.core.encoding.MainnetTransactionDecoder;
 import org.hyperledger.besu.plugin.data.BlockHeader;
 import org.hyperledger.besu.plugin.data.Withdrawal;
 
@@ -30,7 +31,7 @@ public class DecoderRegistry {
     registerDefaultDecoders();
   }
 
-  public static DecoderRegistry getInstance() {
+  protected static DecoderRegistry getInstance() {
     if (INSTANCE == null) {
       INSTANCE = new DecoderRegistry();
     }
@@ -49,7 +50,7 @@ public class DecoderRegistry {
   private void registerDefaultDecoders() {
     registerDecoder(Block.class, BlockDecoder.builder().build());
     registerDecoder(BlockHeader.class, new DefaultBlockHeaderDecoder());
-    registerDecoder(Transaction.class, new DefaultTransactionDecoder());
+    registerDecoder(Transaction.class, new MainnetTransactionDecoder());
     registerDecoder(Withdrawal.class, new DefaultWithdrawalDecoder());
   }
 }

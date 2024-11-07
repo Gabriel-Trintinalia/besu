@@ -14,7 +14,9 @@
  */
 package org.hyperledger.besu.ethereum.core.encoding.registry;
 
+import org.apache.tuweni.bytes.Bytes;
 import org.hyperledger.besu.ethereum.core.BlockHeaderFunctions;
+import org.hyperledger.besu.ethereum.rlp.RLP;
 import org.hyperledger.besu.ethereum.rlp.RLPInput;
 
 public interface RLPDecoder<T> {
@@ -24,5 +26,9 @@ public interface RLPDecoder<T> {
 
   default T readFrom(final RLPInput input, final BlockHeaderFunctions hashFunction) {
     throw new UnsupportedOperationException("This decoder does not require a hash function.");
+  }
+
+  default T readFrom(final Bytes bytes) {
+    return readFrom(RLP.input(bytes));
   }
 }

@@ -18,6 +18,7 @@ import static com.google.common.base.Preconditions.checkNotNull;
 
 import org.hyperledger.besu.datatypes.TransactionType;
 import org.hyperledger.besu.ethereum.core.Transaction;
+import org.hyperledger.besu.ethereum.core.encoding.registry.TransactionDecoder;
 import org.hyperledger.besu.ethereum.rlp.RLP;
 import org.hyperledger.besu.ethereum.rlp.RLPInput;
 
@@ -26,7 +27,12 @@ import java.util.Optional;
 import com.google.common.collect.ImmutableMap;
 import org.apache.tuweni.bytes.Bytes;
 
-public class TransactionDecoder {
+public class MainnetTransactionDecoder implements TransactionDecoder {
+
+  @Override
+  public Transaction readFrom(RLPInput input) {
+    return decodeRLP(input, EncodingContext.BLOCK_BODY);
+  }
 
   @FunctionalInterface
   interface Decoder {

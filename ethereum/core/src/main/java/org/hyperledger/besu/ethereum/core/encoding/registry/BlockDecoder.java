@@ -22,6 +22,7 @@ import org.hyperledger.besu.ethereum.core.BlockHeader;
 import org.hyperledger.besu.ethereum.core.BlockHeaderFunctions;
 import org.hyperledger.besu.ethereum.core.Transaction;
 import org.hyperledger.besu.ethereum.core.Withdrawal;
+import org.hyperledger.besu.ethereum.core.encoding.MainnetTransactionDecoder;
 import org.hyperledger.besu.ethereum.rlp.RLPInput;
 
 import java.util.List;
@@ -80,7 +81,7 @@ public class BlockDecoder implements RLPDecoder<Block> {
     private Supplier<BlockHeaderDecoder> blockHeaderDecoder =
         Suppliers.memoize(DefaultBlockHeaderDecoder::new);
     private Supplier<TransactionDecoder> transactionDecoder =
-        Suppliers.memoize(DefaultTransactionDecoder::new);
+        Suppliers.memoize(MainnetTransactionDecoder::new);
     private Supplier<WithdrawalDecoder> withdrawalsDecoder =
         Suppliers.memoize(DefaultWithdrawalDecoder::new);
 
