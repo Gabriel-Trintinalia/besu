@@ -19,7 +19,7 @@ import org.hyperledger.besu.ethereum.rlp.RLPInput;
 
 public class DefaultTransactionDecoder implements TransactionDecoder {
   @Override
-  public Transaction decode(final RLPInput input) {
+  public Transaction readFrom(final RLPInput input) {
     return Transaction.readFrom(input);
   }
 }

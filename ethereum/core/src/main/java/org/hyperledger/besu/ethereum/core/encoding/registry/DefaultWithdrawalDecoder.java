@@ -19,7 +19,7 @@ import org.hyperledger.besu.ethereum.rlp.RLPInput;
 
 public class DefaultWithdrawalDecoder implements WithdrawalDecoder {
   @Override
-  public Withdrawal decode(final RLPInput input) {
+  public Withdrawal readFrom(final RLPInput input) {
     return Withdrawal.readFrom(input);
   }
 }

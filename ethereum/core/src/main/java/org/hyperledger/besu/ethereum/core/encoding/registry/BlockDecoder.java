@@ -42,7 +42,7 @@ public class BlockDecoder implements RLPDecoder<Block> {
   }
 
   @Override
-  public Block decode(final RLPInput in, final BlockHeaderFunctions hashFunction) {
+  public Block readFrom(final RLPInput in, final BlockHeaderFunctions hashFunction) {
     in.enterList();
     BlockHeader header = decodeBlockHeader(in, hashFunction);
     List<Transaction> transactions = decodeTransactions(in);
@@ -54,22 +54,22 @@ public class BlockDecoder implements RLPDecoder<Block> {
 
   private BlockHeader decodeBlockHeader(
       final RLPInput in, final BlockHeaderFunctions hashFunction) {
-    return blockHeaderDecoder.get().decode(in, hashFunction);
+    return blockHeaderDecoder.get().readFrom(in, hashFunction);
   }
 
   private List<Transaction> decodeTransactions(final RLPInput in) {
-    return in.readList(input -> transactionDecoder.get().decode(input));
+    return in.readList(input -> transactionDecoder.get().readFrom(input));
   }
 
   private List<BlockHeader> decodeOmmers(
       final RLPInput in, final BlockHeaderFunctions hashFunction) {
-    return in.readList(rlp -> blockHeaderDecoder.get().decode(in, hashFunction));
+    return in.readList(rlp -> blockHeaderDecoder.get().readFrom(in, hashFunction));
   }
 
   private Optional<List<Withdrawal>> decodeWithdrawals(final RLPInput in) {
     return in.isEndOfCurrentList()
         ? Optional.empty()
-        : Optional.of(in.readList(rlpInput -> withdrawalsDecoder.get().decode(rlpInput)));
+        : Optional.of(in.readList(rlpInput -> withdrawalsDecoder.get().readFrom(rlpInput)));
   }
 
   public static Builder builder() {

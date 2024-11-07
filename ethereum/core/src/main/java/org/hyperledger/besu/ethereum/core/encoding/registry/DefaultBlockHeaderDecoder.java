@@ -20,7 +20,7 @@ import org.hyperledger.besu.ethereum.rlp.RLPInput;
 
 public class DefaultBlockHeaderDecoder implements BlockHeaderDecoder {
   @Override
-  public BlockHeader decode(final RLPInput input, final BlockHeaderFunctions hashFunction) {
+  public BlockHeader readFrom(final RLPInput input, final BlockHeaderFunctions hashFunction) {
     return BlockHeader.readFrom(input, hashFunction);
   }
 }

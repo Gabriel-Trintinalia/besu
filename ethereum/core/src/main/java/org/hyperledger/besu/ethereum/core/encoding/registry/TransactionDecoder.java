@@ -19,5 +19,5 @@ import org.hyperledger.besu.ethereum.rlp.RLPInput;
 
 public interface TransactionDecoder extends RLPDecoder<org.hyperledger.besu.datatypes.Transaction> {
   @Override
-  Transaction decode(final RLPInput input);
+  Transaction readFrom(final RLPInput input);
 }

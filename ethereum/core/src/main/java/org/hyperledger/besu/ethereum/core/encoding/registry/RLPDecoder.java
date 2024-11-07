@@ -18,11 +18,11 @@ import org.hyperledger.besu.ethereum.core.BlockHeaderFunctions;
 import org.hyperledger.besu.ethereum.rlp.RLPInput;
 
 public interface RLPDecoder<T> {
-  default T decode(final RLPInput input) {
+  default T readFrom(final RLPInput input) {
     throw new UnsupportedOperationException("Implementations must provide a hash function.");
   }
 
-  default T decode(final RLPInput input, final BlockHeaderFunctions hashFunction) {
+  default T readFrom(final RLPInput input, final BlockHeaderFunctions hashFunction) {
     throw new UnsupportedOperationException("This decoder does not require a hash function.");
   }
 }

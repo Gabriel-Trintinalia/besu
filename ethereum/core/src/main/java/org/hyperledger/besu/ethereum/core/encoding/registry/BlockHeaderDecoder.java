@@ -21,5 +21,5 @@ import org.hyperledger.besu.ethereum.rlp.RLPInput;
 public interface BlockHeaderDecoder
     extends RLPDecoder<org.hyperledger.besu.plugin.data.BlockHeader> {
   @Override
-  BlockHeader decode(final RLPInput input, final BlockHeaderFunctions hashFunction);
+  BlockHeader readFrom(final RLPInput input, final BlockHeaderFunctions hashFunction);
 }

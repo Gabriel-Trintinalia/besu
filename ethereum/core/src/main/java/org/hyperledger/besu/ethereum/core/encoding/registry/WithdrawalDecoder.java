@@ -19,5 +19,5 @@ import org.hyperledger.besu.ethereum.rlp.RLPInput;
 
 public interface WithdrawalDecoder extends RLPDecoder<org.hyperledger.besu.plugin.data.Withdrawal> {
   @Override
-  Withdrawal decode(final RLPInput input);
+  Withdrawal readFrom(final RLPInput input);
 }
