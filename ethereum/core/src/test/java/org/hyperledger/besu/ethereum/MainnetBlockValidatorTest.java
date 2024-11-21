@@ -100,6 +100,7 @@ public class MainnetBlockValidatorTest {
     when(blockHeaderValidator.validateHeader(any(), any(), any(), any())).thenReturn(true);
     when(blockBodyValidator.validateBody(any(), any(), any(), any(), any(), any()))
         .thenReturn(true);
+    when(blockBodyValidator.validateBodyLight(any(), any(), any(), any())).thenReturn(true);
     when(blockProcessor.processBlock(any(), any(), any())).thenReturn(successfulProcessingResult);
     when(blockProcessor.processBlock(any(), any(), any(), any()))
         .thenReturn(successfulProcessingResult);
@@ -384,8 +385,8 @@ public class MainnetBlockValidatorTest {
   @Test
   public void validateBlockValidation_onFailedBodyForSyncing() {
     final HeaderValidationMode headerValidationMode = HeaderValidationMode.FULL;
-    when(blockBodyValidator.validateBody(
-            eq(protocolContext), eq(block), any(), any(), eq(headerValidationMode), any()))
+    when(blockBodyValidator.validateBodyLight(
+            eq(protocolContext), eq(block), any(), eq(headerValidationMode)))
         .thenReturn(false);
 
     final boolean isValid =
