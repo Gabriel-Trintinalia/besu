@@ -36,14 +36,15 @@ public class MainnetBlockImporter implements BlockImporter {
       final ProtocolContext context,
       final Block block,
       final HeaderValidationMode headerValidationMode,
-      final HeaderValidationMode ommerValidationMode) {
+      final HeaderValidationMode ommerValidationMode,
+      final BodyValidationMode bodyValidationMode) {
     if (context.getBlockchain().contains(block.getHash())) {
       return new BlockImportResult(BlockImportStatus.ALREADY_IMPORTED);
     }
 
     final var result =
         blockValidator.validateAndProcessBlock(
-            context, block, headerValidationMode, ommerValidationMode);
+            context, block, headerValidationMode, ommerValidationMode, bodyValidationMode);
 
     if (result.isSuccessful()) {
       result

@@ -43,7 +43,27 @@ public interface BlockImporter {
       final ProtocolContext context,
       final Block block,
       final HeaderValidationMode headerValidationMode) {
-    return importBlock(context, block, headerValidationMode, HeaderValidationMode.FULL);
+    return importBlock(
+        context, block, headerValidationMode, HeaderValidationMode.FULL, BodyValidationMode.FULL);
+  }
+
+  /**
+   * Attempts to import the given block to the specified blockchain and world state.
+   *
+   * @param context The context to attempt to update
+   * @param block The block
+   * @param headerValidationMode Determines the validation to perform on this header.
+   * @param ommerValidationMode Determines the validation to perform on ommer headers.
+   * @return {@code BlockImportResult}
+   * @see BlockImportResult
+   */
+  default BlockImportResult importBlock(
+      final ProtocolContext context,
+      final Block block,
+      final HeaderValidationMode headerValidationMode,
+      final HeaderValidationMode ommerValidationMode) {
+    return importBlock(
+        context, block, headerValidationMode, ommerValidationMode, BodyValidationMode.FULL);
   }
 
   /**
@@ -60,7 +80,8 @@ public interface BlockImporter {
       ProtocolContext context,
       Block block,
       HeaderValidationMode headerValidationMode,
-      HeaderValidationMode ommerValidationMode);
+      HeaderValidationMode ommerValidationMode,
+      BodyValidationMode bodyValidationMode);
 
   /**
    * Attempts to import the given block. Uses "fast" validation. Performs light validation using the

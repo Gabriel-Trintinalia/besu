@@ -95,7 +95,34 @@ public class MainnetBlockValidator implements BlockValidator {
       final HeaderValidationMode headerValidationMode,
       final HeaderValidationMode ommerValidationMode) {
     return validateAndProcessBlock(
-        context, block, headerValidationMode, ommerValidationMode, true, true);
+        context,
+        block,
+        headerValidationMode,
+        ommerValidationMode,
+        BodyValidationMode.FULL,
+        true,
+        true);
+  }
+
+  /**
+   * Performs a full validation and processing of a block
+   *
+   * @param context the {@link ProtocolContext}
+   * @param block the block being validated and processed
+   * @param headerValidationMode the {@link HeaderValidationMode} used for validating the header
+   * @param ommerValidationMode the {@link HeaderValidationMode} used for validating the ommers
+   * @return an optional containing the {@link BlockProcessingOutputs} with the output of processing
+   *     the block, empty if the block was deemed invalid or couldn't be processed
+   */
+  @Override
+  public BlockProcessingResult validateAndProcessBlock(
+      final ProtocolContext context,
+      final Block block,
+      final HeaderValidationMode headerValidationMode,
+      final HeaderValidationMode ommerValidationMode,
+      final BodyValidationMode bodyValidationMode) {
+    return validateAndProcessBlock(
+        context, block, headerValidationMode, ommerValidationMode, bodyValidationMode, true, true);
   }
 
   @Override
@@ -104,9 +131,16 @@ public class MainnetBlockValidator implements BlockValidator {
       final Block block,
       final HeaderValidationMode headerValidationMode,
       final HeaderValidationMode ommerValidationMode,
+      final BodyValidationMode bodyValidationMode,
       final boolean shouldPersist) {
     return validateAndProcessBlock(
-        context, block, headerValidationMode, ommerValidationMode, shouldPersist, true);
+        context,
+        block,
+        headerValidationMode,
+        ommerValidationMode,
+        bodyValidationMode,
+        shouldPersist,
+        true);
   }
 
   @Override
@@ -115,6 +149,7 @@ public class MainnetBlockValidator implements BlockValidator {
       final Block block,
       final HeaderValidationMode headerValidationMode,
       final HeaderValidationMode ommerValidationMode,
+      final BodyValidationMode bodyValidationMode,
       final boolean shouldPersist,
       final boolean shouldRecordBadBlock) {
 
@@ -176,7 +211,7 @@ public class MainnetBlockValidator implements BlockValidator {
             receipts,
             worldState.rootHash(),
             ommerValidationMode,
-            BodyValidationMode.FULL)) {
+            bodyValidationMode)) {
           result = new BlockProcessingResult("failed to validate output of imported block");
           handleFailedBlockProcessing(block, result, shouldRecordBadBlock);
           return result;

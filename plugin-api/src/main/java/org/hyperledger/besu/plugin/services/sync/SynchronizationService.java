@@ -41,6 +41,15 @@ public interface SynchronizationService extends BesuService {
   boolean setHead(final BlockHeader blockHeader, final BlockBody blockBody);
 
   /**
+   * Import the block header and body to the head of the chain.
+   *
+   * @param blockHeader the block header
+   * @param blockBody the block body
+   * @return true if the head was set, false otherwise.
+   */
+  boolean importBlockUnsafe(final BlockHeader blockHeader, final BlockBody blockBody);
+
+  /**
    * Adds the block header and body to the head of the chain directly, without using a block
    * importer or validation.
    *

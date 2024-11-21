@@ -28,6 +28,7 @@ import org.hyperledger.besu.ethereum.api.jsonrpc.internal.response.JsonRpcSucces
 import org.hyperledger.besu.ethereum.api.jsonrpc.internal.response.RpcErrorType;
 import org.hyperledger.besu.ethereum.api.query.BlockchainQueries;
 import org.hyperledger.besu.ethereum.core.Block;
+import org.hyperledger.besu.ethereum.mainnet.BodyValidationMode;
 import org.hyperledger.besu.ethereum.mainnet.HeaderValidationMode;
 import org.hyperledger.besu.ethereum.mainnet.ProtocolSchedule;
 
@@ -88,7 +89,12 @@ public class DebugReplayBlock extends AbstractBlockParameterMethod {
           .getByBlockHeader(block.getHeader())
           .getBlockValidator()
           .validateAndProcessBlock(
-              protocolContext, block, HeaderValidationMode.FULL, HeaderValidationMode.NONE, true);
+              protocolContext,
+              block,
+              HeaderValidationMode.FULL,
+              HeaderValidationMode.NONE,
+              BodyValidationMode.FULL,
+              true);
     } catch (Exception e) {
       LOG.error(e.getMessage());
       return new JsonRpcErrorResponse(request.getRequest().getId(), INTERNAL_ERROR);

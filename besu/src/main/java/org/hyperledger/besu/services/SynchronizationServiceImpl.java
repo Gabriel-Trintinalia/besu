@@ -21,6 +21,7 @@ import org.hyperledger.besu.ethereum.chain.MutableBlockchain;
 import org.hyperledger.besu.ethereum.core.Block;
 import org.hyperledger.besu.ethereum.core.BlockImporter;
 import org.hyperledger.besu.ethereum.eth.sync.state.SyncState;
+import org.hyperledger.besu.ethereum.mainnet.BodyValidationMode;
 import org.hyperledger.besu.ethereum.mainnet.HeaderValidationMode;
 import org.hyperledger.besu.ethereum.mainnet.ProtocolSchedule;
 import org.hyperledger.besu.ethereum.trie.diffbased.bonsai.storage.BonsaiWorldStateKeyValueStorage;
@@ -95,6 +96,22 @@ public class SynchronizationServiceImpl implements SynchronizationService {
                 (org.hyperledger.besu.ethereum.core.BlockBody) blockBody),
             HeaderValidationMode.SKIP_DETACHED)
         .isImported();
+  }
+
+  @Override
+  public boolean importBlockUnsafe(final BlockHeader blockHeader, final BlockBody blockBody) {
+    final BlockImporter blockImporter =
+      protocolSchedule
+        .getByBlockHeader((org.hyperledger.besu.ethereum.core.BlockHeader) blockHeader)
+        .getBlockImporter();
+    return blockImporter
+      .importBlock(
+        protocolContext,
+        new Block(
+          (org.hyperledger.besu.ethereum.core.BlockHeader) blockHeader,
+          (org.hyperledger.besu.ethereum.core.BlockBody) blockBody),
+        HeaderValidationMode.NONE, HeaderValidationMode.NONE, BodyValidationMode.NONE)
+      .isImported();
   }
 
   @Override

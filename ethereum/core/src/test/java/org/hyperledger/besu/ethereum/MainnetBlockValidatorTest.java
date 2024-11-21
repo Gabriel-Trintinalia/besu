@@ -301,6 +301,7 @@ public class MainnetBlockValidatorTest {
             block,
             HeaderValidationMode.DETACHED_ONLY,
             HeaderValidationMode.DETACHED_ONLY,
+            BodyValidationMode.FULL,
             false,
             false);
 
@@ -319,6 +320,7 @@ public class MainnetBlockValidatorTest {
             block,
             HeaderValidationMode.DETACHED_ONLY,
             HeaderValidationMode.DETACHED_ONLY,
+            BodyValidationMode.FULL,
             false,
             true);
 
@@ -337,6 +339,7 @@ public class MainnetBlockValidatorTest {
             block,
             HeaderValidationMode.DETACHED_ONLY,
             HeaderValidationMode.DETACHED_ONLY,
+            BodyValidationMode.FULL,
             false);
 
     assertThat(result.isFailed()).isTrue();

@@ -111,6 +111,7 @@ public class ProposalValidatorTest {
             any(),
             eq(HeaderValidationMode.LIGHT),
             eq(HeaderValidationMode.FULL),
+            any(),
             eq(false)))
         .thenReturn(new BlockProcessingResult(Optional.empty()));
 
@@ -169,6 +170,7 @@ public class ProposalValidatorTest {
             any(),
             eq(HeaderValidationMode.LIGHT),
             eq(HeaderValidationMode.FULL),
+            any(),
             eq(false)))
         .thenReturn(new BlockProcessingResult("Failed"));
 

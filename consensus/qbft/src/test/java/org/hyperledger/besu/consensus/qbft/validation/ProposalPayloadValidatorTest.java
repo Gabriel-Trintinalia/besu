@@ -17,6 +17,7 @@ package org.hyperledger.besu.consensus.qbft.validation;
 import static java.util.Collections.emptyList;
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.hyperledger.besu.consensus.common.bft.BftContextBuilder.setupContextWithBftExtraDataEncoder;
+import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.ArgumentMatchers.eq;
 import static org.mockito.Mockito.verifyNoMoreInteractions;
 import static org.mockito.Mockito.when;
@@ -93,6 +94,7 @@ public class ProposalPayloadValidatorTest {
             eq(block),
             eq(HeaderValidationMode.LIGHT),
             eq(HeaderValidationMode.FULL),
+            any(),
             eq(false)))
         .thenReturn(new BlockProcessingResult(Optional.empty()));
 
@@ -118,6 +120,7 @@ public class ProposalPayloadValidatorTest {
             eq(block),
             eq(HeaderValidationMode.LIGHT),
             eq(HeaderValidationMode.FULL),
+            any(),
             eq(false)))
         .thenReturn(new BlockProcessingResult(Optional.empty()));
 
@@ -142,6 +145,7 @@ public class ProposalPayloadValidatorTest {
             eq(block),
             eq(HeaderValidationMode.LIGHT),
             eq(HeaderValidationMode.FULL),
+            any(),
             eq(false)))
         .thenReturn(new BlockProcessingResult("Failed"));
 
@@ -215,6 +219,7 @@ public class ProposalPayloadValidatorTest {
             eq(block),
             eq(HeaderValidationMode.LIGHT),
             eq(HeaderValidationMode.FULL),
+            any(),
             eq(false)))
         .thenReturn(new BlockProcessingResult(Optional.empty()));
 

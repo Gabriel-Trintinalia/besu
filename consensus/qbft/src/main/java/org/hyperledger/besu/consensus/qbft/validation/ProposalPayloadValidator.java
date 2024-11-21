@@ -23,6 +23,7 @@ import org.hyperledger.besu.datatypes.Address;
 import org.hyperledger.besu.ethereum.BlockValidator;
 import org.hyperledger.besu.ethereum.ProtocolContext;
 import org.hyperledger.besu.ethereum.core.Block;
+import org.hyperledger.besu.ethereum.mainnet.BodyValidationMode;
 import org.hyperledger.besu.ethereum.mainnet.HeaderValidationMode;
 
 import com.google.common.annotations.VisibleForTesting;
@@ -98,7 +99,12 @@ public class ProposalPayloadValidator {
 
     final var validationResult =
         blockValidator.validateAndProcessBlock(
-            protocolContext, block, HeaderValidationMode.LIGHT, HeaderValidationMode.FULL, false);
+            protocolContext,
+            block,
+            HeaderValidationMode.LIGHT,
+            HeaderValidationMode.FULL,
+            BodyValidationMode.FULL,
+            false);
 
     if (!validationResult.isSuccessful()) {
       LOG.info(
