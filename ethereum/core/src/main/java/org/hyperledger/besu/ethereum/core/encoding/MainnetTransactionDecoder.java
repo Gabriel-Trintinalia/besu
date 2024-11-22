@@ -30,7 +30,7 @@ import org.apache.tuweni.bytes.Bytes;
 public class MainnetTransactionDecoder implements TransactionDecoder {
 
   @Override
-  public Transaction readFrom(RLPInput input) {
+  public Transaction readFrom(final RLPInput input) {
     return decodeRLP(input, EncodingContext.BLOCK_BODY);
   }
 
