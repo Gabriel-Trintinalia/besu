@@ -40,41 +40,40 @@ import org.hyperledger.besu.cli.config.ProfilesCompletionCandidates;
 import org.hyperledger.besu.cli.custom.JsonRPCAllowlistHostsProperty;
 import org.hyperledger.besu.cli.error.BesuExecutionExceptionHandler;
 import org.hyperledger.besu.cli.error.BesuParameterExceptionHandler;
+import org.hyperledger.besu.cli.options.ApiConfigurationOptions;
+import org.hyperledger.besu.cli.options.ChainPruningOptions;
+import org.hyperledger.besu.cli.options.DnsOptions;
+import org.hyperledger.besu.cli.options.EngineRPCConfiguration;
+import org.hyperledger.besu.cli.options.EngineRPCOptions;
+import org.hyperledger.besu.cli.options.EthProtocolOptions;
+import org.hyperledger.besu.cli.options.EthstatsOptions;
+import org.hyperledger.besu.cli.options.EvmOptions;
+import org.hyperledger.besu.cli.options.GraphQlOptions;
+import org.hyperledger.besu.cli.options.InProcessRpcOptions;
+import org.hyperledger.besu.cli.options.IpcOptions;
+import org.hyperledger.besu.cli.options.JsonRpcHttpOptions;
+import org.hyperledger.besu.cli.options.LoggingLevelOption;
+import org.hyperledger.besu.cli.options.MetricsOptions;
 import org.hyperledger.besu.cli.options.MiningOptions;
+import org.hyperledger.besu.cli.options.NatOptions;
+import org.hyperledger.besu.cli.options.NativeLibraryOptions;
+import org.hyperledger.besu.cli.options.NetworkingOptions;
+import org.hyperledger.besu.cli.options.NodePrivateKeyFileOption;
+import org.hyperledger.besu.cli.options.P2PDiscoveryOptions;
+import org.hyperledger.besu.cli.options.P2PTLSConfigOptions;
+import org.hyperledger.besu.cli.options.PermissionsOptions;
+import org.hyperledger.besu.cli.options.PluginsConfigurationOptions;
+import org.hyperledger.besu.cli.options.PrivacyPluginOptions;
+import org.hyperledger.besu.cli.options.RPCOptions;
+import org.hyperledger.besu.cli.options.RpcWebsocketOptions;
+import org.hyperledger.besu.cli.options.SynchronizerOptions;
 import org.hyperledger.besu.cli.options.TransactionPoolOptions;
-import org.hyperledger.besu.cli.options.stable.ApiConfigurationOptions;
-import org.hyperledger.besu.cli.options.stable.EngineRPCConfiguration;
-import org.hyperledger.besu.cli.options.stable.EngineRPCOptions;
-import org.hyperledger.besu.cli.options.stable.EthstatsOptions;
-import org.hyperledger.besu.cli.options.stable.GraphQlOptions;
-import org.hyperledger.besu.cli.options.stable.JsonRpcHttpOptions;
-import org.hyperledger.besu.cli.options.stable.LoggingLevelOption;
-import org.hyperledger.besu.cli.options.stable.MetricsOptions;
-import org.hyperledger.besu.cli.options.stable.NodePrivateKeyFileOption;
-import org.hyperledger.besu.cli.options.stable.P2PDiscoveryOptions;
-import org.hyperledger.besu.cli.options.stable.PermissionsOptions;
-import org.hyperledger.besu.cli.options.stable.PluginsConfigurationOptions;
-import org.hyperledger.besu.cli.options.stable.RpcWebsocketOptions;
 import org.hyperledger.besu.cli.options.storage.DataStorageOptions;
 import org.hyperledger.besu.cli.options.storage.DiffBasedSubStorageOptions;
-import org.hyperledger.besu.cli.options.unstable.ChainPruningOptions;
-import org.hyperledger.besu.cli.options.unstable.DnsOptions;
-import org.hyperledger.besu.cli.options.unstable.EthProtocolOptions;
-import org.hyperledger.besu.cli.options.unstable.EvmOptions;
-import org.hyperledger.besu.cli.options.unstable.InProcessRpcOptions;
-import org.hyperledger.besu.cli.options.unstable.IpcOptions;
-import org.hyperledger.besu.cli.options.unstable.NatOptions;
-import org.hyperledger.besu.cli.options.unstable.NativeLibraryOptions;
-import org.hyperledger.besu.cli.options.unstable.NetworkingOptions;
-import org.hyperledger.besu.cli.options.unstable.P2PTLSConfigOptions;
-import org.hyperledger.besu.cli.options.unstable.PrivacyPluginOptions;
-import org.hyperledger.besu.cli.options.unstable.RPCOptions;
-import org.hyperledger.besu.cli.options.unstable.SynchronizerOptions;
 import org.hyperledger.besu.cli.presynctasks.PreSynchronizationTaskRunner;
 import org.hyperledger.besu.cli.presynctasks.PrivateDatabaseMigrationPreSyncTask;
 import org.hyperledger.besu.cli.subcommands.PasswordSubCommand;
 import org.hyperledger.besu.cli.subcommands.PublicKeySubCommand;
-import org.hyperledger.besu.cli.subcommands.RetestethSubCommand;
 import org.hyperledger.besu.cli.subcommands.TxParseSubCommand;
 import org.hyperledger.besu.cli.subcommands.ValidateConfigSubCommand;
 import org.hyperledger.besu.cli.subcommands.blocks.BlocksSubCommand;
@@ -114,7 +113,7 @@ import org.hyperledger.besu.ethereum.api.jsonrpc.ipc.JsonRpcIpcConfiguration;
 import org.hyperledger.besu.ethereum.api.jsonrpc.websocket.WebSocketConfiguration;
 import org.hyperledger.besu.ethereum.api.query.BlockchainQueries;
 import org.hyperledger.besu.ethereum.chain.Blockchain;
-import org.hyperledger.besu.ethereum.core.MiningParameters;
+import org.hyperledger.besu.ethereum.core.MiningConfiguration;
 import org.hyperledger.besu.ethereum.core.MiningParametersMetrics;
 import org.hyperledger.besu.ethereum.core.PrivacyParameters;
 import org.hyperledger.besu.ethereum.core.VersionMetadata;
@@ -339,7 +338,7 @@ public class BesuCommand implements DefaultCommandValues, Runnable {
       Suppliers.memoize(this::readGenesisConfigFile);
   private final Supplier<GenesisConfigOptions> genesisConfigOptionsSupplier =
       Suppliers.memoize(this::readGenesisConfigOptions);
-  private final Supplier<MiningParameters> miningParametersSupplier =
+  private final Supplier<MiningConfiguration> miningParametersSupplier =
       Suppliers.memoize(this::getMiningParameters);
 
   private RocksDBPlugin rocksDBPlugin;
@@ -506,77 +505,95 @@ public class BesuCommand implements DefaultCommandValues, Runnable {
   @CommandLine.ArgGroup(validate = false, heading = "@|bold In-Process RPC Options|@%n")
   InProcessRpcOptions inProcessRpcOptions = InProcessRpcOptions.create();
 
+  private static final String PRIVACY_DEPRECATION_PREFIX =
+      "Deprecated. Tessera-based privacy is deprecated. See CHANGELOG for alternative options. ";
+
   // Privacy Options Group
-  @CommandLine.ArgGroup(validate = false, heading = "@|bold Privacy Options|@%n")
+  @CommandLine.ArgGroup(validate = false, heading = "@|bold (Deprecated) Privacy Options |@%n")
   PrivacyOptionGroup privacyOptionGroup = new PrivacyOptionGroup();
 
   static class PrivacyOptionGroup {
     @Option(
         names = {"--privacy-tls-enabled"},
         paramLabel = MANDATORY_FILE_FORMAT_HELP,
-        description = "Enable TLS for connecting to privacy enclave (default: ${DEFAULT-VALUE})")
+        description =
+            PRIVACY_DEPRECATION_PREFIX
+                + "Enable TLS for connecting to privacy enclave (default: ${DEFAULT-VALUE})")
     private final Boolean isPrivacyTlsEnabled = false;
 
     @Option(
         names = "--privacy-tls-keystore-file",
         paramLabel = MANDATORY_FILE_FORMAT_HELP,
         description =
-            "Path to a PKCS#12 formatted keystore; used to enable TLS on inbound connections.")
+            PRIVACY_DEPRECATION_PREFIX
+                + "Path to a PKCS#12 formatted keystore; used to enable TLS on inbound connections.")
     private final Path privacyKeyStoreFile = null;
 
     @Option(
         names = "--privacy-tls-keystore-password-file",
         paramLabel = MANDATORY_FILE_FORMAT_HELP,
-        description = "Path to a file containing the password used to decrypt the keystore.")
+        description =
+            PRIVACY_DEPRECATION_PREFIX
+                + "Path to a file containing the password used to decrypt the keystore.")
     private final Path privacyKeyStorePasswordFile = null;
 
     @Option(
         names = "--privacy-tls-known-enclave-file",
         paramLabel = MANDATORY_FILE_FORMAT_HELP,
         description =
-            "Path to a file containing the fingerprints of the authorized privacy enclave.")
+            PRIVACY_DEPRECATION_PREFIX
+                + "Path to a file containing the fingerprints of the authorized privacy enclave.")
     private final Path privacyTlsKnownEnclaveFile = null;
 
     @Option(
         names = {"--privacy-enabled"},
-        description = "Enable private transactions (default: ${DEFAULT-VALUE})")
+        description =
+            PRIVACY_DEPRECATION_PREFIX + "Enable private transactions (default: ${DEFAULT-VALUE})")
     private final Boolean isPrivacyEnabled = false;
 
     @Option(
         names = {"--privacy-multi-tenancy-enabled"},
-        description = "Enable multi-tenant private transactions (default: ${DEFAULT-VALUE})")
+        description =
+            PRIVACY_DEPRECATION_PREFIX
+                + "Enable multi-tenant private transactions (default: ${DEFAULT-VALUE})")
     private final Boolean isPrivacyMultiTenancyEnabled = false;
 
     @Option(
         names = {"--privacy-url"},
-        description = "The URL on which the enclave is running")
+        description = PRIVACY_DEPRECATION_PREFIX + "The URL on which the enclave is running")
     private final URI privacyUrl = PrivacyParameters.DEFAULT_ENCLAVE_URL;
 
     @Option(
         names = {"--privacy-public-key-file"},
-        description = "The enclave's public key file")
+        description = PRIVACY_DEPRECATION_PREFIX + "The enclave's public key file")
     private final File privacyPublicKeyFile = null;
 
     @Option(
         names = {"--privacy-marker-transaction-signing-key-file"},
         description =
-            "The name of a file containing the private key used to sign privacy marker transactions. If unset, each will be signed with a random key.")
+            PRIVACY_DEPRECATION_PREFIX
+                + "The name of a file containing the private key used to sign privacy marker transactions. If unset, each will be signed with a random key.")
     private final Path privateMarkerTransactionSigningKeyPath = null;
 
     @Option(
         names = {"--privacy-enable-database-migration"},
-        description = "Enable private database metadata migration (default: ${DEFAULT-VALUE})")
+        description =
+            PRIVACY_DEPRECATION_PREFIX
+                + "Enable private database metadata migration (default: ${DEFAULT-VALUE})")
     private final Boolean migratePrivateDatabase = false;
 
     @Option(
         names = {"--privacy-flexible-groups-enabled"},
-        description = "Enable flexible privacy groups (default: ${DEFAULT-VALUE})")
+        description =
+            PRIVACY_DEPRECATION_PREFIX
+                + "Enable flexible privacy groups (default: ${DEFAULT-VALUE})")
     private final Boolean isFlexiblePrivacyGroupsEnabled = false;
 
     @Option(
         names = {"--privacy-nonce-always-increments"},
         description =
-            "Enable private nonce "
+            PRIVACY_DEPRECATION_PREFIX
+                + "Enable private nonce "
                 + "incrementation even if the transaction didn't succeeded (default: ${DEFAULT-VALUE})")
     private final Boolean isPrivateNonceAlwaysIncrementsEnabled = false;
   }
@@ -1105,7 +1122,6 @@ public class BesuCommand implements DefaultCommandValues, Runnable {
         PublicKeySubCommand.COMMAND_NAME, new PublicKeySubCommand(commandLine.getOut()));
     commandLine.addSubcommand(
         PasswordSubCommand.COMMAND_NAME, new PasswordSubCommand(commandLine.getOut()));
-    commandLine.addSubcommand(RetestethSubCommand.COMMAND_NAME, new RetestethSubCommand());
     commandLine.addSubcommand(
         RLPSubCommand.COMMAND_NAME, new RLPSubCommand(commandLine.getOut(), in));
     commandLine.addSubcommand(
@@ -1235,7 +1251,7 @@ public class BesuCommand implements DefaultCommandValues, Runnable {
 
   private void startPlugins(final Runner runner) {
     blockchainServiceImpl.init(
-        besuController.getProtocolContext(), besuController.getProtocolSchedule());
+        besuController.getProtocolContext().getBlockchain(), besuController.getProtocolSchedule());
     transactionSimulationServiceImpl.init(
         besuController.getProtocolContext().getBlockchain(),
         new TransactionSimulator(
@@ -1295,6 +1311,8 @@ public class BesuCommand implements DefaultCommandValues, Runnable {
     // after start has been called on plugins
 
     if (Boolean.TRUE.equals(privacyOptionGroup.isPrivacyEnabled)) {
+      logger.warn(
+          "--Xprivacy-plugin-enabled and related options are " + PRIVACY_DEPRECATION_PREFIX);
 
       if (privacyOptionGroup.privateMarkerTransactionSigningKeyPath != null
           && privacyPluginService != null
@@ -1334,7 +1352,7 @@ public class BesuCommand implements DefaultCommandValues, Runnable {
   private void setReleaseMetrics() {
     besuComponent
         .getMetricsSystem()
-        .createLabelledGauge(
+        .createLabelledSuppliedGauge(
             StandardMetricCategory.PROCESS, "release", "Release information", "version")
         .labels(() -> 1, BesuInfo.version());
   }
@@ -1924,6 +1942,7 @@ public class BesuCommand implements DefaultCommandValues, Runnable {
 
     final PrivacyParameters.Builder privacyParametersBuilder = new PrivacyParameters.Builder();
     if (Boolean.TRUE.equals(privacyOptionGroup.isPrivacyEnabled)) {
+      logger.warn("--privacy-enabled and related options are " + PRIVACY_DEPRECATION_PREFIX);
       final String errorSuffix = "cannot be enabled with privacy.";
       if (syncMode == SyncMode.FAST) {
         throw new ParameterException(commandLine, String.format("%s %s", "Fast sync", errorSuffix));
@@ -2119,7 +2138,7 @@ public class BesuCommand implements DefaultCommandValues, Runnable {
     return txPoolConfBuilder.build();
   }
 
-  private MiningParameters getMiningParameters() {
+  private MiningConfiguration getMiningParameters() {
     miningOptions.setTransactionSelectionService(transactionSelectionServiceImpl);
     final var miningParameters = miningOptions.toDomainObject();
     getGenesisBlockPeriodSeconds(genesisConfigOptionsSupplier.get())
@@ -2171,8 +2190,8 @@ public class BesuCommand implements DefaultCommandValues, Runnable {
     return dataStorageConfiguration;
   }
 
-  private void initMiningParametersMetrics(final MiningParameters miningParameters) {
-    new MiningParametersMetrics(getMetricsSystem(), miningParameters);
+  private void initMiningParametersMetrics(final MiningConfiguration miningConfiguration) {
+    new MiningParametersMetrics(getMetricsSystem(), miningConfiguration);
   }
 
   private OptionalInt getGenesisBlockPeriodSeconds(
