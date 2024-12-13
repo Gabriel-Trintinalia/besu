@@ -12,32 +12,35 @@
  *
  * SPDX-License-Identifier: Apache-2.0
  */
-package org.hyperledger.besu.datatypes;
+package org.hyperledger.besu.plugin.data;
 
+import static com.google.common.base.Preconditions.checkNotNull;
+
+import org.hyperledger.besu.datatypes.Address;
+import org.hyperledger.besu.datatypes.Wei;
 import org.hyperledger.besu.datatypes.parameters.UnsignedLongParameter;
 
 import java.util.Map;
 import java.util.Objects;
 import java.util.Optional;
 
-import com.fasterxml.jackson.annotation.JsonAnySetter;
-import com.fasterxml.jackson.annotation.JsonIgnoreProperties;
-import com.fasterxml.jackson.databind.annotation.JsonDeserialize;
-import org.slf4j.Logger;
-import org.slf4j.LoggerFactory;
-
 /** Account Override parameter class */
-@JsonIgnoreProperties(ignoreUnknown = true)
-@JsonDeserialize(builder = AccountOverride.Builder.class)
-public class AccountOverride {
-  private static final Logger LOG = LoggerFactory.getLogger(AccountOverride.class);
+public class StateOverride {
 
   private final Optional<Wei> balance;
   private final Optional<Long> nonce;
   private final Optional<String> code;
   private final Optional<Map<String, String>> stateDiff;
 
-  private AccountOverride(
+  /**
+   * Constructor
+   *
+   * @param balance the balance override
+   * @param nonce the nonce override
+   * @param code the code override
+   * @param stateDiff the state override map
+   */
+  protected StateOverride(
       final Optional<Wei> balance,
       final Optional<Long> nonce,
       final Optional<String> code,
@@ -84,9 +87,18 @@ public class AccountOverride {
     return stateDiff;
   }
 
+  /**
+   * Creates a new builder
+   *
+   * @return the builder
+   */
+  public static Builder builder() {
+    return new Builder();
+  }
+
   /** Builder class for Account overrides */
-  @JsonIgnoreProperties(ignoreUnknown = true)
   public static class Builder {
+    private Address address;
     private Optional<Wei> balance = Optional.empty();
     private Optional<Long> nonce = Optional.empty();
     private Optional<String> code = Optional.empty();
@@ -144,24 +156,10 @@ public class AccountOverride {
      *
      * @return account override
      */
-    public AccountOverride build() {
-      return new AccountOverride(balance, nonce, code, stateDiff);
+    public StateOverride build() {
+      checkNotNull(address, "address must be set");
+      return new StateOverride(balance, nonce, code, stateDiff);
     }
-  }
-
-  /**
-   * utility method to log unknown properties
-   *
-   * @param key key for the unrecognized value
-   * @param value the unrecognized value
-   */
-  @JsonAnySetter
-  public void withUnknownProperties(final String key, final Object value) {
-    LOG.debug(
-        "unknown property - {} with value - {} and type - {} caught during serialization",
-        key,
-        value,
-        value != null ? value.getClass() : "NULL");
   }
 
   @Override
@@ -172,11 +170,11 @@ public class AccountOverride {
     if (o == null || getClass() != o.getClass()) {
       return false;
     }
-    final AccountOverride accountOverride = (AccountOverride) o;
-    return balance.equals(accountOverride.balance)
-        && nonce.equals(accountOverride.nonce)
-        && code.equals(accountOverride.code)
-        && stateDiff.equals(accountOverride.stateDiff);
+    final StateOverride stateOverride = (StateOverride) o;
+    return balance.equals(stateOverride.balance)
+        && nonce.equals(stateOverride.nonce)
+        && code.equals(stateOverride.code)
+        && stateDiff.equals(stateOverride.stateDiff);
   }
 
   @Override
@@ -186,7 +184,7 @@ public class AccountOverride {
 
   @Override
   public String toString() {
-    return "AccountOverride{"
+    return "StateOverrides{"
         + "balance="
         + balance
         + ", nonce="

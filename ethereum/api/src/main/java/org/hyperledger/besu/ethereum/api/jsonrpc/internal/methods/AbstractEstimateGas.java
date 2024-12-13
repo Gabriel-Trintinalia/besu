@@ -16,7 +16,7 @@ package org.hyperledger.besu.ethereum.api.jsonrpc.internal.methods;
 
 import static org.hyperledger.besu.ethereum.api.jsonrpc.internal.methods.JsonCallParameterUtil.validateAndGetCallParams;
 
-import org.hyperledger.besu.datatypes.AccountOverrideMap;
+import org.hyperledger.besu.datatypes.Address;
 import org.hyperledger.besu.datatypes.Wei;
 import org.hyperledger.besu.ethereum.api.jsonrpc.JsonRpcErrorConverter;
 import org.hyperledger.besu.ethereum.api.jsonrpc.internal.JsonRpcRequestContext;
@@ -25,6 +25,7 @@ import org.hyperledger.besu.ethereum.api.jsonrpc.internal.exception.InvalidJsonR
 import org.hyperledger.besu.ethereum.api.jsonrpc.internal.parameters.BlockParameter;
 import org.hyperledger.besu.ethereum.api.jsonrpc.internal.parameters.JsonCallParameter;
 import org.hyperledger.besu.ethereum.api.jsonrpc.internal.parameters.JsonRpcParameter;
+import org.hyperledger.besu.ethereum.api.jsonrpc.internal.parameters.StateOverrideParameter;
 import org.hyperledger.besu.ethereum.api.jsonrpc.internal.response.JsonRpcError;
 import org.hyperledger.besu.ethereum.api.jsonrpc.internal.response.JsonRpcErrorResponse;
 import org.hyperledger.besu.ethereum.api.jsonrpc.internal.response.RpcErrorType;
@@ -39,6 +40,7 @@ import org.hyperledger.besu.ethereum.transaction.TransactionSimulator;
 import org.hyperledger.besu.ethereum.transaction.TransactionSimulatorResult;
 import org.hyperledger.besu.evm.tracing.EstimateGasOperationTracer;
 import org.hyperledger.besu.evm.tracing.OperationTracer;
+import org.hyperledger.besu.plugin.data.StateOverrides;
 
 import java.util.Optional;
 
@@ -76,7 +78,7 @@ public abstract class AbstractEstimateGas extends AbstractBlockParameterMethod {
   protected Object pendingResult(final JsonRpcRequestContext requestContext) {
     final JsonCallParameter jsonCallParameter = validateAndGetCallParams(requestContext);
     final var validationParams = getTransactionValidationParams(jsonCallParameter);
-    final var maybeStateOverrides = getAddressAccountOverrideMap(requestContext);
+    final var maybeStateOverrides = getStateOverrides(requestContext);
     final var pendingBlockHeader = transactionSimulator.simulatePendingBlockHeader();
     final TransactionSimulationFunction simulationFunction =
         (cp, op) ->
@@ -103,7 +105,7 @@ public abstract class AbstractEstimateGas extends AbstractBlockParameterMethod {
       final JsonCallParameter jsonCallParameter,
       final BlockHeader blockHeader) {
     final var validationParams = getTransactionValidationParams(jsonCallParameter);
-    final var maybeStateOverrides = getAddressAccountOverrideMap(requestContext);
+    final var maybeStateOverrides = getStateOverrides(requestContext);
     final TransactionSimulationFunction simulationFunction =
         (cp, op) ->
             transactionSimulator.process(
@@ -214,10 +216,11 @@ public abstract class AbstractEstimateGas extends AbstractBlockParameterMethod {
   }
 
   @VisibleForTesting
-  protected Optional<AccountOverrideMap> getAddressAccountOverrideMap(
-      final JsonRpcRequestContext request) {
+  protected Optional<StateOverrides> getStateOverrides(final JsonRpcRequestContext request) {
     try {
-      return request.getOptionalParameter(2, AccountOverrideMap.class);
+      return request
+          .getOptionalMap(2, Address.class, StateOverrideParameter.class)
+          .map(StateOverrides::new);
     } catch (JsonRpcParameter.JsonRpcParameterException e) {
       throw new InvalidJsonRpcRequestException(
           "Invalid account overrides parameter (index 2)", RpcErrorType.INVALID_CALL_PARAMS, e);
