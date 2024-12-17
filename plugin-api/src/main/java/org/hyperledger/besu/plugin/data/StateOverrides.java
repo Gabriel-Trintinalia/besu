@@ -22,9 +22,7 @@ import java.util.Map;
 /** A map of state overrides. */
 public class StateOverrides extends HashMap<Address, StateOverride> {
 
-  /**
-   * Default constructor.
-   */
+  /** Default constructor. */
   public StateOverrides() {
     super();
   }
@@ -32,7 +30,8 @@ public class StateOverrides extends HashMap<Address, StateOverride> {
   /**
    * Constructor.
    *
-   * @param map the map to copy, where the values are of type {@code T} which extends {@code StateOverride}
+   * @param map the map to copy, where the values are of type {@code T} which extends {@code
+   *     StateOverride}
    * @param <T> the type of the values in the map, which extends {@code StateOverride}
    */
   public <T extends StateOverride> StateOverrides(final Map<Address, T> map) {
