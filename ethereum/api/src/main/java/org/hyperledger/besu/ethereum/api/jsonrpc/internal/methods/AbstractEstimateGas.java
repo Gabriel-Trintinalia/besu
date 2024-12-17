@@ -16,7 +16,6 @@ package org.hyperledger.besu.ethereum.api.jsonrpc.internal.methods;
 
 import static org.hyperledger.besu.ethereum.api.jsonrpc.internal.methods.JsonCallParameterUtil.validateAndGetCallParams;
 
-import org.hyperledger.besu.datatypes.Address;
 import org.hyperledger.besu.datatypes.Wei;
 import org.hyperledger.besu.ethereum.api.jsonrpc.JsonRpcErrorConverter;
 import org.hyperledger.besu.ethereum.api.jsonrpc.internal.JsonRpcRequestContext;
@@ -25,7 +24,7 @@ import org.hyperledger.besu.ethereum.api.jsonrpc.internal.exception.InvalidJsonR
 import org.hyperledger.besu.ethereum.api.jsonrpc.internal.parameters.BlockParameter;
 import org.hyperledger.besu.ethereum.api.jsonrpc.internal.parameters.JsonCallParameter;
 import org.hyperledger.besu.ethereum.api.jsonrpc.internal.parameters.JsonRpcParameter;
-import org.hyperledger.besu.ethereum.api.jsonrpc.internal.parameters.StateOverrideParameter;
+import org.hyperledger.besu.ethereum.api.jsonrpc.internal.parameters.StateOverridesParameter;
 import org.hyperledger.besu.ethereum.api.jsonrpc.internal.response.JsonRpcError;
 import org.hyperledger.besu.ethereum.api.jsonrpc.internal.response.JsonRpcErrorResponse;
 import org.hyperledger.besu.ethereum.api.jsonrpc.internal.response.RpcErrorType;
@@ -219,8 +218,13 @@ public abstract class AbstractEstimateGas extends AbstractBlockParameterMethod {
   protected Optional<StateOverrides> getStateOverrides(final JsonRpcRequestContext request) {
     try {
       return request
-          .getOptionalMap(2, Address.class, StateOverrideParameter.class)
-          .map(StateOverrides::new);
+          .getOptionalParameter(2, StateOverridesParameter.class)
+          .map(
+              stateOverridesParameter -> {
+                StateOverrides stateOverrides = new StateOverrides();
+                stateOverrides.putAll(stateOverridesParameter);
+                return stateOverrides;
+              });
     } catch (JsonRpcParameter.JsonRpcParameterException e) {
       throw new InvalidJsonRpcRequestException(
           "Invalid account overrides parameter (index 2)", RpcErrorType.INVALID_CALL_PARAMS, e);

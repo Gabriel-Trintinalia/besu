@@ -15,7 +15,6 @@
 package org.hyperledger.besu.ethereum.api.jsonrpc.internal.parameters;
 
 import java.util.List;
-import java.util.Map;
 import java.util.Optional;
 
 import com.fasterxml.jackson.core.JsonProcessingException;
@@ -103,33 +102,6 @@ public class JsonRpcParameter {
             String.format(
                 "Invalid json rpc parameter at index %d. Supplied value was: '%s' of type: '%s' - expected type: '%s'",
                 index, rawParam, rawParam.getClass().getName(), listClass.getName()),
-            e);
-      }
-    }
-    return Optional.empty();
-  }
-
-  public <K, V> Optional<Map<K, V>> optionalMap(
-      final Object[] params, final int index, final Class<K> keyClass, final Class<V> valueClass)
-      throws JsonRpcParameterException {
-    if (params == null || params.length <= index || params[index] == null) {
-      return Optional.empty();
-    }
-    Object rawParam = params[index];
-    if (Map.class.isAssignableFrom(rawParam.getClass())) {
-      try {
-        String mapJson = mapper.writeValueAsString(rawParam);
-        Map<K, V> returnedMap = mapper.readValue(mapJson, new TypeReference<Map<K, V>>() {});
-        return Optional.of(returnedMap);
-      } catch (JsonProcessingException e) {
-        throw new JsonRpcParameterException(
-            String.format(
-                "Invalid json rpc parameter at index %d. Supplied value was: '%s' of type: '%s' - expected type: 'Map<%s, %s>'",
-                index,
-                rawParam,
-                rawParam.getClass().getName(),
-                keyClass.getName(),
-                valueClass.getName()),
             e);
       }
     }

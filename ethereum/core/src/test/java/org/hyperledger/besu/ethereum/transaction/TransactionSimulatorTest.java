@@ -34,6 +34,7 @@ import org.hyperledger.besu.datatypes.Hash;
 import org.hyperledger.besu.datatypes.TransactionType;
 import org.hyperledger.besu.datatypes.Wei;
 import org.hyperledger.besu.ethereum.GasLimitCalculator;
+import org.hyperledger.besu.ethereum.api.jsonrpc.internal.parameters.StateOverrideParameter;
 import org.hyperledger.besu.ethereum.chain.Blockchain;
 import org.hyperledger.besu.ethereum.core.BlobTestFixture;
 import org.hyperledger.besu.ethereum.core.BlockHeader;
@@ -116,7 +117,7 @@ public class TransactionSimulatorTest {
   public void testOverrides_whenNoOverrides_noUpdates() {
     MutableAccount mutableAccount = mock(MutableAccount.class);
     when(mutableAccount.getAddress()).thenReturn(DEFAULT_FROM); // called from logging
-    StateOverride.Builder builder = new StateOverride.Builder();
+    StateOverrideParameter.Builder builder = StateOverrideParameter.builder();
     StateOverride override = builder.build();
     transactionSimulator.applyOverrides(mutableAccount, override);
     verify(mutableAccount).getAddress();
@@ -127,7 +128,8 @@ public class TransactionSimulatorTest {
   public void testOverrides_whenBalanceOverrides_balanceIsUpdated() {
     MutableAccount mutableAccount = mock(MutableAccount.class);
     when(mutableAccount.getAddress()).thenReturn(DEFAULT_FROM);
-    StateOverride.Builder builder = new StateOverride.Builder().withBalance(Wei.of(99));
+    StateOverrideParameter.Builder builder =
+        StateOverrideParameter.builder().withBalance(Wei.of(99));
     StateOverride override = builder.build();
     transactionSimulator.applyOverrides(mutableAccount, override);
     verify(mutableAccount).setBalance(eq(Wei.of(99)));
@@ -139,8 +141,8 @@ public class TransactionSimulatorTest {
     when(mutableAccount.getAddress()).thenReturn(DEFAULT_FROM);
     final String storageKey = "0x01a2";
     final String storageValue = "0x00ff";
-    StateOverride.Builder builder =
-        new StateOverride.Builder().withStateDiff(Map.of(storageKey, storageValue));
+    StateOverrideParameter.Builder builder =
+        StateOverrideParameter.builder().withStateDiff(Map.of(storageKey, storageValue));
     StateOverride override = builder.build();
     transactionSimulator.applyOverrides(mutableAccount, override);
     verify(mutableAccount)

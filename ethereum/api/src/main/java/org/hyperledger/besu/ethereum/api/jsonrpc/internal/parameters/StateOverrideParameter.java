@@ -29,9 +29,9 @@ import org.slf4j.LoggerFactory;
 
 /** Account Override parameter class */
 @JsonIgnoreProperties(ignoreUnknown = true)
-@JsonDeserialize(builder = StateOverride.Builder.class)
+@JsonDeserialize(builder = StateOverrideParameter.Builder.class)
 public class StateOverrideParameter extends StateOverride {
-  private static final Logger LOG = LoggerFactory.getLogger(StateOverride.class);
+  private static final Logger LOG = LoggerFactory.getLogger(StateOverrideParameter.class);
 
   protected StateOverrideParameter(
       final Optional<Wei> balance,
@@ -41,8 +41,8 @@ public class StateOverrideParameter extends StateOverride {
     super(balance, nonce, code, stateDiff);
   }
 
-  public static StateOverride.Builder builder() {
-    return new StateOverride.Builder();
+  public static StateOverrideParameter.Builder builder() {
+    return new StateOverrideParameter.Builder();
   }
 
   /** Builder class for Account overrides */
@@ -105,7 +105,7 @@ public class StateOverrideParameter extends StateOverride {
      *
      * @return account override
      */
-    public StateOverride build() {
+    public StateOverrideParameter build() {
       return new StateOverrideParameter(balance, nonce, code, stateDiff);
     }
   }

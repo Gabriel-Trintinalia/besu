@@ -14,11 +14,7 @@
  */
 package org.hyperledger.besu.plugin.data;
 
-import static com.google.common.base.Preconditions.checkNotNull;
-
-import org.hyperledger.besu.datatypes.Address;
 import org.hyperledger.besu.datatypes.Wei;
-import org.hyperledger.besu.datatypes.parameters.UnsignedLongParameter;
 
 import java.util.Map;
 import java.util.Objects;
@@ -85,81 +81,6 @@ public class StateOverride {
    */
   public Optional<Map<String, String>> getStateDiff() {
     return stateDiff;
-  }
-
-  /**
-   * Creates a new builder
-   *
-   * @return the builder
-   */
-  public static Builder builder() {
-    return new Builder();
-  }
-
-  /** Builder class for Account overrides */
-  public static class Builder {
-    private Address address;
-    private Optional<Wei> balance = Optional.empty();
-    private Optional<Long> nonce = Optional.empty();
-    private Optional<String> code = Optional.empty();
-    private Optional<Map<String, String>> stateDiff = Optional.empty();
-
-    /** Default constructor. */
-    public Builder() {}
-
-    /**
-     * Sets the balance override
-     *
-     * @param balance the balance override
-     * @return the builder
-     */
-    public Builder withBalance(final Wei balance) {
-      this.balance = Optional.ofNullable(balance);
-      return this;
-    }
-
-    /**
-     * Sets the nonce override
-     *
-     * @param nonce the nonce override in hex
-     * @return the builder
-     */
-    public Builder withNonce(final UnsignedLongParameter nonce) {
-      this.nonce = Optional.of(nonce.getValue());
-      return this;
-    }
-
-    /**
-     * Sets the code override
-     *
-     * @param code the code override
-     * @return the builder
-     */
-    public Builder withCode(final String code) {
-      this.code = Optional.ofNullable(code);
-      return this;
-    }
-
-    /**
-     * Sets the state diff override
-     *
-     * @param stateDiff the map of state overrides
-     * @return the builder
-     */
-    public Builder withStateDiff(final Map<String, String> stateDiff) {
-      this.stateDiff = Optional.ofNullable(stateDiff);
-      return this;
-    }
-
-    /**
-     * build the account override from the builder
-     *
-     * @return account override
-     */
-    public StateOverride build() {
-      checkNotNull(address, "address must be set");
-      return new StateOverride(balance, nonce, code, stateDiff);
-    }
   }
 
   @Override

@@ -34,6 +34,7 @@ import org.hyperledger.besu.datatypes.parameters.UnsignedLongParameter;
 import org.hyperledger.besu.ethereum.api.jsonrpc.internal.JsonRpcRequest;
 import org.hyperledger.besu.ethereum.api.jsonrpc.internal.JsonRpcRequestContext;
 import org.hyperledger.besu.ethereum.api.jsonrpc.internal.parameters.JsonCallParameter;
+import org.hyperledger.besu.ethereum.api.jsonrpc.internal.parameters.StateOverrideParameter;
 import org.hyperledger.besu.ethereum.api.jsonrpc.internal.response.JsonRpcError;
 import org.hyperledger.besu.ethereum.api.jsonrpc.internal.response.JsonRpcErrorResponse;
 import org.hyperledger.besu.ethereum.api.jsonrpc.internal.response.JsonRpcResponse;
@@ -52,7 +53,6 @@ import org.hyperledger.besu.ethereum.transaction.CallParameter;
 import org.hyperledger.besu.ethereum.transaction.PreCloseStateHandler;
 import org.hyperledger.besu.ethereum.transaction.TransactionSimulator;
 import org.hyperledger.besu.ethereum.transaction.TransactionSimulatorResult;
-import org.hyperledger.besu.plugin.data.StateOverride;
 import org.hyperledger.besu.plugin.data.StateOverrides;
 
 import java.util.Optional;
@@ -106,8 +106,8 @@ public class EthCallTest {
   public void someStateOverrides() {
     StateOverrides expectedOverrides = new StateOverrides();
     final Address address = Address.fromHexString("0xd9c9cd5f6779558b6e0ed4e6acf6b1947e7fa1f3");
-    StateOverride override =
-        StateOverride.builder().withNonce(new UnsignedLongParameter("0x9e")).build();
+    StateOverrideParameter override =
+        StateOverrideParameter.builder().withNonce(new UnsignedLongParameter("0x9e")).build();
     expectedOverrides.put(address, override);
 
     final JsonRpcRequestContext request =

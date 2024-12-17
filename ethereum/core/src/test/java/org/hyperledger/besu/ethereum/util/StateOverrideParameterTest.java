@@ -22,6 +22,7 @@ import org.hyperledger.besu.datatypes.Address;
 import org.hyperledger.besu.datatypes.Wei;
 import org.hyperledger.besu.ethereum.api.jsonrpc.internal.JsonRpcRequest;
 import org.hyperledger.besu.ethereum.api.jsonrpc.internal.JsonRpcRequestContext;
+import org.hyperledger.besu.ethereum.api.jsonrpc.internal.parameters.StateOverridesParameter;
 import org.hyperledger.besu.plugin.data.StateOverride;
 import org.hyperledger.besu.plugin.data.StateOverrides;
 
@@ -57,7 +58,7 @@ public class StateOverrideParameterTest {
 
     final JsonRpcRequestContext request = new JsonRpcRequestContext(readJsonAsJsonRpcRequest(json));
     final StateOverrides stateOverridesParam =
-        request.getRequiredParameter(2, StateOverrides.class);
+        new StateOverrides(request.getRequiredParameter(2, StateOverridesParameter.class));
 
     final StateOverride stateOverride =
         stateOverridesParam.get(Address.fromHexString(ADDRESS_HEX1));
@@ -84,8 +85,8 @@ public class StateOverrideParameterTest {
             + "}}],\"id\":1}";
 
     final JsonRpcRequestContext request = new JsonRpcRequestContext(readJsonAsJsonRpcRequest(json));
-    final StateOverrides stateOverridesParam =
-        request.getRequiredParameter(2, StateOverrides.class);
+    final StateOverridesParameter stateOverridesParam =
+        request.getRequiredParameter(2, StateOverridesParameter.class);
 
     final StateOverride stateOverride =
         stateOverridesParam.get(Address.fromHexString(ADDRESS_HEX1));
@@ -113,8 +114,8 @@ public class StateOverrideParameterTest {
             + "}}],\"id\":1}";
 
     final JsonRpcRequestContext request = new JsonRpcRequestContext(readJsonAsJsonRpcRequest(json));
-    final StateOverrides stateOverridesParam =
-        request.getRequiredParameter(2, StateOverrides.class);
+    final StateOverridesParameter stateOverridesParam =
+        request.getRequiredParameter(2, StateOverridesParameter.class);
 
     final StateOverride stateOverride =
         stateOverridesParam.get(Address.fromHexString(ADDRESS_HEX1));
@@ -146,8 +147,8 @@ public class StateOverrideParameterTest {
 
     final JsonRpcRequestContext request = new JsonRpcRequestContext(readJsonAsJsonRpcRequest(json));
 
-    final StateOverrides stateOverridesParam =
-        request.getRequiredParameter(2, StateOverrides.class);
+    final StateOverridesParameter stateOverridesParam =
+        request.getRequiredParameter(2, StateOverridesParameter.class);
     assertThat(stateOverridesParam.size()).isEqualTo(1);
 
     final StateOverride stateOverride =
@@ -193,8 +194,8 @@ public class StateOverrideParameterTest {
 
     final JsonRpcRequestContext request = new JsonRpcRequestContext(readJsonAsJsonRpcRequest(json));
 
-    final StateOverrides stateOverridesParam =
-        request.getRequiredParameter(2, StateOverrides.class);
+    final StateOverridesParameter stateOverridesParam =
+        request.getRequiredParameter(2, StateOverridesParameter.class);
     assertThat(stateOverridesParam.size()).isEqualTo(2);
 
     final StateOverride stateOverride1 =
