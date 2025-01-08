@@ -26,17 +26,17 @@ import org.hyperledger.besu.ethereum.api.jsonrpc.internal.parameters.JsonBlockSt
 import org.hyperledger.besu.ethereum.api.jsonrpc.internal.parameters.JsonRpcParameter.JsonRpcParameterException;
 import org.hyperledger.besu.ethereum.api.jsonrpc.internal.response.JsonRpcError;
 import org.hyperledger.besu.ethereum.api.jsonrpc.internal.response.JsonRpcErrorResponse;
+import org.hyperledger.besu.ethereum.api.jsonrpc.internal.response.JsonRpcSuccessResponse;
 import org.hyperledger.besu.ethereum.api.jsonrpc.internal.response.RpcErrorType;
 import org.hyperledger.besu.ethereum.api.jsonrpc.internal.results.BlockStateCallResult;
 import org.hyperledger.besu.ethereum.api.jsonrpc.internal.results.CallProcessingResult;
-import org.hyperledger.besu.ethereum.api.jsonrpc.internal.results.TransactionHashResult;
+import org.hyperledger.besu.ethereum.api.jsonrpc.internal.results.TransactionCompleteResult;
 import org.hyperledger.besu.ethereum.api.jsonrpc.internal.results.TransactionResult;
 import org.hyperledger.besu.ethereum.api.query.BlockchainQueries;
+import org.hyperledger.besu.ethereum.api.query.TransactionWithMetadata;
 import org.hyperledger.besu.ethereum.core.Block;
 import org.hyperledger.besu.ethereum.core.BlockHeader;
-import org.hyperledger.besu.ethereum.core.Difficulty;
 import org.hyperledger.besu.ethereum.core.MiningConfiguration;
-import org.hyperledger.besu.ethereum.core.Transaction;
 import org.hyperledger.besu.ethereum.mainnet.ProtocolSchedule;
 import org.hyperledger.besu.ethereum.transaction.BlockSimulationResult;
 import org.hyperledger.besu.ethereum.transaction.BlockSimulator;
@@ -49,17 +49,17 @@ public class EthSimulateV1 extends AbstractBlockParameterOrBlockHashMethod {
   private final BlockSimulator blockSimulator;
 
   public EthSimulateV1(
-    final BlockchainQueries blockchainQueries,
-    final ProtocolSchedule protocolSchedule,
-    final TransactionSimulator transactionSimulator,
-    final MiningConfiguration miningConfiguration) {
+      final BlockchainQueries blockchainQueries,
+      final ProtocolSchedule protocolSchedule,
+      final TransactionSimulator transactionSimulator,
+      final MiningConfiguration miningConfiguration) {
     super(blockchainQueries);
     this.blockSimulator =
-      new BlockSimulator(
-        blockchainQueries.getWorldStateArchive(),
-        protocolSchedule,
-        transactionSimulator,
-        miningConfiguration);
+        new BlockSimulator(
+            blockchainQueries.getWorldStateArchive(),
+            protocolSchedule,
+            transactionSimulator,
+            miningConfiguration);
   }
 
   @Override
@@ -69,84 +69,89 @@ public class EthSimulateV1 extends AbstractBlockParameterOrBlockHashMethod {
 
   @Override
   protected BlockParameterOrBlockHash blockParameterOrBlockHash(
-    final JsonRpcRequestContext request) {
+      final JsonRpcRequestContext request) {
     try {
       return request.getRequiredParameter(1, BlockParameterOrBlockHash.class);
     } catch (JsonRpcParameterException e) {
       throw new InvalidJsonRpcParameters(
-        "Invalid block or block hash parameters (index 1)", RpcErrorType.INVALID_BLOCK_PARAMS, e);
+          "Invalid block or block hash parameters (index 1)", RpcErrorType.INVALID_BLOCK_PARAMS, e);
     }
   }
 
   @Override
   protected Object resultByBlockHash(final JsonRpcRequestContext request, final Hash blockHash) {
     return blockchainQueries
-      .get()
-      .getBlockHeaderByHash(blockHash)
-      .map(header -> resultByBlockHeader(request, header))
-      .orElseGet(() -> errorResponse(request, BLOCK_NOT_FOUND));
+        .get()
+        .getBlockHeaderByHash(blockHash)
+        .map(header -> resultByBlockHeader(request, header))
+        .orElseGet(() -> errorResponse(request, BLOCK_NOT_FOUND));
   }
 
   @Override
   protected Object resultByBlockHeader(
-    final JsonRpcRequestContext request, final BlockHeader header) {
+      final JsonRpcRequestContext request, final BlockHeader header) {
     try {
       var blockStateCalls = getBlockStateCalls(request);
       var simulationResults = blockSimulator.process(header, blockStateCalls);
-      return createResponse(simulationResults);
+      return new JsonRpcSuccessResponse(
+          request.getRequest().getId(), createResponse(simulationResults));
     } catch (JsonRpcParameterException e) {
       throw new RuntimeException(e);
     }
   }
 
   private List<JsonBlockStateCall> getBlockStateCalls(final JsonRpcRequestContext request)
-    throws JsonRpcParameterException {
+      throws JsonRpcParameterException {
     BlockStateCallsParameter parameter =
-      request.getRequiredParameter(0, BlockStateCallsParameter.class);
+        request.getRequiredParameter(0, BlockStateCallsParameter.class);
     return parameter.getBlockStateCalls();
   }
 
   private JsonRpcErrorResponse errorResponse(
-    final JsonRpcRequestContext request, final RpcErrorType rpcErrorType) {
+      final JsonRpcRequestContext request, final RpcErrorType rpcErrorType) {
     return new JsonRpcErrorResponse(request.getRequest().getId(), new JsonRpcError(rpcErrorType));
   }
 
-  private Object createResponse(
-    final List<BlockSimulationResult> simulationResult) {
+  private Object createResponse(final List<BlockSimulationResult> simulationResult) {
     return simulationResult.stream()
-      .map(
-        result -> {
-          Block block = result.getBlock();
-          var txs =
-            block.getBody().getTransactions().stream().map(Transaction::getHash).toList();
-          var transactionResults =
-            result.getTransactionSimulations().stream()
-              .map(this::createTransactionProcessingResult)
-              .toList();
-          List<TransactionResult> transactionHashes =
-            txs.stream()
-              .map(Hash::toString)
-              .map(TransactionHashResult::new)
-              .collect(Collectors.toList());
-          return new BlockStateCallResult(
-            block.getHeader(),
-            transactionHashes,
-            List.of(),
-            transactionResults,
-            Difficulty.ZERO,
-            block.calculateSize(),
-            block.getBody().getWithdrawals());
-        })
-      .toList();
+        .map(
+            result -> {
+              Block block = result.getBlock();
+              List<TransactionWithMetadata> txs =
+                  block.getBody().getTransactions().stream()
+                      .map(
+                          transaction ->
+                              new TransactionWithMetadata(
+                                  transaction,
+                                  block.getHeader().getNumber(),
+                                  block.getHeader().getBaseFee(),
+                                  block.getHash(),
+                                  block.getBody().getTransactions().indexOf(transaction)))
+                      .toList();
+              var transactionResults =
+                  result.getTransactionSimulations().stream()
+                      .map(this::createTransactionProcessingResult)
+                      .toList();
+              List<TransactionResult> transactionHashes =
+                  txs.stream().map(TransactionCompleteResult::new).collect(Collectors.toList());
+              return new BlockStateCallResult(
+                  block.getHeader(),
+                  transactionHashes,
+                  List.of(),
+                  transactionResults,
+                  block.calculateSize(),
+                  block.getBody().getWithdrawals());
+            })
+        .toList();
   }
 
   private CallProcessingResult createTransactionProcessingResult(
-    final org.hyperledger.besu.ethereum.transaction.TransactionSimulatorResult simulatorResult) {
+      final org.hyperledger.besu.ethereum.transaction.TransactionSimulatorResult simulatorResult) {
     return new CallProcessingResult(
-      simulatorResult.result().isSuccessful() ? 1 : 0,
-      simulatorResult.result().getOutput(),
-      simulatorResult.result().getEstimateGasUsedByTransaction(),
-      null, // TODO ADD ERROR
-      null); // TODO ADD LOG
+        simulatorResult.result().isSuccessful() ? 1 : 0,
+        simulatorResult.result().getOutput(),
+        simulatorResult.result().getEstimateGasUsedByTransaction(),
+        null, // TODO ADD ERROR
+        List.of()); // TODO ADD LOG
   }
 }

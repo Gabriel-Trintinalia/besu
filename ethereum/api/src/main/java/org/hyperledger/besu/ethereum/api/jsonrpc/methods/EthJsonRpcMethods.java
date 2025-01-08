@@ -96,16 +96,16 @@ public class EthJsonRpcMethods extends ApiGroupJsonRpcMethods {
   private final TransactionSimulator transactionSimulator;
 
   public EthJsonRpcMethods(
-    final BlockchainQueries blockchainQueries,
-    final Synchronizer synchronizer,
-    final ProtocolSchedule protocolSchedule,
-    final FilterManager filterManager,
-    final TransactionPool transactionPool,
-    final MiningCoordinator miningCoordinator,
-    final MiningConfiguration miningConfiguration,
+      final BlockchainQueries blockchainQueries,
+      final Synchronizer synchronizer,
+      final ProtocolSchedule protocolSchedule,
+      final FilterManager filterManager,
+      final TransactionPool transactionPool,
+      final MiningCoordinator miningCoordinator,
+      final MiningConfiguration miningConfiguration,
       final Set<Capability> supportedCapabilities,
-    final ApiConfiguration apiConfiguration,
-    final TransactionSimulator transactionSimulator) {
+      final ApiConfiguration apiConfiguration,
+      final TransactionSimulator transactionSimulator) {
     this.blockchainQueries = blockchainQueries;
     this.synchronizer = synchronizer;
     this.protocolSchedule = protocolSchedule;
@@ -173,6 +173,7 @@ public class EthJsonRpcMethods extends ApiGroupJsonRpcMethods {
         new EthGetMinerDataByBlockNumber(blockchainQueries, protocolSchedule),
         new EthBlobBaseFee(blockchainQueries.getBlockchain(), protocolSchedule),
         new EthMaxPriorityFeePerGas(blockchainQueries),
-        new EthSimulateV1(blockchainQueries, protocolSchedule, transactionSimulator,miningConfiguration ));
+        new EthSimulateV1(
+            blockchainQueries, protocolSchedule, transactionSimulator, miningConfiguration));
   }
 }

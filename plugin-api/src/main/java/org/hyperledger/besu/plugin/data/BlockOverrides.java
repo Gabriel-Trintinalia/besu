@@ -38,7 +38,7 @@ public class BlockOverrides {
   private final Optional<Hash> stateRoot;
   private final Optional<BigInteger> difficulty;
   private final Optional<Bytes> extraData;
-  private final Optional<Hash> mixHashOrPrevRandao;
+  private final Optional<Hash> mixHash;
 
   /**
    * Constructs a new BlockOverrides instance.
@@ -54,7 +54,7 @@ public class BlockOverrides {
    * @param stateRoot the optional state root
    * @param difficulty the optional difficulty
    * @param extraData the optional extra data
-   * @param mixHashOrPrevRandao the optional mix hash or previous Randao
+   * @param mixHash the optional mix hash or previous Randao
    */
   public BlockOverrides(
       final Optional<UnsignedLongParameter> timestamp,
@@ -68,7 +68,7 @@ public class BlockOverrides {
       final Optional<Hash> stateRoot,
       final Optional<BigInteger> difficulty,
       final Optional<Bytes> extraData,
-      final Optional<Hash> mixHashOrPrevRandao) {
+      final Optional<Hash> mixHash) {
     this.timestamp = timestamp.map(UnsignedLongParameter::getValue);
     this.blockNumber = blockNumber.map(UnsignedLongParameter::getValue);
     this.blockHash = blockHash;
@@ -80,7 +80,7 @@ public class BlockOverrides {
     this.stateRoot = stateRoot;
     this.difficulty = difficulty;
     this.extraData = extraData;
-    this.mixHashOrPrevRandao = mixHashOrPrevRandao;
+    this.mixHash = mixHash;
   }
 
   /**
@@ -100,7 +100,7 @@ public class BlockOverrides {
     this.stateRoot = Optional.ofNullable(builder.stateRoot);
     this.difficulty = Optional.ofNullable(builder.difficulty);
     this.extraData = Optional.ofNullable(builder.extraData);
-    this.mixHashOrPrevRandao = Optional.ofNullable(builder.mixHashOrPrevRandao);
+    this.mixHash = Optional.ofNullable(builder.mixHash);
   }
 
   /**
@@ -207,8 +207,8 @@ public class BlockOverrides {
    *
    * @return the optional mix hash or previous Randao
    */
-  public Optional<Hash> getMixHashOrPrevRandao() {
-    return mixHashOrPrevRandao;
+  public Optional<Hash> getMixHash() {
+    return mixHash;
   }
 
   /**
@@ -233,7 +233,7 @@ public class BlockOverrides {
     private Hash stateRoot;
     private BigInteger difficulty;
     private Bytes extraData;
-    private Hash mixHashOrPrevRandao;
+    private Hash mixHash;
 
     /** Constructs a new Builder instance. */
     public Builder() {}
@@ -360,13 +360,13 @@ public class BlockOverrides {
     }
 
     /**
-     * Sets the mix hash or previous Randao.
+     * Sets the mix hash
      *
-     * @param mixHashOrPrevRandao the mix hash or previous Randao to set
+     * @param mixHash the mix hash
      * @return the builder instance
      */
-    public Builder mixHashOrPrevRandao(final Hash mixHashOrPrevRandao) {
-      this.mixHashOrPrevRandao = mixHashOrPrevRandao;
+    public Builder mixHash(final Hash mixHash) {
+      this.mixHash = mixHash;
       return this;
     }
 

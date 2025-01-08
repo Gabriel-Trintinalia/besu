@@ -18,8 +18,10 @@ import java.util.List;
 
 import com.fasterxml.jackson.annotation.JsonInclude;
 import com.fasterxml.jackson.annotation.JsonProperty;
+import com.fasterxml.jackson.annotation.JsonPropertyOrder;
 import org.apache.tuweni.bytes.Bytes;
 
+@JsonPropertyOrder(alphabetic = true)
 public class CallProcessingResult {
   @JsonProperty("status")
   private final String status;
@@ -44,7 +46,6 @@ public class CallProcessingResult {
       @JsonProperty("logs") final List<LogResult> logs) {
     this.status = Quantity.create(status);
     this.returnData = returnData.toString();
-
     this.gasUsed = Quantity.create(gasUsed);
     this.error = error;
     this.logs = logs;

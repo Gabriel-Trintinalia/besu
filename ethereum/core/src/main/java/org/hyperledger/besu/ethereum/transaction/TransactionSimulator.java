@@ -18,8 +18,6 @@ import static java.util.concurrent.TimeUnit.MILLISECONDS;
 import static org.hyperledger.besu.ethereum.mainnet.feemarket.ExcessBlobGasCalculator.calculateExcessBlobGasForParent;
 
 import org.hyperledger.besu.crypto.SECPSignature;
-import org.hyperledger.besu.crypto.SignatureAlgorithm;
-import org.hyperledger.besu.crypto.SignatureAlgorithmFactory;
 import org.hyperledger.besu.datatypes.AccountOverride;
 import org.hyperledger.besu.datatypes.AccountOverrideMap;
 import org.hyperledger.besu.datatypes.Address;
@@ -48,11 +46,9 @@ import org.hyperledger.besu.evm.worldstate.WorldUpdater;
 
 import java.math.BigInteger;
 import java.util.Optional;
-import java.util.function.Supplier;
 import javax.annotation.Nonnull;
 
 import com.google.common.annotations.VisibleForTesting;
-import com.google.common.base.Suppliers;
 import org.apache.tuweni.bytes.Bytes;
 import org.apache.tuweni.units.bigints.UInt256;
 import org.slf4j.Logger;
@@ -66,17 +62,10 @@ import org.slf4j.LoggerFactory;
  */
 public class TransactionSimulator {
   private static final Logger LOG = LoggerFactory.getLogger(TransactionSimulator.class);
-  private static final Supplier<SignatureAlgorithm> SIGNATURE_ALGORITHM =
-      Suppliers.memoize(SignatureAlgorithmFactory::getInstance);
 
   // Dummy signature for transactions to not fail being processed.
   private static final SECPSignature FAKE_SIGNATURE =
-      SIGNATURE_ALGORITHM
-          .get()
-          .createSignature(
-              SIGNATURE_ALGORITHM.get().getHalfCurveOrder(),
-              SIGNATURE_ALGORITHM.get().getHalfCurveOrder(),
-              (byte) 0);
+      new SECPSignature(BigInteger.ZERO, BigInteger.ZERO, (byte) 0);
 
   // TODO: Identify a better default from account to use, such as the registered
   // coinbase or an account currently unlocked by the client.

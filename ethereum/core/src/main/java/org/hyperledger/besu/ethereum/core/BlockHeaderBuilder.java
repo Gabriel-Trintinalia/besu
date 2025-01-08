@@ -104,6 +104,8 @@ public class BlockHeaderBuilder {
         .extraData(Bytes.EMPTY)
         .mixHash(Hash.EMPTY)
         .nonce(0)
+        .blobGasUsed(0L)
+        .excessBlobGas(BlobGas.ZERO)
         .blockHeaderFunctions(new MainnetBlockHeaderFunctions());
   }
 

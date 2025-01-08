@@ -19,9 +19,14 @@ import static org.assertj.core.api.Assertions.assertThat;
 import org.hyperledger.besu.ethereum.api.jsonrpc.AbstractJsonRpcHttpBySpecTest;
 import org.hyperledger.besu.ethereum.core.BlockchainSetupUtil;
 import org.hyperledger.besu.plugin.services.storage.DataStorageFormat;
+
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 
+/**
+ * This class is a test runner for the Bonsai test suite. It runs the tests defined in the Bonsai
+ * test suite against the Besu implementation of the JSON-RPC API.
+ */
 public class EthSimulateV1BySpecTest extends AbstractJsonRpcHttpBySpecTest {
 
   @Override
@@ -34,7 +39,9 @@ public class EthSimulateV1BySpecTest extends AbstractJsonRpcHttpBySpecTest {
   @Override
   protected BlockchainSetupUtil getBlockchainSetupUtil(final DataStorageFormat storageFormat) {
     return createBlockchainSetupUtil(
-      "eth/simulateV1/chain-data/genesis.json", "eth/simulateV1/chain-data/blocks.bin", storageFormat);
+        "eth/simulateV1/chain-data/genesis.json",
+        "eth/simulateV1/chain-data/blocks.bin",
+        storageFormat);
   }
 
   public static Object[][] specs() {

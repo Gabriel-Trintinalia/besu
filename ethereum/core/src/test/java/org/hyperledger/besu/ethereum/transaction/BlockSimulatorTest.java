@@ -205,6 +205,7 @@ public class BlockSimulatorTest {
     var expectedGasLimit = 5L;
     var expectedDifficulty = BigInteger.ONE;
     var expectedMixHashOrPrevRandao = Hash.hash(Bytes.fromHexString("0x01"));
+    var expectedPrevRandao = Hash.hash(Bytes.fromHexString("0x01"));
     var expectedExtraData = Bytes.fromHexString("0x02");
 
     BlockOverrides blockOverrides =
@@ -215,12 +216,13 @@ public class BlockSimulatorTest {
             .baseFeePerGas(expectedBaseFeePerGas)
             .gasLimit(expectedGasLimit)
             .difficulty(expectedDifficulty)
-            .mixHashOrPrevRandao(expectedMixHashOrPrevRandao)
+            .mixHash(expectedMixHashOrPrevRandao)
+            .prevRandao(expectedPrevRandao)
             .extraData(expectedExtraData)
             .build();
 
     BlockHeader result =
-        blockSimulator.applyBlockHeaderOverrides(blockHeader, protocolSpec, blockOverrides);
+        blockSimulator.applyBlockHeaderOverrides(blockHeader, protocolSpec, blockOverrides, true);
 
     assertNotNull(result);
     assertEquals(expectedTimestamp, result.getTimestamp());
@@ -230,6 +232,7 @@ public class BlockSimulatorTest {
     assertEquals(expectedGasLimit, result.getGasLimit());
     assertThat(result.getDifficulty()).isEqualTo(Difficulty.of(expectedDifficulty));
     assertEquals(expectedMixHashOrPrevRandao, result.getMixHash());
+    assertEquals(expectedPrevRandao, result.getPrevRandao().get());
     assertEquals(expectedExtraData, result.getExtraData());
   }
 

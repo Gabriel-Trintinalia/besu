@@ -29,6 +29,9 @@ public class BlockStateCallsParameter {
   @JsonProperty("traceTransfers")
   private boolean traceTransfers;
 
+  @JsonProperty("returnFullTransactions")
+  private boolean returnFullTransactions;
+
   public List<JsonBlockStateCall> getBlockStateCalls() {
     return blockStateCalls;
   }
@@ -39,5 +42,9 @@ public class BlockStateCallsParameter {
 
   public boolean isTraceTransfers() {
     return traceTransfers;
+  }
+
+  public boolean isReturnFullTransactions() {
+    return returnFullTransactions;
   }
 }

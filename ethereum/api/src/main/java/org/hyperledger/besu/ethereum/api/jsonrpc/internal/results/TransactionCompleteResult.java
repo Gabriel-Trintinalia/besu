@@ -29,31 +29,7 @@ import com.fasterxml.jackson.annotation.JsonInclude;
 import com.fasterxml.jackson.annotation.JsonPropertyOrder;
 import org.apache.tuweni.bytes.Bytes;
 
-@JsonPropertyOrder({
-  "accessList",
-  "authorizationList",
-  "blockHash",
-  "blockNumber",
-  "chainId",
-  "from",
-  "gas",
-  "gasPrice",
-  "maxPriorityFeePerGas",
-  "maxFeePerGas",
-  "maxFeePerBlobGas",
-  "hash",
-  "input",
-  "nonce",
-  "to",
-  "transactionIndex",
-  "type",
-  "value",
-  "yParity",
-  "v",
-  "r",
-  "s",
-  "blobVersionedHashes"
-})
+@JsonPropertyOrder(alphabetic = true)
 public class TransactionCompleteResult implements TransactionResult {
 
   @JsonInclude(JsonInclude.Include.NON_NULL)

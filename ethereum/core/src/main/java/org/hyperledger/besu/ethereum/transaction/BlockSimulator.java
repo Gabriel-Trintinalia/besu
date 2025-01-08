@@ -30,6 +30,7 @@ import org.hyperledger.besu.ethereum.core.MutableWorldState;
 import org.hyperledger.besu.ethereum.core.ParsedExtraData;
 import org.hyperledger.besu.ethereum.core.Transaction;
 import org.hyperledger.besu.ethereum.core.TransactionReceipt;
+import org.hyperledger.besu.ethereum.core.Withdrawal;
 import org.hyperledger.besu.ethereum.mainnet.BodyValidation;
 import org.hyperledger.besu.ethereum.mainnet.ImmutableTransactionValidationParams;
 import org.hyperledger.besu.ethereum.mainnet.MainnetBlockHeaderFunctions;
@@ -52,6 +53,7 @@ import java.util.Optional;
 
 import com.google.common.annotations.VisibleForTesting;
 import org.apache.tuweni.bytes.Bytes;
+import org.apache.tuweni.bytes.Bytes32;
 import org.apache.tuweni.units.bigints.UInt256;
 
 /**
@@ -140,7 +142,9 @@ public class BlockSimulator {
     ProtocolSpec newProtocolSpec = protocolSchedule.getForNextBlockHeader(header, timestamp);
 
     // Apply block header overrides and state overrides
-    BlockHeader blockHeader = applyBlockHeaderOverrides(header, newProtocolSpec, blockOverrides);
+    BlockHeader blockHeader =
+        applyBlockHeaderOverrides(
+            header, newProtocolSpec, blockOverrides, blockStateCall.isValidate());
     blockStateCall.getAccountOverrides().ifPresent(overrides -> applyStateOverrides(overrides, ws));
 
     // Override the mining beneficiary calculator if a fee recipient is specified, otherwise use the
@@ -210,9 +214,7 @@ public class BlockSimulator {
 
       TransactionProcessingResult transactionProcessingResult = transactionSimulatorResult.result();
       final Transaction transaction = transactionSimulatorResult.transaction();
-
       currentGasUsed += transaction.getGasLimit() - transactionProcessingResult.getGasRemaining();
-
       final TransactionReceipt transactionReceipt =
           transactionReceiptFactory.create(
               transaction.getType(), transactionProcessingResult, ws, currentGasUsed);
@@ -221,6 +223,8 @@ public class BlockSimulator {
       transactions.add(transaction);
     }
 
+    // TODO - Implement withdrawals
+    final List<Withdrawal> withdrawals = List.of();
     BlockHeader finalBlockHeader =
         createFinalBlockHeader(
             blockHeader,
@@ -228,8 +232,11 @@ public class BlockSimulator {
             transactions,
             blockStateCall.getBlockOverrides(),
             receipts,
+            withdrawals,
             currentGasUsed);
-    Block block = new Block(finalBlockHeader, new BlockBody(transactions, List.of()));
+    Block block =
+        new Block(
+            finalBlockHeader, new BlockBody(transactions, List.of(), Optional.of(withdrawals)));
     return new BlockSimulationResult(block, receipts, transactionSimulations);
   }
 
@@ -275,8 +282,9 @@ public class BlockSimulator {
   protected BlockHeader applyBlockHeaderOverrides(
       final BlockHeader header,
       final ProtocolSpec newProtocolSpec,
-      final BlockOverrides blockOverrides) {
-    long timestamp = blockOverrides.getTimestamp().orElse(header.getTimestamp() + 1);
+      final BlockOverrides blockOverrides,
+      final boolean shouldValidate) {
+    long timestamp = blockOverrides.getTimestamp().orElse(header.getTimestamp() + 12);
     long blockNumber = blockOverrides.getBlockNumber().orElse(header.getNumber() + 1);
 
     return BlockHeaderBuilder.createDefault()
@@ -296,12 +304,16 @@ public class BlockSimulator {
                 .getGasLimit()
                 .orElseGet(() -> getNextGasLimit(newProtocolSpec, header, blockNumber)))
         .baseFee(
-            blockOverrides
-                .getBaseFeePerGas()
-                .orElseGet(() -> getNextBaseFee(newProtocolSpec, header, blockNumber)))
-        .mixHash(blockOverrides.getMixHashOrPrevRandao().orElse(Hash.EMPTY))
+            shouldValidate
+                ? blockOverrides
+                    .getBaseFeePerGas()
+                    .orElseGet(() -> getNextBaseFee(newProtocolSpec, header, blockNumber))
+                : Wei.ZERO)
+        .prevRandao(blockOverrides.getPrevRandao().orElse(Hash.ZERO))
+        .mixHash(blockOverrides.getMixHash().orElse(Hash.ZERO))
         .extraData(blockOverrides.getExtraData().orElse(Bytes.EMPTY))
         .blockHeaderFunctions(new SimulatorBlockHeaderFunctions(blockOverrides))
+        .parentBeaconBlockRoot(Bytes32.ZERO)
         .buildBlockHeader();
   }
 
@@ -322,6 +334,7 @@ public class BlockSimulator {
       final List<Transaction> transactions,
       final BlockOverrides blockOverrides,
       final List<TransactionReceipt> receipts,
+      final List<Withdrawal> withdrawals,
       final long currentGasUsed) {
 
     return BlockHeaderBuilder.createDefault()
@@ -334,8 +347,8 @@ public class BlockSimulator {
         .gasUsed(currentGasUsed)
         .withdrawalsRoot(null)
         .requestsHash(null)
-        .mixHash(blockOverrides.getMixHashOrPrevRandao().orElse(Hash.EMPTY))
         .extraData(blockOverrides.getExtraData().orElse(Bytes.EMPTY))
+        .withdrawalsRoot(BodyValidation.withdrawalsRoot(withdrawals))
         .blockHeaderFunctions(new SimulatorBlockHeaderFunctions(blockOverrides))
         .buildBlockHeader();
   }
