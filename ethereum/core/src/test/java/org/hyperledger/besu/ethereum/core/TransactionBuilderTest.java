@@ -23,6 +23,7 @@ import org.hyperledger.besu.crypto.KeyPair;
 import org.hyperledger.besu.crypto.SignatureAlgorithm;
 import org.hyperledger.besu.crypto.SignatureAlgorithmFactory;
 import org.hyperledger.besu.datatypes.AccessListEntry;
+import org.hyperledger.besu.datatypes.Address;
 import org.hyperledger.besu.datatypes.TransactionType;
 import org.hyperledger.besu.datatypes.Wei;
 import org.hyperledger.besu.ethereum.rlp.BytesValueRLPOutput;
@@ -35,6 +36,7 @@ import java.util.function.Supplier;
 import java.util.stream.Stream;
 
 import com.google.common.base.Suppliers;
+import org.apache.tuweni.bytes.Bytes32;
 import org.junit.jupiter.api.Test;
 
 class TransactionBuilderTest {
@@ -42,14 +44,15 @@ class TransactionBuilderTest {
       Suppliers.memoize(SignatureAlgorithmFactory::getInstance);
   private static final KeyPair senderKeys = SIGNATURE_ALGORITHM.get().generateKeyPair();
 
+  private static final List<AccessListEntry> ACCESS_LIST_ENTRY_LIST =
+      List.of(new AccessListEntry(Address.fromHexString("0x1"), List.of(Bytes32.ZERO)));
+
   @Test
   void guessTypeCanGuessAllTypes() {
-    final BlockDataGenerator gen = new BlockDataGenerator();
     final Transaction.Builder frontierBuilder = Transaction.builder();
     final Transaction.Builder eip1559Builder = Transaction.builder().maxFeePerGas(Wei.of(5));
     final Transaction.Builder accessListBuilder =
-        Transaction.builder()
-            .accessList(List.of(new AccessListEntry(gen.address(), List.of(gen.bytes32()))));
+        Transaction.builder().accessList(ACCESS_LIST_ENTRY_LIST);
 
     final Set<TransactionType> guessedTypes =
         Stream.of(frontierBuilder, eip1559Builder, accessListBuilder)
@@ -93,5 +96,29 @@ class TransactionBuilderTest {
     BytesValueRLPOutput copyRLP = new BytesValueRLPOutput();
     copy.writeTo(copyRLP);
     assertEquals(sourceRLP.encoded(), copyRLP.encoded());
+  }
+
+  @Test
+  void shouldReturnEmptyAccessListForFrontierTransaction() {
+    Transaction frontierTransaction = Transaction.builder().build();
+    assertThat(frontierTransaction.getType()).isEqualTo(TransactionType.FRONTIER);
+    assertThat(frontierTransaction.getAccessList()).isEmpty();
+  }
+
+  @Test
+  void shouldReturnAccessListForAccessListTransaction() {
+    Transaction accessListTransaction =
+        Transaction.builder().chainId(BigInteger.ONE).accessList(ACCESS_LIST_ENTRY_LIST).build();
+    assertThat(accessListTransaction.getType()).isEqualTo(TransactionType.ACCESS_LIST);
+    assertThat(accessListTransaction.getAccessList())
+        .isEqualTo(Optional.of(ACCESS_LIST_ENTRY_LIST));
+  }
+
+  @Test
+  void shouldReturnEmptyListForEIP1559Transaction() {
+    Transaction eip1559Transaction =
+        Transaction.builder().chainId(BigInteger.ONE).maxFeePerGas(Wei.of(5)).build();
+    assertThat(eip1559Transaction.getType()).isEqualTo(TransactionType.EIP1559);
+    assertThat(eip1559Transaction.getAccessList()).isEqualTo(Optional.of(List.of()));
   }
 }

@@ -60,6 +60,7 @@ import org.hyperledger.besu.evm.gascalculator.FrontierGasCalculator;
 import org.hyperledger.besu.evm.worldstate.WorldUpdater;
 
 import java.math.BigInteger;
+import java.util.List;
 import java.util.Map;
 import java.util.Optional;
 
@@ -949,7 +950,7 @@ public class TransactionSimulatorTest {
         Optional.of(maxPriorityFeePerGas),
         Wei.of(0),
         Bytes.EMPTY,
-        Optional.empty(),
+        Optional.of(List.of()),
         Optional.of(maxFeePerBlobGas),
         Optional.of(bwc.getVersionedHashes()));
   }

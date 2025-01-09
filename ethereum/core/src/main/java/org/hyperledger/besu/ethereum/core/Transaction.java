@@ -197,6 +197,12 @@ public class Transaction
             "Must not specify access list for transaction not supporting it");
       }
 
+      if (maybeAccessList.isEmpty()) {
+        checkArgument(
+            !transactionType.supportsAccessList(),
+            "Must specify access list for transaction supporting it");
+      }
+
       if (Objects.equals(transactionType, TransactionType.ACCESS_LIST)) {
         checkArgument(
             maybeAccessList.isPresent(), "Must specify access list for access list transaction");
@@ -1333,7 +1339,9 @@ public class Transaction
           value,
           signature,
           payload,
-          accessList,
+          accessList.isEmpty() && transactionType.supportsAccessList()
+              ? EMPTY_ACCESS_LIST
+              : accessList,
           sender,
           chainId,
           Optional.ofNullable(versionedHashes),
