@@ -595,7 +595,7 @@ public class TransactionSimulator {
   }
 
   private boolean shouldSetMaxFeePerGas(
-    final CallParameter callParams, final ProcessableBlockHeader header) {
+      final CallParameter callParams, final ProcessableBlockHeader header) {
 
     // Return false if chain ID is not present
     if (protocolSchedule.getChainId().isEmpty()) {
@@ -613,16 +613,16 @@ public class TransactionSimulator {
     }
 
     // Return true if all gas price parameters are empty
-    if (callParams.getMaxPriorityFeePerGas().isEmpty() &&
-      callParams.getMaxFeePerGas().isEmpty() &&
-      callParams.getGasPrice() == null) {
+    if (callParams.getMaxPriorityFeePerGas().isEmpty()
+        && callParams.getMaxFeePerGas().isEmpty()
+        && callParams.getGasPrice() == null) {
       return true;
     }
 
     // Return true if either maxPriorityFeePerGas or maxFeePerGas is present
     // This ensures the transaction is considered EIP-1559 only if these parameters are present
-    return callParams.getMaxPriorityFeePerGas().isPresent() ||
-      callParams.getMaxFeePerGas().isPresent();
+    return callParams.getMaxPriorityFeePerGas().isPresent()
+        || callParams.getMaxFeePerGas().isPresent();
   }
 
   private boolean shouldSetBlobGasPrice(final CallParameter callParams) {
