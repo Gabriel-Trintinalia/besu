@@ -338,7 +338,8 @@ public class TransactionSimulator {
       final OperationTracer operationTracer,
       final BlockHeader header,
       final WorldUpdater updater,
-      final MiningBeneficiaryCalculator miningBeneficiaryCalculator) {
+      final MiningBeneficiaryCalculator miningBeneficiaryCalculator,
+      final long simulationGasCap) {
 
     final Address miningBeneficiary = miningBeneficiaryCalculator.calculateBeneficiary(header);
 
@@ -349,7 +350,32 @@ public class TransactionSimulator {
         operationTracer,
         header,
         updater,
-        miningBeneficiary);
+        miningBeneficiary,
+        simulationGasCap);
+  }
+
+  @Nonnull
+  public Optional<TransactionSimulatorResult> processWithWorldUpdater(
+    final CallParameter callParams,
+    final Optional<AccountOverrideMap> maybeStateOverrides,
+    final TransactionValidationParams transactionValidationParams,
+    final OperationTracer operationTracer,
+    final ProcessableBlockHeader processableHeader,
+    final WorldUpdater updater,
+    final Address miningBeneficiary) {
+
+    final long simulationGasCap =
+      calculateSimulationGasCap(callParams.getGasLimit(), processableHeader.getGasLimit(), 0L);
+
+    return processWithWorldUpdater(
+      callParams,
+      maybeStateOverrides,
+      transactionValidationParams,
+      operationTracer,
+      processableHeader,
+      updater,
+      miningBeneficiary,
+      simulationGasCap);
   }
 
   @Nonnull
@@ -360,7 +386,8 @@ public class TransactionSimulator {
       final OperationTracer operationTracer,
       final ProcessableBlockHeader processableHeader,
       final WorldUpdater updater,
-      final Address miningBeneficiary) {
+      final Address miningBeneficiary,
+      final long simulationGasCap) {
     final ProtocolSpec protocolSpec = protocolSchedule.getByBlockHeader(processableHeader);
 
     final Address senderAddress =
@@ -387,9 +414,6 @@ public class TransactionSimulator {
 
     final Account sender = updater.get(senderAddress);
     final long nonce = sender != null ? sender.getNonce() : 0L;
-
-    final long simulationGasCap =
-        calculateSimulationGasCap(callParams.getGasLimit(), blockHeaderToProcess.getGasLimit());
 
     final MainnetTransactionProcessor transactionProcessor =
         protocolSchedule.getByBlockHeader(blockHeaderToProcess).getTransactionProcessor();
@@ -455,8 +479,8 @@ public class TransactionSimulator {
                             UInt256.fromHexString(key), UInt256.fromHexString(value))));
   }
 
-  private long calculateSimulationGasCap(
-      final long userProvidedGasLimit, final long blockGasLimit) {
+  public long calculateSimulationGasCap(
+      final long userProvidedGasLimit, final long blockGasLimit, final long gasUsed) {
     final long simulationGasCap;
 
     // when not set gas limit is -1
@@ -484,7 +508,7 @@ public class TransactionSimulator {
             blockGasLimit);
       }
     }
-    return simulationGasCap;
+    return Math.max(simulationGasCap - gasUsed, 0);
   }
 
   private Optional<Transaction> buildTransaction(

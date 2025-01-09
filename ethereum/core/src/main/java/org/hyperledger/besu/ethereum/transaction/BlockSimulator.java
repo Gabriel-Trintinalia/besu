@@ -168,8 +168,11 @@ public class BlockSimulator {
 
     List<TransactionSimulatorResult> transactionSimulations = new ArrayList<>();
 
+    long gasUsed = 0;
     for (CallParameter callParameter : blockStateCall.getCalls()) {
       final WorldUpdater transactionUpdater = ws.updater();
+
+      long gasLimit = transactionSimulator.calculateSimulationGasCap(callParameter.getGasLimit(), blockHeader.getGasLimit(), gasUsed);
 
       final Optional<TransactionSimulatorResult> transactionSimulatorResult =
           transactionSimulator.processWithWorldUpdater(
@@ -179,7 +182,8 @@ public class BlockSimulator {
               OperationTracer.NO_TRACING,
               blockHeader,
               transactionUpdater,
-              miningBeneficiaryCalculator);
+              miningBeneficiaryCalculator,
+              gasLimit);
 
       if (transactionSimulatorResult.isEmpty()) {
         throw new BlockSimulationException("Transaction simulator result is empty");
@@ -192,6 +196,7 @@ public class BlockSimulator {
       }
       transactionSimulations.add(transactionSimulatorResult.get());
       transactionUpdater.commit();
+      gasUsed += result.result().getEstimateGasUsedByTransaction();
     }
     return transactionSimulations;
   }

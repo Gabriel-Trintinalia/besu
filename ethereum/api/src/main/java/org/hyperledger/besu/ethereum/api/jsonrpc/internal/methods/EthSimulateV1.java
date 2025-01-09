@@ -93,8 +93,7 @@ public class EthSimulateV1 extends AbstractBlockParameterOrBlockHashMethod {
     try {
       var blockStateCalls = getBlockStateCalls(request);
       var simulationResults = blockSimulator.process(header, blockStateCalls);
-      return new JsonRpcSuccessResponse(
-          request.getRequest().getId(), createResponse(simulationResults));
+      return createResponse(simulationResults);
     } catch (JsonRpcParameterException e) {
       throw new RuntimeException(e);
     }
