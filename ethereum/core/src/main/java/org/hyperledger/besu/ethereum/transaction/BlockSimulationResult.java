@@ -15,9 +15,9 @@
 package org.hyperledger.besu.ethereum.transaction;
 
 import org.hyperledger.besu.ethereum.core.Block;
+import org.hyperledger.besu.ethereum.core.TransactionReceipt;
 import org.hyperledger.besu.plugin.data.BlockBody;
 import org.hyperledger.besu.plugin.data.BlockHeader;
-import org.hyperledger.besu.plugin.data.TransactionReceipt;
 
 import java.util.ArrayList;
 import java.util.List;
@@ -44,7 +44,7 @@ public class BlockSimulationResult {
     return block.getBody();
   }
 
-  public List<? extends TransactionReceipt> getReceipts() {
+  public List<TransactionReceipt> getReceipts() {
     return receipts;
   }
 

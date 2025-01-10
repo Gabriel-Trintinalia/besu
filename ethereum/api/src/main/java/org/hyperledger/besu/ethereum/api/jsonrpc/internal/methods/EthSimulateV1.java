@@ -26,16 +26,17 @@ import org.hyperledger.besu.ethereum.api.jsonrpc.internal.parameters.JsonBlockSt
 import org.hyperledger.besu.ethereum.api.jsonrpc.internal.parameters.JsonRpcParameter.JsonRpcParameterException;
 import org.hyperledger.besu.ethereum.api.jsonrpc.internal.response.JsonRpcError;
 import org.hyperledger.besu.ethereum.api.jsonrpc.internal.response.JsonRpcErrorResponse;
-import org.hyperledger.besu.ethereum.api.jsonrpc.internal.response.JsonRpcSuccessResponse;
 import org.hyperledger.besu.ethereum.api.jsonrpc.internal.response.RpcErrorType;
 import org.hyperledger.besu.ethereum.api.jsonrpc.internal.results.BlockStateCallResult;
 import org.hyperledger.besu.ethereum.api.jsonrpc.internal.results.CallProcessingResult;
+import org.hyperledger.besu.ethereum.api.jsonrpc.internal.results.LogsResult;
 import org.hyperledger.besu.ethereum.api.jsonrpc.internal.results.TransactionCompleteResult;
 import org.hyperledger.besu.ethereum.api.jsonrpc.internal.results.TransactionResult;
 import org.hyperledger.besu.ethereum.api.query.BlockchainQueries;
 import org.hyperledger.besu.ethereum.api.query.TransactionWithMetadata;
 import org.hyperledger.besu.ethereum.core.Block;
 import org.hyperledger.besu.ethereum.core.BlockHeader;
+import org.hyperledger.besu.ethereum.core.LogWithMetadata;
 import org.hyperledger.besu.ethereum.core.MiningConfiguration;
 import org.hyperledger.besu.ethereum.mainnet.ProtocolSchedule;
 import org.hyperledger.besu.ethereum.transaction.BlockSimulationResult;
@@ -127,9 +128,14 @@ public class EthSimulateV1 extends AbstractBlockParameterOrBlockHashMethod {
                                   block.getHash(),
                                   block.getBody().getTransactions().indexOf(transaction)))
                       .toList();
+
+              var logs = LogWithMetadata.generate(block, result.getReceipts(), false);
+
               var transactionResults =
                   result.getTransactionSimulations().stream()
-                      .map(this::createTransactionProcessingResult)
+                      .map(
+                          simulatorResult ->
+                              createTransactionProcessingResult(simulatorResult, logs))
                       .toList();
               List<TransactionResult> transactionHashes =
                   txs.stream().map(TransactionCompleteResult::new).collect(Collectors.toList());
@@ -145,12 +151,20 @@ public class EthSimulateV1 extends AbstractBlockParameterOrBlockHashMethod {
   }
 
   private CallProcessingResult createTransactionProcessingResult(
-      final org.hyperledger.besu.ethereum.transaction.TransactionSimulatorResult simulatorResult) {
+      final org.hyperledger.besu.ethereum.transaction.TransactionSimulatorResult simulatorResult,
+      final List<LogWithMetadata> logs) {
+
+    Hash transactionHash = simulatorResult.transaction().getHash();
+    var transactionLogs =
+        logs.stream()
+            .filter(log -> log.getTransactionHash().equals(transactionHash))
+            .collect(Collectors.toList());
+
     return new CallProcessingResult(
         simulatorResult.result().isSuccessful() ? 1 : 0,
         simulatorResult.result().getOutput(),
         simulatorResult.result().getEstimateGasUsedByTransaction(),
         null, // TODO ADD ERROR
-        List.of()); // TODO ADD LOG
+        new LogsResult(transactionLogs)); // TODO ADD LOG
   }
 }

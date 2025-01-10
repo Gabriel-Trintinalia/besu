@@ -172,7 +172,9 @@ public class BlockSimulator {
     for (CallParameter callParameter : blockStateCall.getCalls()) {
       final WorldUpdater transactionUpdater = ws.updater();
 
-      long gasLimit = transactionSimulator.calculateSimulationGasCap(callParameter.getGasLimit(), blockHeader.getGasLimit(), gasUsed);
+      long gasLimit =
+          transactionSimulator.calculateSimulationGasCap(
+              callParameter.getGasLimit(), blockHeader.getGasLimit(), gasUsed);
 
       final Optional<TransactionSimulatorResult> transactionSimulatorResult =
           transactionSimulator.processWithWorldUpdater(

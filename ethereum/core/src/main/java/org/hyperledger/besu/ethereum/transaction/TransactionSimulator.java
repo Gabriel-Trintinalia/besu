@@ -356,26 +356,26 @@ public class TransactionSimulator {
 
   @Nonnull
   public Optional<TransactionSimulatorResult> processWithWorldUpdater(
-    final CallParameter callParams,
-    final Optional<AccountOverrideMap> maybeStateOverrides,
-    final TransactionValidationParams transactionValidationParams,
-    final OperationTracer operationTracer,
-    final ProcessableBlockHeader processableHeader,
-    final WorldUpdater updater,
-    final Address miningBeneficiary) {
+      final CallParameter callParams,
+      final Optional<AccountOverrideMap> maybeStateOverrides,
+      final TransactionValidationParams transactionValidationParams,
+      final OperationTracer operationTracer,
+      final ProcessableBlockHeader processableHeader,
+      final WorldUpdater updater,
+      final Address miningBeneficiary) {
 
     final long simulationGasCap =
-      calculateSimulationGasCap(callParams.getGasLimit(), processableHeader.getGasLimit(), 0L);
+        calculateSimulationGasCap(callParams.getGasLimit(), processableHeader.getGasLimit(), 0L);
 
     return processWithWorldUpdater(
-      callParams,
-      maybeStateOverrides,
-      transactionValidationParams,
-      operationTracer,
-      processableHeader,
-      updater,
-      miningBeneficiary,
-      simulationGasCap);
+        callParams,
+        maybeStateOverrides,
+        transactionValidationParams,
+        operationTracer,
+        processableHeader,
+        updater,
+        miningBeneficiary,
+        simulationGasCap);
   }
 
   @Nonnull

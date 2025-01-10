@@ -14,8 +14,6 @@
  */
 package org.hyperledger.besu.ethereum.api.jsonrpc.internal.results;
 
-import java.util.List;
-
 import com.fasterxml.jackson.annotation.JsonInclude;
 import com.fasterxml.jackson.annotation.JsonProperty;
 import com.fasterxml.jackson.annotation.JsonPropertyOrder;
@@ -36,14 +34,14 @@ public class CallProcessingResult {
   private final ErrorDetails error;
 
   @JsonProperty("logs")
-  private final List<LogResult> logs;
+  private final LogsResult logs;
 
   public CallProcessingResult(
       @JsonProperty("status") final int status,
       @JsonProperty("returnData") final Bytes returnData,
       @JsonProperty("gasUsed") final long gasUsed,
       @JsonProperty("error") final ErrorDetails error,
-      @JsonProperty("logs") final List<LogResult> logs) {
+      @JsonProperty("logs") final LogsResult logs) {
     this.status = Quantity.create(status);
     this.returnData = returnData.toString();
     this.gasUsed = Quantity.create(gasUsed);
@@ -69,7 +67,7 @@ public class CallProcessingResult {
   }
 
   @JsonInclude(JsonInclude.Include.NON_NULL)
-  public List<LogResult> getLogs() {
+  public LogsResult getLogs() {
     return logs;
   }
 
