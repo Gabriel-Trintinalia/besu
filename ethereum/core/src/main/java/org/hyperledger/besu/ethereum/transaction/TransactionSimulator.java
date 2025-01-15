@@ -18,11 +18,11 @@ import static java.util.concurrent.TimeUnit.MILLISECONDS;
 import static org.hyperledger.besu.ethereum.mainnet.feemarket.ExcessBlobGasCalculator.calculateExcessBlobGasForParent;
 
 import org.hyperledger.besu.crypto.SECPSignature;
-import org.hyperledger.besu.datatypes.AccountOverride;
-import org.hyperledger.besu.datatypes.AccountOverrideMap;
 import org.hyperledger.besu.datatypes.Address;
 import org.hyperledger.besu.datatypes.BlobGas;
 import org.hyperledger.besu.datatypes.Hash;
+import org.hyperledger.besu.datatypes.StateOverride;
+import org.hyperledger.besu.datatypes.StateOverrideMap;
 import org.hyperledger.besu.datatypes.Wei;
 import org.hyperledger.besu.ethereum.chain.Blockchain;
 import org.hyperledger.besu.ethereum.core.BlockHeader;
@@ -76,6 +76,7 @@ public class TransactionSimulator {
   private final WorldStateArchive worldStateArchive;
   private final ProtocolSchedule protocolSchedule;
   private final MiningConfiguration miningConfiguration;
+  private final SimulationTransactionProcessorFactory simulationTransactionProcessorFactory;
   private final long rpcGasCap;
 
   public TransactionSimulator(
@@ -89,6 +90,8 @@ public class TransactionSimulator {
     this.protocolSchedule = protocolSchedule;
     this.miningConfiguration = miningConfiguration;
     this.rpcGasCap = rpcGasCap;
+    this.simulationTransactionProcessorFactory =
+        new SimulationTransactionProcessorFactory(protocolSchedule);
   }
 
   public Optional<TransactionSimulatorResult> process(
@@ -122,7 +125,7 @@ public class TransactionSimulator {
 
   public Optional<TransactionSimulatorResult> process(
       final CallParameter callParams,
-      final Optional<AccountOverrideMap> maybeStateOverrides,
+      final Optional<StateOverrideMap> maybeStateOverrides,
       final TransactionValidationParams transactionValidationParams,
       final OperationTracer operationTracer,
       final BlockHeader blockHeader) {
@@ -137,7 +140,7 @@ public class TransactionSimulator {
 
   public Optional<TransactionSimulatorResult> processOnPending(
       final CallParameter callParams,
-      final Optional<AccountOverrideMap> maybeStateOverrides,
+      final Optional<StateOverrideMap> maybeStateOverrides,
       final TransactionValidationParams transactionValidationParams,
       final OperationTracer operationTracer,
       final ProcessableBlockHeader pendingBlockHeader) {
@@ -260,7 +263,7 @@ public class TransactionSimulator {
    */
   public <U> Optional<U> process(
       final CallParameter callParams,
-      final Optional<AccountOverrideMap> maybeStateOverrides,
+      final Optional<StateOverrideMap> maybeStateOverrides,
       final TransactionValidationParams transactionValidationParams,
       final OperationTracer operationTracer,
       final PreCloseStateHandler<U> preWorldStateCloseGuard,
@@ -333,7 +336,7 @@ public class TransactionSimulator {
   @Nonnull
   public Optional<TransactionSimulatorResult> processWithWorldUpdater(
       final CallParameter callParams,
-      final Optional<AccountOverrideMap> maybeStateOverrides,
+      final Optional<StateOverrideMap> maybeStateOverrides,
       final TransactionValidationParams transactionValidationParams,
       final OperationTracer operationTracer,
       final BlockHeader header,
@@ -357,7 +360,7 @@ public class TransactionSimulator {
   @Nonnull
   public Optional<TransactionSimulatorResult> processWithWorldUpdater(
       final CallParameter callParams,
-      final Optional<AccountOverrideMap> maybeStateOverrides,
+      final Optional<StateOverrideMap> maybeStateOverrides,
       final TransactionValidationParams transactionValidationParams,
       final OperationTracer operationTracer,
       final ProcessableBlockHeader processableHeader,
@@ -381,7 +384,7 @@ public class TransactionSimulator {
   @Nonnull
   public Optional<TransactionSimulatorResult> processWithWorldUpdater(
       final CallParameter callParams,
-      final Optional<AccountOverrideMap> maybeStateOverrides,
+      final Optional<StateOverrideMap> maybeStateOverrides,
       final TransactionValidationParams transactionValidationParams,
       final OperationTracer operationTracer,
       final ProcessableBlockHeader processableHeader,
@@ -407,7 +410,7 @@ public class TransactionSimulator {
     }
     if (maybeStateOverrides.isPresent()) {
       for (Address accountToOverride : maybeStateOverrides.get().keySet()) {
-        final AccountOverride overrides = maybeStateOverrides.get().get(accountToOverride);
+        final StateOverride overrides = maybeStateOverrides.get().get(accountToOverride);
         applyOverrides(updater.getOrCreate(accountToOverride), overrides);
       }
     }
@@ -415,8 +418,9 @@ public class TransactionSimulator {
     final Account sender = updater.get(senderAddress);
     final long nonce = sender != null ? sender.getNonce() : 0L;
 
-    final MainnetTransactionProcessor transactionProcessor =
-        protocolSchedule.getByBlockHeader(blockHeaderToProcess).getTransactionProcessor();
+    MainnetTransactionProcessor transactionProcessor =
+        simulationTransactionProcessorFactory.getTransactionProcessor(
+            processableHeader, maybeStateOverrides);
 
     final Optional<BlockHeader> maybeParentHeader =
         blockchain.getBlockHeader(blockHeaderToProcess.getParentHash());
@@ -462,7 +466,7 @@ public class TransactionSimulator {
   }
 
   @VisibleForTesting
-  protected void applyOverrides(final MutableAccount account, final AccountOverride override) {
+  protected void applyOverrides(final MutableAccount account, final StateOverride override) {
     LOG.debug("applying overrides to state for account {}", account.getAddress());
     override.getNonce().ifPresent(account::setNonce);
     if (override.getBalance().isPresent()) {
