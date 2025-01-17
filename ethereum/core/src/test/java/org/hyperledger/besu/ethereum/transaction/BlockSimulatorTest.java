@@ -102,7 +102,7 @@ public class BlockSimulatorTest {
         .thenReturn(Optional.of(mutableWorldState));
 
     List<BlockSimulationResult> results =
-        blockSimulator.process(blockHeader, Collections.emptyList());
+        blockSimulator.process(blockHeader, Collections.emptyList(), false);
 
     assertNotNull(results);
     verify(worldStateArchive).getMutable(any(BlockHeader.class), eq(false));
@@ -116,7 +116,7 @@ public class BlockSimulatorTest {
     IllegalArgumentException exception =
         assertThrows(
             IllegalArgumentException.class,
-            () -> blockSimulator.process(blockHeader, Collections.emptyList()));
+            () -> blockSimulator.process(blockHeader, Collections.emptyList(), false));
 
     assertEquals(
         String.format("Public world state not available for block %s", blockHeader.toLogString()),
@@ -127,7 +127,7 @@ public class BlockSimulatorTest {
   public void shouldStopWhenTransactionSimulationIsInvalid() {
 
     CallParameter callParameter = mock(CallParameter.class);
-    BlockStateCall blockStateCall = new BlockStateCall(List.of(callParameter), null, null, true);
+    BlockStateCall blockStateCall = new BlockStateCall(List.of(callParameter), null, null);
 
     TransactionSimulatorResult transactionSimulatorResult = mock(TransactionSimulatorResult.class);
     when(transactionSimulatorResult.isInvalid()).thenReturn(true);
@@ -141,7 +141,9 @@ public class BlockSimulatorTest {
     BlockSimulationException exception =
         assertThrows(
             BlockSimulationException.class,
-            () -> blockSimulator.process(blockHeader, List.of(blockStateCall), mutableWorldState));
+            () ->
+                blockSimulator.process(
+                    blockHeader, List.of(blockStateCall), mutableWorldState, false));
 
     assertEquals(
         "Transaction simulator result is invalid: Invalid Transaction", exception.getMessage());
@@ -151,7 +153,7 @@ public class BlockSimulatorTest {
   public void shouldStopWhenTransactionSimulationIsEmpty() {
 
     CallParameter callParameter = mock(CallParameter.class);
-    BlockStateCall blockStateCall = new BlockStateCall(List.of(callParameter), null, null, true);
+    BlockStateCall blockStateCall = new BlockStateCall(List.of(callParameter), null, null);
 
     when(transactionSimulator.processWithWorldUpdater(
             any(), any(), any(), any(), any(), any(), any(MiningBeneficiaryCalculator.class), 0))
@@ -160,7 +162,9 @@ public class BlockSimulatorTest {
     BlockSimulationException exception =
         assertThrows(
             BlockSimulationException.class,
-            () -> blockSimulator.process(blockHeader, List.of(blockStateCall), mutableWorldState));
+            () ->
+                blockSimulator.process(
+                    blockHeader, List.of(blockStateCall), mutableWorldState, false));
 
     assertEquals("Transaction simulator result is empty", exception.getMessage());
   }

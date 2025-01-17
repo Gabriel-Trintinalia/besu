@@ -17,20 +17,33 @@ package org.hyperledger.besu.ethereum.api.jsonrpc.internal.parameters;
 import java.util.ArrayList;
 import java.util.List;
 
+import com.fasterxml.jackson.annotation.JsonCreator;
 import com.fasterxml.jackson.annotation.JsonProperty;
 
-public class BlockStateCallsParameter {
+public class SimulateV1Parameter {
   @JsonProperty("blockStateCalls")
   private final List<JsonBlockStateCall> blockStateCalls = new ArrayList<>();
 
   @JsonProperty("validation")
-  private boolean validation;
+  private final boolean validation;
 
   @JsonProperty("traceTransfers")
-  private boolean traceTransfers;
+  private final boolean traceTransfers;
 
   @JsonProperty("returnFullTransactions")
-  private boolean returnFullTransactions;
+  private final boolean returnFullTransactions;
+
+  @JsonCreator
+  public SimulateV1Parameter(
+      @JsonProperty("blockStateCalls") final List<JsonBlockStateCall> blockStateCalls,
+      @JsonProperty("validation") final boolean validation,
+      @JsonProperty("traceTransfers") final boolean traceTransfers,
+      @JsonProperty("returnFullTransactions") final boolean returnFullTransactions) {
+    this.blockStateCalls.addAll(blockStateCalls);
+    this.validation = validation;
+    this.traceTransfers = traceTransfers;
+    this.returnFullTransactions = returnFullTransactions;
+  }
 
   public List<JsonBlockStateCall> getBlockStateCalls() {
     return blockStateCalls;

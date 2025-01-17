@@ -111,10 +111,10 @@ public class BlockSimulatorServiceImpl implements BlockSimulationService {
     List<CallParameter> callParameters =
         transactions.stream().map(CallParameter::fromTransaction).toList();
     BlockStateCall blockStateCall =
-        new BlockStateCall(callParameters, blockOverrides, stateOverrides, true);
+        new BlockStateCall(callParameters, blockOverrides, stateOverrides);
     try (final MutableWorldState ws = getWorldState(header, persistWorldState)) {
       List<BlockSimulationResult> results =
-          blockSimulator.process(header, List.of(blockStateCall), ws);
+          blockSimulator.process(header, List.of(blockStateCall), ws, true);
       BlockSimulationResult result = results.getFirst();
       if (persistWorldState) {
         ws.persist(result.getBlock().getHeader());

@@ -5,6 +5,7 @@
     "method": "eth_simulateV1",
     "params": [
       {
+        "returnFullTransactions": true,
         "blockStateCalls": [
           {
             "stateOverrides": {

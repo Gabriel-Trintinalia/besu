@@ -78,7 +78,7 @@ public class MergeCoordinator implements MergeMiningCoordinator, BadChainListene
    */
   private static final double TRY_FILL_BLOCK = 1.0;
 
-  private static final long DEFAULT_TARGET_GAS_LIMIT = 30000000L;
+  //  private static final long DEFAULT_TARGET_GAS_LIMIT = 30000000L;
 
   /** The Mining parameters. */
   protected final MiningConfiguration miningConfiguration;
@@ -132,9 +132,9 @@ public class MergeCoordinator implements MergeMiningCoordinator, BadChainListene
     if (miningParams.getCoinbase().isEmpty()) {
       miningParams.setCoinbase(Address.ZERO);
     }
-    if (miningParams.getTargetGasLimit().isEmpty()) {
+    /*    if (miningParams.getTargetGasLimit().isEmpty()) {
       miningParams.setTargetGasLimit(DEFAULT_TARGET_GAS_LIMIT);
-    }
+    }*/
     miningParams.setMinBlockOccupancyRatio(TRY_FILL_BLOCK);
 
     this.miningConfiguration = miningParams;
@@ -178,9 +178,9 @@ public class MergeCoordinator implements MergeMiningCoordinator, BadChainListene
     this.ethScheduler = ethScheduler;
     this.mergeContext = protocolContext.getConsensusContext(MergeContext.class);
     this.backwardSyncContext = backwardSyncContext;
-    if (miningParams.getTargetGasLimit().isEmpty()) {
+    /*    if (miningParams.getTargetGasLimit().isEmpty()) {
       miningParams.setTargetGasLimit(DEFAULT_TARGET_GAS_LIMIT);
-    }
+    }*/
     miningParams.setMinBlockOccupancyRatio(TRY_FILL_BLOCK);
     this.miningConfiguration = miningParams;
 
