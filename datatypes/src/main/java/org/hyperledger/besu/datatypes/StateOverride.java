@@ -96,6 +96,10 @@ public class StateOverride {
     return movePrecompileToAddress;
   }
 
+  public static Builder builder() {
+    return new Builder();
+  }
+
   /** Builder class for Account overrides */
   @JsonIgnoreProperties(ignoreUnknown = true)
   public static class Builder {

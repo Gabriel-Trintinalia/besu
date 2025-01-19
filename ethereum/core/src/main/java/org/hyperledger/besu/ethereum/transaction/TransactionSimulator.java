@@ -46,6 +46,7 @@ import org.hyperledger.besu.evm.worldstate.WorldUpdater;
 
 import java.math.BigInteger;
 import java.util.Optional;
+import java.util.function.Supplier;
 import javax.annotation.Nonnull;
 
 import com.google.common.annotations.VisibleForTesting;
@@ -342,7 +343,8 @@ public class TransactionSimulator {
       final BlockHeader header,
       final WorldUpdater updater,
       final MiningBeneficiaryCalculator miningBeneficiaryCalculator,
-      final long simulationGasCap) {
+      final long simulationGasCap,
+      final Supplier<MainnetTransactionProcessor> transactionProcessor) {
 
     final Address miningBeneficiary = miningBeneficiaryCalculator.calculateBeneficiary(header);
 
@@ -354,7 +356,8 @@ public class TransactionSimulator {
         header,
         updater,
         miningBeneficiary,
-        simulationGasCap);
+        simulationGasCap,
+        transactionProcessor);
   }
 
   @Nonnull
@@ -370,6 +373,11 @@ public class TransactionSimulator {
     final long simulationGasCap =
         calculateSimulationGasCap(callParams.getGasLimit(), processableHeader.getGasLimit(), 0L);
 
+    Supplier<MainnetTransactionProcessor> transactionProcessor =
+        () ->
+            simulationTransactionProcessorFactory.getTransactionProcessor(
+                processableHeader, maybeStateOverrides);
+
     return processWithWorldUpdater(
         callParams,
         maybeStateOverrides,
@@ -378,11 +386,12 @@ public class TransactionSimulator {
         processableHeader,
         updater,
         miningBeneficiary,
-        simulationGasCap);
+        simulationGasCap,
+        transactionProcessor);
   }
 
   @Nonnull
-  public Optional<TransactionSimulatorResult> processWithWorldUpdater(
+  private Optional<TransactionSimulatorResult> processWithWorldUpdater(
       final CallParameter callParams,
       final Optional<StateOverrideMap> maybeStateOverrides,
       final TransactionValidationParams transactionValidationParams,
@@ -390,7 +399,8 @@ public class TransactionSimulator {
       final ProcessableBlockHeader processableHeader,
       final WorldUpdater updater,
       final Address miningBeneficiary,
-      final long simulationGasCap) {
+      final long simulationGasCap,
+      final Supplier<MainnetTransactionProcessor> transactionProcessorSupplier) {
     final ProtocolSpec protocolSpec = protocolSchedule.getByBlockHeader(processableHeader);
 
     final Address senderAddress =
@@ -418,9 +428,7 @@ public class TransactionSimulator {
     final Account sender = updater.get(senderAddress);
     final long nonce = sender != null ? sender.getNonce() : 0L;
 
-    MainnetTransactionProcessor transactionProcessor =
-        simulationTransactionProcessorFactory.getTransactionProcessor(
-            processableHeader, maybeStateOverrides);
+    MainnetTransactionProcessor transactionProcessor = transactionProcessorSupplier.get();
 
     final Optional<BlockHeader> maybeParentHeader =
         blockchain.getBlockHeader(blockHeaderToProcess.getParentHash());

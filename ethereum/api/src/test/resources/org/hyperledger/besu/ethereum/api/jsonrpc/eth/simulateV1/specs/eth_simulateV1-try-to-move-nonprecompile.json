@@ -43,7 +43,7 @@
     "id": 1,
     "error": {
       "code": -32000,
-      "message": "Precompile address 0xc100000000000000000000000000000000000000 is not a valid precompile address"
+      "message": "Address 0xc000000000000000000000000000000000000000 is not a valid precompile address"
     }
   },
   "statusCode": 200

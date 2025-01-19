@@ -16,6 +16,7 @@ package org.hyperledger.besu.ethereum.api.jsonrpc.internal.parameters;
 
 import org.hyperledger.besu.datatypes.StateOverrideMap;
 import org.hyperledger.besu.ethereum.transaction.BlockStateCall;
+import org.hyperledger.besu.plugin.data.BlockOverrides;
 
 import java.util.List;
 
@@ -24,11 +25,11 @@ import com.fasterxml.jackson.annotation.JsonIgnoreProperties;
 import com.fasterxml.jackson.annotation.JsonProperty;
 
 @JsonIgnoreProperties(ignoreUnknown = true)
-public class JsonBlockStateCall extends BlockStateCall {
+public class JsonBlockStateCallParameter extends BlockStateCall {
   @JsonCreator
-  public JsonBlockStateCall(
+  public JsonBlockStateCallParameter(
       @JsonProperty("calls") final List<JsonCallParameter> calls,
-      @JsonProperty("blockOverrides") final BlockOverridesParameter blockOverrides,
+      @JsonProperty("blockOverrides") final BlockOverrides blockOverrides,
       @JsonProperty("stateOverrides") final StateOverrideMap stateOverrides) {
     super(calls, blockOverrides, stateOverrides);
   }

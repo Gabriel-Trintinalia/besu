@@ -14,15 +14,34 @@
  */
 package org.hyperledger.besu.ethereum.api.jsonrpc.internal.parameters;
 
+import org.hyperledger.besu.datatypes.Address;
+import org.hyperledger.besu.datatypes.StateOverride;
+import org.hyperledger.besu.ethereum.api.jsonrpc.internal.response.JsonRpcError;
+import org.hyperledger.besu.ethereum.transaction.BlockStateCall;
+
 import java.util.ArrayList;
 import java.util.List;
+import java.util.Optional;
+import java.util.Set;
 
 import com.fasterxml.jackson.annotation.JsonCreator;
 import com.fasterxml.jackson.annotation.JsonProperty;
+import org.hyperledger.besu.ethereum.transaction.CallParameter;
 
 public class SimulateV1Parameter {
+  public static final JsonRpcError TOO_MANY_BLOCK_CALLS =
+      new JsonRpcError(-38026, "Too many block calls", null);
+  public static final JsonRpcError BLOCK_NUMBERS_NOT_ASCENDING =
+      new JsonRpcError(-38020, "Block numbers must be ascending", null);
+  public static final JsonRpcError TIMESTAMPS_NOT_ASCENDING =
+      new JsonRpcError(-38021, "Timestamps must be ascending", null);
+  public static final JsonRpcError INVALID_PRECOMPILE_ADDRESS =
+      new JsonRpcError(-32000, "Invalid precompile address", null);
+
+  private static final int MAX_BLOCK_CALL_SIZE = 256;
+
   @JsonProperty("blockStateCalls")
-  private final List<JsonBlockStateCall> blockStateCalls = new ArrayList<>();
+  private final List<JsonBlockStateCallParameter> blockStateCalls;
 
   @JsonProperty("validation")
   private final boolean validation;
@@ -35,18 +54,18 @@ public class SimulateV1Parameter {
 
   @JsonCreator
   public SimulateV1Parameter(
-      @JsonProperty("blockStateCalls") final List<JsonBlockStateCall> blockStateCalls,
+      @JsonProperty("blockStateCalls") final List<JsonBlockStateCallParameter> blockStateCalls,
       @JsonProperty("validation") final boolean validation,
       @JsonProperty("traceTransfers") final boolean traceTransfers,
       @JsonProperty("returnFullTransactions") final boolean returnFullTransactions) {
-    this.blockStateCalls.addAll(blockStateCalls);
+    this.blockStateCalls = new ArrayList<>(blockStateCalls);
     this.validation = validation;
     this.traceTransfers = traceTransfers;
     this.returnFullTransactions = returnFullTransactions;
   }
 
-  public List<JsonBlockStateCall> getBlockStateCalls() {
-    return blockStateCalls;
+  public List<JsonBlockStateCallParameter> getBlockStateCalls() {
+    return new ArrayList<>(blockStateCalls);
   }
 
   public boolean isValidation() {
@@ -59,5 +78,87 @@ public class SimulateV1Parameter {
 
   public boolean isReturnFullTransactions() {
     return returnFullTransactions;
+  }
+
+  public Optional<JsonRpcError> validate(final Set<Address> validPrecompileAddresses) {
+    if (blockStateCalls.size() > MAX_BLOCK_CALL_SIZE) {
+      return Optional.of(TOO_MANY_BLOCK_CALLS);
+    }
+
+    Optional<JsonRpcError> blockNumberError = validateBlockNumbers();
+    if (blockNumberError.isPresent()) {
+      return blockNumberError;
+    }
+
+    Optional<JsonRpcError> timestampError = validateTimestamps();
+    if (timestampError.isPresent()) {
+      return timestampError;
+    }
+
+    return validateStateOverrides(validPrecompileAddresses);
+  }
+
+  private Optional<JsonRpcError> validateBlockNumbers() {
+    long previousBlockNumber = 0;
+    for (BlockStateCall call : blockStateCalls) {
+      Optional<Long> blockNumberOverride = call.getBlockOverrides().getBlockNumber();
+      if (blockNumberOverride.isPresent()) {
+        long currentBlockNumber = blockNumberOverride.get();
+        if (currentBlockNumber <= previousBlockNumber) {
+          return Optional.of(BLOCK_NUMBERS_NOT_ASCENDING);
+        }
+        previousBlockNumber = currentBlockNumber;
+      }
+    }
+    return Optional.empty();
+  }
+
+  private Optional<JsonRpcError> validateTimestamps() {
+    long previousTimestamp = 0;
+    for (BlockStateCall call : blockStateCalls) {
+      Optional<Long> blockTimestampOverride = call.getBlockOverrides().getTimestamp();
+      if (blockTimestampOverride.isPresent()) {
+        long blockTimestamp = blockTimestampOverride.get();
+        if (blockTimestamp <= previousTimestamp) {
+          return Optional.of(TIMESTAMPS_NOT_ASCENDING);
+        }
+        previousTimestamp = blockTimestamp;
+      }
+    }
+    return Optional.empty();
+  }
+
+  private Optional<JsonRpcError> validateNonces() {
+    long previousNonce = -1;
+    for (JsonBlockStateCallParameter call : blockStateCalls) {
+      for (CallParameter callParameter : call.getCalls()) {
+        Optional<Long> nonce = callParameter.getNonce();
+        if (nonce.isPresent()) {
+          long currentNonce = nonce.get();
+          if (currentNonce < 0 || currentNonce <= previousNonce) {
+            return Optional.of(INVALID_NONCE);
+          }
+          previousNonce = currentNonce;
+        }
+      }
+    }
+    return Optional.empty();
+  }
+
+  private Optional<JsonRpcError> validateStateOverrides(
+      final Set<Address> validPrecompileAddresses) {
+    for (BlockStateCall call : blockStateCalls) {
+      if (call.getStateOverrideMap().isPresent()) {
+        var stateOverrideMap = call.getStateOverrideMap().get();
+        for (Address stateOverride : stateOverrideMap.keySet()) {
+          final StateOverride override = stateOverrideMap.get(stateOverride);
+          if (override.getMovePrecompileToAddress().isPresent()
+              && !validPrecompileAddresses.contains(stateOverride)) {
+            return Optional.of(INVALID_PRECOMPILE_ADDRESS);
+          }
+        }
+      }
+    }
+    return Optional.empty();
   }
 }

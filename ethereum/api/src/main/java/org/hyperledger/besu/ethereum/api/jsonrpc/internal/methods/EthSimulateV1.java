@@ -19,12 +19,10 @@ import static org.hyperledger.besu.ethereum.api.jsonrpc.internal.response.RpcErr
 
 import org.hyperledger.besu.datatypes.Address;
 import org.hyperledger.besu.datatypes.Hash;
-import org.hyperledger.besu.datatypes.StateOverride;
 import org.hyperledger.besu.ethereum.api.jsonrpc.RpcMethod;
 import org.hyperledger.besu.ethereum.api.jsonrpc.internal.JsonRpcRequestContext;
 import org.hyperledger.besu.ethereum.api.jsonrpc.internal.exception.InvalidJsonRpcParameters;
 import org.hyperledger.besu.ethereum.api.jsonrpc.internal.parameters.BlockParameterOrBlockHash;
-import org.hyperledger.besu.ethereum.api.jsonrpc.internal.parameters.JsonBlockStateCall;
 import org.hyperledger.besu.ethereum.api.jsonrpc.internal.parameters.JsonRpcParameter.JsonRpcParameterException;
 import org.hyperledger.besu.ethereum.api.jsonrpc.internal.parameters.SimulateV1Parameter;
 import org.hyperledger.besu.ethereum.api.jsonrpc.internal.response.JsonRpcError;
@@ -45,15 +43,14 @@ import org.hyperledger.besu.ethereum.core.MiningConfiguration;
 import org.hyperledger.besu.ethereum.mainnet.ProtocolSchedule;
 import org.hyperledger.besu.ethereum.transaction.BlockSimulationResult;
 import org.hyperledger.besu.ethereum.transaction.BlockSimulator;
-import org.hyperledger.besu.ethereum.transaction.BlockStateCall;
 import org.hyperledger.besu.ethereum.transaction.TransactionSimulator;
 
 import java.util.List;
-import java.util.Optional;
+import java.util.Set;
 import java.util.stream.Collectors;
 
 public class EthSimulateV1 extends AbstractBlockParameterOrBlockHashMethod {
-  private static final int MAX_BLOCK_CALL_SIZE = 256;
+
   private final BlockSimulator blockSimulator;
   private final ProtocolSchedule protocolSchedule;
 
@@ -102,16 +99,11 @@ public class EthSimulateV1 extends AbstractBlockParameterOrBlockHashMethod {
       final JsonRpcRequestContext request, final BlockHeader header) {
     try {
       var simulateV1Parameter = getBlockStateCalls(request);
-      var error = validateBlockStateCalls(simulateV1Parameter.getBlockStateCalls(), header);
-      if (error.isPresent()) {
-        return new JsonRpcErrorResponse(request.getRequest().getId(), error.get());
+      var maybeValidationError = simulateV1Parameter.validate(getValidPrecompileAddresses(header));
+      if (maybeValidationError.isPresent()) {
+        return new JsonRpcErrorResponse(request.getRequest().getId(), maybeValidationError.get());
       }
-      var simulationResults =
-          blockSimulator.process(
-              header, simulateV1Parameter.getBlockStateCalls(), simulateV1Parameter.isValidation());
-      return simulateV1Parameter.isReturnFullTransactions()
-          ? createResponseFull(simulationResults)
-          : createResponse(simulationResults);
+      return process(header, simulateV1Parameter);
     } catch (final JsonRpcParameterException e) {
       return errorResponse(request, INVALID_PARAMS);
     } catch (Exception e) {
@@ -119,60 +111,25 @@ public class EthSimulateV1 extends AbstractBlockParameterOrBlockHashMethod {
     }
   }
 
-  private SimulateV1Parameter getBlockStateCalls(final JsonRpcRequestContext request)
-      throws JsonRpcParameterException {
-    var parameter = request.getRequiredParameter(0, SimulateV1Parameter.class);
-
-    return parameter;
+  private Object process(final BlockHeader header, final SimulateV1Parameter simulateV1Parameter) {
+    var simulationResults =
+        blockSimulator.process(
+            header, simulateV1Parameter.getBlockStateCalls(), simulateV1Parameter.isValidation());
+    return simulateV1Parameter.isReturnFullTransactions()
+        ? createResponseFull(simulationResults)
+        : createResponse(simulationResults);
   }
 
-  private Optional<JsonRpcError> validateBlockStateCalls(
-      final List<JsonBlockStateCall> blockStateCalls, final BlockHeader header) {
-    if (blockStateCalls.size() > MAX_BLOCK_CALL_SIZE) {
-      return Optional.of(new JsonRpcError(-38026, "Too many block calls", null));
-    }
-    var precompileAddresses =
-        protocolSchedule
-            .getByBlockHeader(header)
-            .getPrecompileContractRegistry()
-            .getPrecompileAddresses();
-    long previousBlockNumber = 0;
-    long previousTimestamp = 0;
-    for (BlockStateCall blockStateCall : blockStateCalls) {
-      Optional<Long> blockNumberOverride = blockStateCall.getBlockOverrides().getBlockNumber();
-      Optional<Long> blockTimestampOverride = blockStateCall.getBlockOverrides().getTimestamp();
-      if (blockNumberOverride.isPresent()) {
-        long currentBlockNumber = blockNumberOverride.get();
-        if (currentBlockNumber <= previousBlockNumber) {
-          return Optional.of(new JsonRpcError(-38020, "Block numbers must be ascending", null));
-        }
-        previousBlockNumber = currentBlockNumber;
-      }
-      if (blockTimestampOverride.isPresent()) {
-        long blockTimestamp = blockTimestampOverride.get();
-        if (blockTimestamp <= previousTimestamp) {
-          return Optional.of(new JsonRpcError(-38021, "Timestamps are must be ascending", null));
-        }
-        previousTimestamp = blockTimestamp;
-      }
-      if (blockStateCall.getStateOverrideMap().isPresent()) {
-        var stateOverrideMap = blockStateCall.getStateOverrideMap().get();
-        for (Address stateOverride : stateOverrideMap.keySet()) {
-          final StateOverride override = stateOverrideMap.get(stateOverride);
-          if (override.getMovePrecompileToAddress().isPresent()) {
-            var movePrecompileToAddress = override.getMovePrecompileToAddress().get();
-            if (!precompileAddresses.contains(movePrecompileToAddress)) {
-              String message =
-                  String.format(
-                      "Precompile address %s is not a valid precompile address",
-                      movePrecompileToAddress);
-              return Optional.of(new JsonRpcError(-32000, message, null));
-            }
-          }
-        }
-      }
-    }
-    return Optional.empty();
+  private Set<Address> getValidPrecompileAddresses(final BlockHeader header) {
+    return protocolSchedule
+        .getByBlockHeader(header)
+        .getPrecompileContractRegistry()
+        .getPrecompileAddresses();
+  }
+
+  private SimulateV1Parameter getBlockStateCalls(final JsonRpcRequestContext request)
+      throws JsonRpcParameterException {
+    return request.getRequiredParameter(0, SimulateV1Parameter.class);
   }
 
   private JsonRpcErrorResponse errorResponse(

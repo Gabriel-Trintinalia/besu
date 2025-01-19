@@ -135,7 +135,15 @@ public class BlockSimulatorTest {
         .thenReturn(Optional.of("Invalid Transaction"));
 
     when(transactionSimulator.processWithWorldUpdater(
-            any(), any(), any(), any(), any(), any(), any(MiningBeneficiaryCalculator.class), 0))
+            any(),
+            any(),
+            any(),
+            any(),
+            any(),
+            any(),
+            any(MiningBeneficiaryCalculator.class),
+            0,
+            any()))
         .thenReturn(Optional.of(transactionSimulatorResult));
 
     BlockSimulationException exception =
@@ -156,7 +164,15 @@ public class BlockSimulatorTest {
     BlockStateCall blockStateCall = new BlockStateCall(List.of(callParameter), null, null);
 
     when(transactionSimulator.processWithWorldUpdater(
-            any(), any(), any(), any(), any(), any(), any(MiningBeneficiaryCalculator.class), 0))
+            any(),
+            any(),
+            any(),
+            any(),
+            any(),
+            any(),
+            any(MiningBeneficiaryCalculator.class),
+            0,
+            any()))
         .thenReturn(Optional.empty());
 
     BlockSimulationException exception =

@@ -34,6 +34,7 @@ import org.hyperledger.besu.ethereum.core.Withdrawal;
 import org.hyperledger.besu.ethereum.mainnet.BodyValidation;
 import org.hyperledger.besu.ethereum.mainnet.ImmutableTransactionValidationParams;
 import org.hyperledger.besu.ethereum.mainnet.MainnetBlockHeaderFunctions;
+import org.hyperledger.besu.ethereum.mainnet.MainnetTransactionProcessor;
 import org.hyperledger.besu.ethereum.mainnet.MiningBeneficiaryCalculator;
 import org.hyperledger.besu.ethereum.mainnet.ProtocolSchedule;
 import org.hyperledger.besu.ethereum.mainnet.ProtocolSpec;
@@ -53,6 +54,7 @@ import java.util.ArrayList;
 import java.util.Collections;
 import java.util.List;
 import java.util.Optional;
+import java.util.function.Supplier;
 
 import com.google.common.annotations.VisibleForTesting;
 import org.apache.tuweni.bytes.Bytes;
@@ -183,14 +185,19 @@ public class BlockSimulator {
       final boolean shouldValidate) {
 
     List<TransactionSimulatorResult> transactionSimulations = new ArrayList<>();
-
     long gasUsed = 0;
+
     for (CallParameter callParameter : blockStateCall.getCalls()) {
       final WorldUpdater transactionUpdater = ws.updater();
 
       long gasLimit =
           transactionSimulator.calculateSimulationGasCap(
               callParameter.getGasLimit(), blockHeader.getGasLimit(), gasUsed);
+
+      Supplier<MainnetTransactionProcessor> transactionProcessor =
+          () ->
+              new SimulationTransactionProcessorFactory(protocolSchedule)
+                  .getTransactionProcessor(blockHeader, blockStateCall.getStateOverrideMap());
 
       final Optional<TransactionSimulatorResult> transactionSimulatorResult =
           transactionSimulator.processWithWorldUpdater(
@@ -201,7 +208,8 @@ public class BlockSimulator {
               blockHeader,
               transactionUpdater,
               miningBeneficiaryCalculator,
-              gasLimit);
+              gasLimit,
+              transactionProcessor);
 
       if (transactionSimulatorResult.isEmpty()) {
         throw new BlockSimulationException("Transaction simulator result is empty");
@@ -247,10 +255,6 @@ public class BlockSimulator {
     }
 
     Hash stateRootHash = ws.rootHash();
-    ws.updater().commit();
-    @SuppressWarnings("UnusedVariable")
-    Hash stateRootHash2 = ws.rootHash();
-
     // TODO - Implement withdrawals
     final List<Withdrawal> withdrawals = List.of();
     BlockHeader finalBlockHeader =
