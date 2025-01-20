@@ -14,19 +14,23 @@
  */
 package org.hyperledger.besu.ethereum.api.jsonrpc.internal.parameters;
 
+import static org.hyperledger.besu.ethereum.transaction.TransactionSimulator.DEFAULT_SIMULATION_FROM;
+
 import org.hyperledger.besu.datatypes.Address;
 import org.hyperledger.besu.datatypes.StateOverride;
 import org.hyperledger.besu.ethereum.api.jsonrpc.internal.response.JsonRpcError;
 import org.hyperledger.besu.ethereum.transaction.BlockStateCall;
+import org.hyperledger.besu.ethereum.transaction.CallParameter;
 
 import java.util.ArrayList;
+import java.util.HashMap;
 import java.util.List;
+import java.util.Map;
 import java.util.Optional;
 import java.util.Set;
 
 import com.fasterxml.jackson.annotation.JsonCreator;
 import com.fasterxml.jackson.annotation.JsonProperty;
-import org.hyperledger.besu.ethereum.transaction.CallParameter;
 
 public class SimulateV1Parameter {
   public static final JsonRpcError TOO_MANY_BLOCK_CALLS =
@@ -37,7 +41,8 @@ public class SimulateV1Parameter {
       new JsonRpcError(-38021, "Timestamps must be ascending", null);
   public static final JsonRpcError INVALID_PRECOMPILE_ADDRESS =
       new JsonRpcError(-32000, "Invalid precompile address", null);
-
+  public static final JsonRpcError INVALID_NONCES =
+      new JsonRpcError(-32602, "Nonces must be ascending", null);
   private static final int MAX_BLOCK_CALL_SIZE = 256;
 
   @JsonProperty("blockStateCalls")
@@ -95,6 +100,11 @@ public class SimulateV1Parameter {
       return timestampError;
     }
 
+    Optional<JsonRpcError> nonceError = validateNonces();
+    if (nonceError.isPresent()) {
+      return nonceError;
+    }
+
     return validateStateOverrides(validPrecompileAddresses);
   }
 
@@ -129,16 +139,21 @@ public class SimulateV1Parameter {
   }
 
   private Optional<JsonRpcError> validateNonces() {
-    long previousNonce = -1;
+    Map<Address, Long> previousNonces = new HashMap<>();
     for (JsonBlockStateCallParameter call : blockStateCalls) {
       for (CallParameter callParameter : call.getCalls()) {
+        Address fromAddress = Optional.ofNullable(callParameter.getFrom()).orElse(DEFAULT_SIMULATION_FROM);
         Optional<Long> nonce = callParameter.getNonce();
+
         if (nonce.isPresent()) {
           long currentNonce = nonce.get();
-          if (currentNonce < 0 || currentNonce <= previousNonce) {
-            return Optional.of(INVALID_NONCE);
+          if (previousNonces.containsKey(fromAddress)) {
+            long previousNonce = previousNonces.get(fromAddress);
+            if (currentNonce <= previousNonce) {
+              return Optional.of(INVALID_NONCES);
+            }
           }
-          previousNonce = currentNonce;
+          previousNonces.put(fromAddress, currentNonce);
         }
       }
     }

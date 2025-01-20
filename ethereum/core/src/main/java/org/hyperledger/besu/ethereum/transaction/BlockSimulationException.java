@@ -14,8 +14,23 @@
  */
 package org.hyperledger.besu.ethereum.transaction;
 
+import java.util.Optional;
+
 public class BlockSimulationException extends RuntimeException {
+
+  final TransactionSimulatorResult result;
+
   public BlockSimulationException(final String message) {
     super(message);
+    this.result = null;
+  }
+
+  public BlockSimulationException(final String message, final TransactionSimulatorResult result) {
+    super(message);
+    this.result = result;
+  }
+
+  public Optional<TransactionSimulatorResult> getResult() {
+    return Optional.ofNullable(result);
   }
 }

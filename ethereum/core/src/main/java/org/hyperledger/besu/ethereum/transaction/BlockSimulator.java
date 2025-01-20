@@ -109,7 +109,7 @@ public class BlockSimulator {
       var fullBlockStateCalls = normalizeBlockStateCalls(blockStateCalls, header.getNumber());
       return process(
           header, fullBlockStateCalls, new SimulationState((BonsaiWorldState) ws), shouldValidate);
-    } catch (IllegalArgumentException e) {
+    } catch (IllegalArgumentException | BlockSimulationException e) {
       throw e;
     } catch (final Exception e) {
       throw new RuntimeException("Error simulating block", e);
@@ -161,6 +161,7 @@ public class BlockSimulator {
     // Apply block header overrides and state overrides
     BlockHeader blockHeader =
         applyBlockHeaderOverrides(header, newProtocolSpec, blockOverrides, shouldValidate);
+
     blockStateCall.getStateOverrideMap().ifPresent(overrides -> applyStateOverrides(overrides, ws));
 
     // Override the mining beneficiary calculator if a fee recipient is specified, otherwise use the
@@ -217,8 +218,7 @@ public class BlockSimulator {
 
       TransactionSimulatorResult result = transactionSimulatorResult.get();
       if (result.isInvalid()) {
-        throw new BlockSimulationException(
-            "Transaction simulator result is invalid: " + result.getInvalidReason().orElse(null));
+        throw new BlockSimulationException("Transaction simulator result is invalid", result);
       }
       transactionSimulations.add(transactionSimulatorResult.get());
       transactionUpdater.commit();
@@ -336,11 +336,12 @@ public class BlockSimulator {
                 .getGasLimit()
                 .orElseGet(() -> getNextGasLimit(newProtocolSpec, header, blockNumber)))
         .baseFee(
-            shouldValidate
-                ? blockOverrides
-                    .getBaseFeePerGas()
-                    .orElseGet(() -> getNextBaseFee(newProtocolSpec, header, blockNumber))
-                : Wei.ZERO)
+            blockOverrides
+                .getBaseFeePerGas()
+                .orElse(
+                    shouldValidate
+                        ? getNextBaseFee(newProtocolSpec, header, blockNumber)
+                        : Wei.ZERO))
         .prevRandao(blockOverrides.getPrevRandao().orElse(Hash.ZERO))
         .mixHash(blockOverrides.getMixHash().orElse(Hash.ZERO))
         .extraData(blockOverrides.getExtraData().orElse(Bytes.EMPTY))
@@ -482,6 +483,7 @@ public class BlockSimulator {
       final List<? extends BlockStateCall> blockStateCalls, final long blockNumber) {
     long previousBlockNumber = blockNumber;
     List<BlockStateCall> normalizedBlockStateCalls = new ArrayList<>();
+
     for (BlockStateCall blockStateCall : blockStateCalls) {
       long nextBlockNumber =
           blockStateCall.getBlockOverrides().getBlockNumber().orElse(previousBlockNumber + 1);
@@ -493,6 +495,7 @@ public class BlockSimulator {
       normalizedBlockStateCalls.add(blockStateCall);
       previousBlockNumber = nextBlockNumber;
     }
+
     return normalizedBlockStateCalls;
   }
 }

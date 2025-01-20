@@ -41,6 +41,7 @@ import org.hyperledger.besu.ethereum.core.BlockHeader;
 import org.hyperledger.besu.ethereum.core.LogWithMetadata;
 import org.hyperledger.besu.ethereum.core.MiningConfiguration;
 import org.hyperledger.besu.ethereum.mainnet.ProtocolSchedule;
+import org.hyperledger.besu.ethereum.transaction.BlockSimulationException;
 import org.hyperledger.besu.ethereum.transaction.BlockSimulationResult;
 import org.hyperledger.besu.ethereum.transaction.BlockSimulator;
 import org.hyperledger.besu.ethereum.transaction.TransactionSimulator;
@@ -49,7 +50,11 @@ import java.util.List;
 import java.util.Set;
 import java.util.stream.Collectors;
 
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
+
 public class EthSimulateV1 extends AbstractBlockParameterOrBlockHashMethod {
+  private static final Logger LOG = LoggerFactory.getLogger(EthSimulateV1.class);
 
   private final BlockSimulator blockSimulator;
   private final ProtocolSchedule protocolSchedule;
@@ -99,11 +104,18 @@ public class EthSimulateV1 extends AbstractBlockParameterOrBlockHashMethod {
       final JsonRpcRequestContext request, final BlockHeader header) {
     try {
       var simulateV1Parameter = getBlockStateCalls(request);
+
+      if (simulateV1Parameter.isTraceTransfers()) {
+        LOG.warn("Trace transfers is not implemented yet");
+      }
+
       var maybeValidationError = simulateV1Parameter.validate(getValidPrecompileAddresses(header));
       if (maybeValidationError.isPresent()) {
         return new JsonRpcErrorResponse(request.getRequest().getId(), maybeValidationError.get());
       }
       return process(header, simulateV1Parameter);
+    } catch (final BlockSimulationException e) {
+      return handleBlockSimulationException(request, e);
     } catch (final JsonRpcParameterException e) {
       return errorResponse(request, INVALID_PARAMS);
     } catch (Exception e) {
@@ -112,12 +124,21 @@ public class EthSimulateV1 extends AbstractBlockParameterOrBlockHashMethod {
   }
 
   private Object process(final BlockHeader header, final SimulateV1Parameter simulateV1Parameter) {
-    var simulationResults =
+    final List<BlockSimulationResult> simulationResults =
         blockSimulator.process(
             header, simulateV1Parameter.getBlockStateCalls(), simulateV1Parameter.isValidation());
     return simulateV1Parameter.isReturnFullTransactions()
         ? createResponseFull(simulationResults)
         : createResponse(simulationResults);
+  }
+
+  private JsonRpcErrorResponse handleBlockSimulationException(
+      final JsonRpcRequestContext request, final BlockSimulationException e) {
+    JsonRpcError error =
+        e.getResult()
+            .map(r -> JsonRpcError.from(r.getValidationResult()))
+            .orElse(new JsonRpcError(RpcErrorType.INTERNAL_ERROR));
+    return new JsonRpcErrorResponse(request.getRequest().getId(), error);
   }
 
   private Set<Address> getValidPrecompileAddresses(final BlockHeader header) {
@@ -218,11 +239,19 @@ public class EthSimulateV1 extends AbstractBlockParameterOrBlockHashMethod {
             .filter(log -> log.getTransactionHash().equals(transactionHash))
             .collect(Collectors.toList());
 
+    JsonRpcError error = null;
+    if (simulatorResult.result().getRevertReason().isPresent()) {
+      error =
+          new JsonRpcError(
+              RpcErrorType.REVERT_ERROR,
+              simulatorResult.result().getRevertReason().get().toHexString());
+    }
+
     return new CallProcessingResult(
         simulatorResult.result().isSuccessful() ? 1 : 0,
         simulatorResult.result().getOutput(),
         simulatorResult.result().getEstimateGasUsedByTransaction(),
-        null, // TODO ADD ERROR
+        error,
         new LogsResult(transactionLogs)); // TODO ADD LOG
   }
 }

@@ -19,8 +19,8 @@ import static org.assertj.core.api.Assertions.assertThat;
 import org.hyperledger.besu.datatypes.Address;
 import org.hyperledger.besu.datatypes.StateOverride;
 import org.hyperledger.besu.datatypes.StateOverrideMap;
+import org.hyperledger.besu.datatypes.parameters.UnsignedLongParameter;
 import org.hyperledger.besu.ethereum.api.jsonrpc.internal.response.JsonRpcError;
-import org.hyperledger.besu.plugin.data.BlockOverrides;
 
 import java.util.List;
 import java.util.Optional;
@@ -38,7 +38,8 @@ public class SimulateV1ParameterTest {
       final List<JsonBlockStateCallParameter> blockStateCalls, final JsonRpcError expectedError) {
     SimulateV1Parameter simulateV1Parameter =
         new SimulateV1Parameter(blockStateCalls, false, false, false);
-    Optional<JsonRpcError> maybeValidationError = simulateV1Parameter.validate(VALID_PRECOMPILE_ADDRESSES);
+    Optional<JsonRpcError> maybeValidationError =
+        simulateV1Parameter.validate(VALID_PRECOMPILE_ADDRESSES);
     assertThat(maybeValidationError).isPresent();
     assertThat(maybeValidationError.get()).isEqualTo(expectedError);
   }
@@ -77,9 +78,22 @@ public class SimulateV1ParameterTest {
 
   private JsonBlockStateCallParameter createBlockStateCallParameter(
       final Long blockNumber, final Long timestamp, final StateOverrideMap stateOverrideMap) {
-    return new JsonBlockStateCallParameter(
-        List.of(),
-        BlockOverrides.builder().blockNumber(blockNumber).timestamp(timestamp).build(),
-        stateOverrideMap);
+
+    BlockOverridesParameter blockOverridesParameter =
+        new BlockOverridesParameter(
+            Optional.of(new UnsignedLongParameter(timestamp)),
+            Optional.of(new UnsignedLongParameter(blockNumber)),
+            Optional.empty(),
+            Optional.empty(),
+            Optional.empty(),
+            Optional.empty(),
+            Optional.empty(),
+            Optional.empty(),
+            Optional.empty(),
+            Optional.empty(),
+            Optional.empty(),
+            Optional.empty());
+
+    return new JsonBlockStateCallParameter(List.of(), blockOverridesParameter, stateOverrideMap);
   }
 }
