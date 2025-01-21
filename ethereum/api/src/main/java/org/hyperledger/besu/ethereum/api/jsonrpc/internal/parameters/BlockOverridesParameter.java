@@ -26,13 +26,12 @@ import java.util.Optional;
 import com.fasterxml.jackson.annotation.JsonCreator;
 import com.fasterxml.jackson.annotation.JsonProperty;
 import org.apache.tuweni.bytes.Bytes;
-import org.apache.tuweni.bytes.Bytes32;
 
 public class BlockOverridesParameter extends BlockOverrides {
   /**
    * Constructs a new BlockOverrides instance.
    *
-   * @param timestamp the optional timestamp
+   * @param time the optional timestamp
    * @param blockNumber the optional block number
    * @param blockHash the optional block hash
    * @param prevRandao the optional previous Randao
@@ -43,14 +42,14 @@ public class BlockOverridesParameter extends BlockOverrides {
    * @param stateRoot the optional state root
    * @param difficulty the optional difficulty
    * @param extraData the optional extra data
-   * @param mixHashOrPrevRandao the optional mix hash or previous Randao
+   * @param mixHash the optional mix hash
    */
   @JsonCreator
   public BlockOverridesParameter(
-      @JsonProperty("time") final Optional<UnsignedLongParameter> timestamp,
+      @JsonProperty("time") final Optional<UnsignedLongParameter> time,
       @JsonProperty("number") final Optional<UnsignedLongParameter> blockNumber,
       @JsonProperty("hash") final Optional<Hash> blockHash,
-      @JsonProperty("prevRandao") final Optional<Bytes32> prevRandao,
+      @JsonProperty("prevRandao") final Optional<String> prevRandao,
       @JsonProperty("gasLimit") final Optional<UnsignedLongParameter> gasLimit,
       @JsonProperty("feeRecipient") final Optional<Address> feeRecipient,
       @JsonProperty("baseFeePerGas") final Optional<Wei> baseFeePerGas,
@@ -58,9 +57,9 @@ public class BlockOverridesParameter extends BlockOverrides {
       @JsonProperty("stateRoot") final Optional<Hash> stateRoot,
       @JsonProperty("difficulty") final Optional<BigInteger> difficulty,
       @JsonProperty("extraData") final Optional<Bytes> extraData,
-      @JsonProperty("mixHashOrPrevRandao") final Optional<Hash> mixHashOrPrevRandao) {
+      @JsonProperty("mixHash") final Optional<Hash> mixHash) {
     super(
-        timestamp,
+        time,
         blockNumber,
         blockHash,
         prevRandao,
@@ -71,6 +70,6 @@ public class BlockOverridesParameter extends BlockOverrides {
         stateRoot,
         difficulty,
         extraData,
-        mixHashOrPrevRandao);
+        mixHash);
   }
 }

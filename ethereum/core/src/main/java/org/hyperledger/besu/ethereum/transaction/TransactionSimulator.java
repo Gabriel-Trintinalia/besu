@@ -371,7 +371,7 @@ public class TransactionSimulator {
       final Address miningBeneficiary) {
 
     final long simulationGasCap =
-        calculateSimulationGasCap(callParams.getGasLimit(), processableHeader.getGasLimit(), 0L);
+        calculateSimulationGasCap(callParams.getGasLimit(), processableHeader.getGasLimit());
 
     Supplier<MainnetTransactionProcessor> transactionProcessor =
         () ->
@@ -494,8 +494,7 @@ public class TransactionSimulator {
                             UInt256.fromHexString(key), UInt256.fromHexString(value))));
   }
 
-  public long calculateSimulationGasCap(
-      final long userProvidedGasLimit, final long blockGasLimit, final long gasUsed) {
+  public long calculateSimulationGasCap(final long userProvidedGasLimit, final long blockGasLimit) {
     final long simulationGasCap;
 
     // when not set gas limit is -1
@@ -523,7 +522,7 @@ public class TransactionSimulator {
             blockGasLimit);
       }
     }
-    return Math.max(simulationGasCap - gasUsed, 0);
+    return simulationGasCap;
   }
 
   private Optional<Transaction> buildTransaction(

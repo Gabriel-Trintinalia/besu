@@ -142,7 +142,8 @@ public class SimulateV1Parameter {
     Map<Address, Long> previousNonces = new HashMap<>();
     for (JsonBlockStateCallParameter call : blockStateCalls) {
       for (CallParameter callParameter : call.getCalls()) {
-        Address fromAddress = Optional.ofNullable(callParameter.getFrom()).orElse(DEFAULT_SIMULATION_FROM);
+        Address fromAddress =
+            Optional.ofNullable(callParameter.getFrom()).orElse(DEFAULT_SIMULATION_FROM);
         Optional<Long> nonce = callParameter.getNonce();
 
         if (nonce.isPresent()) {

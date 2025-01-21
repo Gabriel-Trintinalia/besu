@@ -14,6 +14,8 @@
  */
 package org.hyperledger.besu.ethereum.transaction;
 
+import static org.hyperledger.besu.ethereum.transaction.BlockStateCallChain.normalizeBlockStateCalls;
+
 import org.hyperledger.besu.datatypes.Address;
 import org.hyperledger.besu.datatypes.Hash;
 import org.hyperledger.besu.datatypes.StateOverride;
@@ -51,7 +53,6 @@ import org.hyperledger.besu.evm.worldstate.WorldUpdater;
 import org.hyperledger.besu.plugin.data.BlockOverrides;
 
 import java.util.ArrayList;
-import java.util.Collections;
 import java.util.List;
 import java.util.Optional;
 import java.util.function.Supplier;
@@ -106,7 +107,7 @@ public class BlockSimulator {
                     new IllegalArgumentException(
                         "Public world state not available for block " + header.toLogString()))) {
 
-      var fullBlockStateCalls = normalizeBlockStateCalls(blockStateCalls, header.getNumber());
+      var fullBlockStateCalls = normalizeBlockStateCalls(blockStateCalls, header);
       return process(
           header, fullBlockStateCalls, new SimulationState((BonsaiWorldState) ws), shouldValidate);
     } catch (IllegalArgumentException | BlockSimulationException e) {
@@ -193,7 +194,7 @@ public class BlockSimulator {
 
       long gasLimit =
           transactionSimulator.calculateSimulationGasCap(
-              callParameter.getGasLimit(), blockHeader.getGasLimit(), gasUsed);
+              callParameter.getGasLimit(), blockHeader.getGasLimit() - gasUsed);
 
       Supplier<MainnetTransactionProcessor> transactionProcessor =
           () ->
@@ -319,35 +320,39 @@ public class BlockSimulator {
     long timestamp = blockOverrides.getTimestamp().orElse(header.getTimestamp() + 12);
     long blockNumber = blockOverrides.getBlockNumber().orElse(header.getNumber() + 1);
 
-    return BlockHeaderBuilder.createDefault()
-        .parentHash(header.getHash())
-        .timestamp(timestamp)
-        .number(blockNumber)
-        .coinbase(
-            blockOverrides
-                .getFeeRecipient()
-                .orElseGet(() -> miningConfiguration.getCoinbase().orElseThrow()))
-        .difficulty(
-            blockOverrides.getDifficulty().isPresent()
-                ? Difficulty.of(blockOverrides.getDifficulty().get())
-                : header.getDifficulty())
-        .gasLimit(
-            blockOverrides
-                .getGasLimit()
-                .orElseGet(() -> getNextGasLimit(newProtocolSpec, header, blockNumber)))
-        .baseFee(
-            blockOverrides
-                .getBaseFeePerGas()
-                .orElse(
-                    shouldValidate
-                        ? getNextBaseFee(newProtocolSpec, header, blockNumber)
-                        : Wei.ZERO))
-        .prevRandao(blockOverrides.getPrevRandao().orElse(Hash.ZERO))
-        .mixHash(blockOverrides.getMixHash().orElse(Hash.ZERO))
-        .extraData(blockOverrides.getExtraData().orElse(Bytes.EMPTY))
-        .blockHeaderFunctions(new SimulatorBlockHeaderFunctions(blockOverrides))
-        .parentBeaconBlockRoot(Bytes32.ZERO)
-        .buildBlockHeader();
+    BlockHeaderBuilder builder =
+        BlockHeaderBuilder.createDefault()
+            .parentHash(header.getHash())
+            .timestamp(timestamp)
+            .number(blockNumber)
+            .coinbase(
+                blockOverrides
+                    .getFeeRecipient()
+                    .orElseGet(() -> miningConfiguration.getCoinbase().orElseThrow()))
+            .difficulty(
+                blockOverrides.getDifficulty().isPresent()
+                    ? Difficulty.of(blockOverrides.getDifficulty().get())
+                    : header.getDifficulty())
+            .gasLimit(
+                blockOverrides
+                    .getGasLimit()
+                    .orElseGet(() -> getNextGasLimit(newProtocolSpec, header, blockNumber)))
+            .baseFee(
+                blockOverrides
+                    .getBaseFeePerGas()
+                    .orElse(
+                        shouldValidate
+                            ? getNextBaseFee(newProtocolSpec, header, blockNumber)
+                            : Wei.ZERO))
+            .extraData(blockOverrides.getExtraData().orElse(Bytes.EMPTY))
+            .blockHeaderFunctions(new SimulatorBlockHeaderFunctions(blockOverrides))
+            .prevRandao(Bytes32.ZERO)
+            .parentBeaconBlockRoot(Bytes32.ZERO);
+
+    blockOverrides.getPrevRandao().ifPresent(builder::prevRandao);
+    blockOverrides.getMixHash().ifPresent(builder::mixHash);
+
+    return builder.buildBlockHeader();
   }
 
   /**
@@ -477,25 +482,5 @@ public class BlockSimulator {
     public Hash rootHash() {
       return calculateRootHash(Optional.empty(), getAccumulator().copy());
     }
-  }
-
-  private List<? extends BlockStateCall> normalizeBlockStateCalls(
-      final List<? extends BlockStateCall> blockStateCalls, final long blockNumber) {
-    long previousBlockNumber = blockNumber;
-    List<BlockStateCall> normalizedBlockStateCalls = new ArrayList<>();
-
-    for (BlockStateCall blockStateCall : blockStateCalls) {
-      long nextBlockNumber =
-          blockStateCall.getBlockOverrides().getBlockNumber().orElse(previousBlockNumber + 1);
-      int blockNumberDiff = (int) (nextBlockNumber - previousBlockNumber);
-      if (blockNumberDiff > 1) {
-        normalizedBlockStateCalls.addAll(
-            Collections.nCopies(blockNumberDiff - 1, BlockStateCall.EMPTY));
-      }
-      normalizedBlockStateCalls.add(blockStateCall);
-      previousBlockNumber = nextBlockNumber;
-    }
-
-    return normalizedBlockStateCalls;
   }
 }

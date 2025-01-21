@@ -15,6 +15,7 @@
 package org.hyperledger.besu.ethereum.transaction;
 
 import static org.assertj.core.api.AssertionsForClassTypes.assertThat;
+import static org.hyperledger.besu.ethereum.transaction.BlockStateCallChain.normalizeBlockStateCalls;
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertNotNull;
 import static org.junit.jupiter.api.Assertions.assertThrows;
@@ -269,5 +270,23 @@ public class BlockSimulatorTest {
 
     params = blockSimulator.buildTransactionValidationParams(false);
     assertThat(params.isAllowExceedingBalance()).isTrue();
+  }
+
+  @Test
+  public void testNormalizeCalls() {
+    BlockHeader header = mock(BlockHeader.class);
+    when(header.getNumber()).thenReturn(0L);
+    when(header.getTimestamp()).thenReturn(0L);
+
+    BlockOverrides blockOverrides = BlockOverrides.builder().blockNumber(2L).build();
+    BlockStateCall blockStateCall = new BlockStateCall(List.of(), blockOverrides, null);
+
+    var normalizedCalls = normalizeBlockStateCalls(List.of(blockStateCall), header);
+    assertThat(normalizedCalls.size()).isEqualTo(2);
+
+    BlockOverrides normalizedOverrides = normalizedCalls.getFirst().getBlockOverrides();
+    assertThat(normalizedOverrides.getBlockNumber().orElseThrow()).isEqualTo(1L);
+    assertThat(normalizedOverrides.getTimestamp().orElseThrow()).isEqualTo(12L);
+    assertThat(normalizedCalls.getLast()).isEqualTo(blockStateCall);
   }
 }

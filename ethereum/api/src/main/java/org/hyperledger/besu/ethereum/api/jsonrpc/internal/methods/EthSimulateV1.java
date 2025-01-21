@@ -41,6 +41,7 @@ import org.hyperledger.besu.ethereum.core.BlockHeader;
 import org.hyperledger.besu.ethereum.core.LogWithMetadata;
 import org.hyperledger.besu.ethereum.core.MiningConfiguration;
 import org.hyperledger.besu.ethereum.mainnet.ProtocolSchedule;
+import org.hyperledger.besu.ethereum.processing.TransactionProcessingResult;
 import org.hyperledger.besu.ethereum.transaction.BlockSimulationException;
 import org.hyperledger.besu.ethereum.transaction.BlockSimulationResult;
 import org.hyperledger.besu.ethereum.transaction.BlockSimulator;
@@ -239,12 +240,19 @@ public class EthSimulateV1 extends AbstractBlockParameterOrBlockHashMethod {
             .filter(log -> log.getTransactionHash().equals(transactionHash))
             .collect(Collectors.toList());
 
+    TransactionProcessingResult result = simulatorResult.result();
+
     JsonRpcError error = null;
-    if (simulatorResult.result().getRevertReason().isPresent()) {
+    if (result.getRevertReason().isPresent()) {
       error =
           new JsonRpcError(
               RpcErrorType.REVERT_ERROR,
               simulatorResult.result().getRevertReason().get().toHexString());
+    }
+
+    if (result.getExceptionalHaltReason().isPresent()) {
+      error =
+          new JsonRpcError(-32015, result.getExceptionalHaltReason().get().getDescription(), null);
     }
 
     return new CallProcessingResult(

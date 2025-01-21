@@ -27,8 +27,8 @@ import org.apache.tuweni.bytes.Bytes32;
 
 /** BlockOverrides represents the block overrides for a block. */
 public class BlockOverrides {
-  private final Optional<Long> timestamp;
-  private final Optional<Long> blockNumber;
+  private Optional<Long> timestamp;
+  private Optional<Long> blockNumber;
   private final Optional<Hash> blockHash;
   private final Optional<Bytes32> prevRandao;
   private final Optional<Long> gasLimit;
@@ -60,7 +60,7 @@ public class BlockOverrides {
       final Optional<UnsignedLongParameter> timestamp,
       final Optional<UnsignedLongParameter> blockNumber,
       final Optional<Hash> blockHash,
-      final Optional<Bytes32> prevRandao,
+      final Optional<String> prevRandao,
       final Optional<UnsignedLongParameter> gasLimit,
       final Optional<Address> feeRecipient,
       final Optional<Wei> baseFeePerGas,
@@ -72,7 +72,7 @@ public class BlockOverrides {
     this.timestamp = timestamp.map(UnsignedLongParameter::getValue);
     this.blockNumber = blockNumber.map(UnsignedLongParameter::getValue);
     this.blockHash = blockHash;
-    this.prevRandao = prevRandao;
+    this.prevRandao = prevRandao.map(Bytes32::fromHexString);
     this.gasLimit = gasLimit.map(UnsignedLongParameter::getValue);
     this.feeRecipient = feeRecipient;
     this.baseFeePerGas = baseFeePerGas;
@@ -137,6 +137,14 @@ public class BlockOverrides {
    */
   public Optional<Long> getTimestamp() {
     return timestamp;
+  }
+
+  public void setTimestamp(final Long timestamp) {
+    this.timestamp = Optional.ofNullable(timestamp);
+  }
+
+  public void setBlockNumber(final Long blockNumber) {
+    this.blockNumber = Optional.ofNullable(blockNumber);
   }
 
   /**
