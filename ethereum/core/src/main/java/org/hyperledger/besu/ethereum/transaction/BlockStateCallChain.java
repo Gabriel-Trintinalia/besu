@@ -15,6 +15,7 @@
 package org.hyperledger.besu.ethereum.transaction;
 
 import org.hyperledger.besu.ethereum.core.BlockHeader;
+import org.hyperledger.besu.ethereum.transaction.exceptions.BlockSimulationInvalidTimestamp;
 import org.hyperledger.besu.plugin.data.BlockOverrides;
 
 import java.util.ArrayList;
@@ -35,6 +36,8 @@ public class BlockStateCallChain {
   private final List<BlockStateCall> blockStateCalls;
   private long lastAddedBlockNumber;
   private long lastAddedTimestamp;
+  private final long maxBlockNumber;
+  private final long headerBlockNumber;
 
   /**
    * Constructs a BlockStateCallChain with the initial block header.
@@ -46,6 +49,8 @@ public class BlockStateCallChain {
     this.lastAddedBlockNumber = header.getNumber();
     this.lastAddedTimestamp = header.getTimestamp();
     this.maxBlockCallSize = MAX_BLOCK_CALL_SIZE;
+    this.maxBlockNumber = header.getNumber() + maxBlockCallSize;
+    this.headerBlockNumber = header.getNumber();
   }
 
   /**
@@ -58,6 +63,8 @@ public class BlockStateCallChain {
     this.lastAddedBlockNumber = header.getNumber();
     this.lastAddedTimestamp = header.getTimestamp();
     this.maxBlockCallSize = maxBlockCallSize;
+    this.maxBlockNumber = header.getNumber() + maxBlockCallSize;
+    this.headerBlockNumber = header.getNumber();
   }
 
   /**
@@ -68,8 +75,7 @@ public class BlockStateCallChain {
    */
   void add(final BlockStateCall blockStateCall) {
     if (blockStateCalls.size() >= maxBlockCallSize) {
-      throw new IllegalArgumentException(
-          "Cannot add more than " + maxBlockCallSize + " BlockStateCalls");
+      throw new IllegalArgumentException("Cannot add more than " + maxBlockCallSize);
     }
     fillGaps(blockStateCall);
     updateBlockNumber(blockStateCall);
@@ -90,15 +96,18 @@ public class BlockStateCallChain {
         .getBlockNumber()
         .ifPresent(
             targetBlockNumber -> {
-              if (blockStateCalls.size() + targetBlockNumber > maxBlockCallSize) {
+              if (targetBlockNumber > maxBlockNumber) {
                 throw new IllegalArgumentException(
-                    "Cannot add more than " + maxBlockCallSize + " BlockStateCalls");
+                    String.format(
+                        "Block number %d exceeds the limit of %d (header: %d + MAX_BLOCK_CALL_SIZE: %d)",
+                        targetBlockNumber, maxBlockNumber, headerBlockNumber, maxBlockCallSize));
               }
               List<BlockStateCall> intermediateBlocks =
                   generateIntermediateBlocks(targetBlockNumber);
               blockStateCalls.addAll(intermediateBlocks);
               if (!intermediateBlocks.isEmpty()) {
-                BlockStateCall lastIntermediateBlock = intermediateBlocks.getLast();
+                BlockStateCall lastIntermediateBlock =
+                    intermediateBlocks.get(intermediateBlocks.size() - 1);
                 lastAddedBlockNumber =
                     lastIntermediateBlock.getBlockOverrides().getBlockNumber().orElseThrow();
                 lastAddedTimestamp =
@@ -120,7 +129,9 @@ public class BlockStateCallChain {
 
     if (blockNumber <= lastAddedBlockNumber) {
       throw new IllegalArgumentException(
-          "Block number cannot be less or equal than the last processed block number");
+          String.format(
+              "Block number %d is invalid. It must be greater than %d.",
+              blockNumber, lastAddedBlockNumber));
     }
     blockOverrides.setBlockNumber(blockNumber);
     lastAddedBlockNumber = blockNumber;
@@ -138,8 +149,10 @@ public class BlockStateCallChain {
     long timestamp = blockOverrides.getTimestamp().orElseGet(this::getNextTimestamp);
 
     if (timestamp <= lastAddedTimestamp) {
-      throw new IllegalArgumentException(
-          "Timestamp cannot be less or equal than the last processed timestamp");
+      throw new BlockSimulationInvalidTimestamp(
+          String.format(
+              "Timestamp %d is invalid. It must be greater than %d.",
+              timestamp, getNextTimestamp()));
     }
 
     blockOverrides.setTimestamp(timestamp);
@@ -193,27 +206,40 @@ public class BlockStateCallChain {
    */
   public static List<? extends BlockStateCall> normalizeBlockStateCalls(
       final List<? extends BlockStateCall> blockStateCalls, final BlockHeader header) {
+    long lastPresentBlockNumber = calculateLastNormalizedBlockNumber(blockStateCalls);
+    if (lastPresentBlockNumber > header.getNumber() + MAX_BLOCK_CALL_SIZE) {
+      throw new IllegalArgumentException(
+          String.format(
+              "Block number %d exceeds the limit of %d (header: %d + MAX_BLOCK_CALL_SIZE: %d)",
+              lastPresentBlockNumber,
+              header.getNumber() + MAX_BLOCK_CALL_SIZE,
+              header.getNumber(),
+              MAX_BLOCK_CALL_SIZE));
+    }
+    BlockStateCallChain chain = new BlockStateCallChain(header);
+    for (BlockStateCall blockStateCall : blockStateCalls) {
+      chain.add(blockStateCall);
+    }
+    return chain.getBlockStateCalls();
+  }
 
-    // Find the last present block number
-    long lastPresentBlockNumber =
+  private static long calculateLastNormalizedBlockNumber(
+      final List<? extends BlockStateCall> blockStateCalls) {
+    var lastPresentBlockNumber =
         blockStateCalls.stream()
             .map(blockStateCall -> blockStateCall.getBlockOverrides().getBlockNumber())
             .filter(Optional::isPresent)
             .mapToLong(Optional::get)
             .max()
             .orElse(-1);
-
-    // Check if the last present block number exceeds the allowed range
-    if (lastPresentBlockNumber >= header.getNumber() + MAX_BLOCK_CALL_SIZE) {
-      throw new IllegalArgumentException(
-          "Block number in the BlockStateCalls cannot be greater or equal than the block number in the header plus the maximum block call size");
-    }
-
-    BlockStateCallChain chain = new BlockStateCallChain(header);
-    for (BlockStateCall blockStateCall : blockStateCalls) {
-      chain.add(blockStateCall);
-    }
-    return chain.getBlockStateCalls();
+    long callsAfterLastPresentBlockNumber =
+        blockStateCalls.stream()
+            .filter(
+                blockStateCall ->
+                    blockStateCall.getBlockOverrides().getBlockNumber().orElse(Long.MAX_VALUE)
+                        > lastPresentBlockNumber)
+            .count();
+    return lastPresentBlockNumber + callsAfterLastPresentBlockNumber;
   }
 
   /**

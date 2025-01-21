@@ -14,6 +14,7 @@
  */
 package org.hyperledger.besu.ethereum.api.jsonrpc.internal.methods;
 
+import static org.hyperledger.besu.ethereum.api.jsonrpc.internal.parameters.SimulateV1Parameter.TIMESTAMPS_NOT_ASCENDING;
 import static org.hyperledger.besu.ethereum.api.jsonrpc.internal.response.RpcErrorType.BLOCK_NOT_FOUND;
 import static org.hyperledger.besu.ethereum.api.jsonrpc.internal.response.RpcErrorType.INVALID_PARAMS;
 
@@ -46,6 +47,7 @@ import org.hyperledger.besu.ethereum.transaction.BlockSimulationException;
 import org.hyperledger.besu.ethereum.transaction.BlockSimulationResult;
 import org.hyperledger.besu.ethereum.transaction.BlockSimulator;
 import org.hyperledger.besu.ethereum.transaction.TransactionSimulator;
+import org.hyperledger.besu.ethereum.transaction.exceptions.BlockSimulationInvalidTimestamp;
 
 import java.util.List;
 import java.util.Set;
@@ -117,6 +119,10 @@ public class EthSimulateV1 extends AbstractBlockParameterOrBlockHashMethod {
       return process(header, simulateV1Parameter);
     } catch (final BlockSimulationException e) {
       return handleBlockSimulationException(request, e);
+    } catch (final BlockSimulationInvalidTimestamp e) {
+      return new JsonRpcErrorResponse(
+          request.getRequest().getId(),
+          new JsonRpcError(TIMESTAMPS_NOT_ASCENDING.getCode(), e.getMessage(), null));
     } catch (final JsonRpcParameterException e) {
       return errorResponse(request, INVALID_PARAMS);
     } catch (Exception e) {

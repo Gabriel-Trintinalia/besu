@@ -9,7 +9,7 @@
           {
             "blockOverrides": {
               "number": "0x1f",
-              "time": "0x3eb",
+              "time": "0x01",
               "feeRecipient": "0xc200000000000000000000000000000000000000",
               "prevRandao": "0x0000000000000000000000000000000000000000000000000000000000001234",
               "baseFeePerGas": "0x3ef"
@@ -431,7 +431,7 @@
         "sha3Uncles": "0x1dcc4de8dec75d7aab85b567b6ccd41ad312451b948a7413f0a142fd40d49347",
         "size": "0x2a3",
         "stateRoot": "0xf70879f742b2095e272421ebdbfdc0afdf5762cfa621b635deb3cfcc10c590ec",
-        "timestamp": "0xd4",
+        "timestamp": "0x0",
         "transactions": [
           {
             "accessList": [
