@@ -16,7 +16,7 @@ package org.hyperledger.besu.ethereum.api.jsonrpc.internal.methods;
 
 import static org.hyperledger.besu.ethereum.api.jsonrpc.internal.response.RpcErrorType.BLOCK_NOT_FOUND;
 import static org.hyperledger.besu.ethereum.api.jsonrpc.internal.response.RpcErrorType.INVALID_PARAMS;
-import static org.hyperledger.besu.ethereum.transaction.SimulationError.TIMESTAMPS_NOT_ASCENDING;
+import static org.hyperledger.besu.ethereum.transaction.exceptions.SimulationError.TIMESTAMPS_NOT_ASCENDING;
 
 import org.hyperledger.besu.datatypes.Address;
 import org.hyperledger.besu.datatypes.Hash;
@@ -43,10 +43,10 @@ import org.hyperledger.besu.ethereum.core.LogWithMetadata;
 import org.hyperledger.besu.ethereum.core.MiningConfiguration;
 import org.hyperledger.besu.ethereum.mainnet.ProtocolSchedule;
 import org.hyperledger.besu.ethereum.processing.TransactionProcessingResult;
-import org.hyperledger.besu.ethereum.transaction.BlockSimulationException;
 import org.hyperledger.besu.ethereum.transaction.BlockSimulationResult;
 import org.hyperledger.besu.ethereum.transaction.BlockSimulator;
 import org.hyperledger.besu.ethereum.transaction.TransactionSimulator;
+import org.hyperledger.besu.ethereum.transaction.exceptions.BlockSimulationException;
 import org.hyperledger.besu.ethereum.transaction.exceptions.BlockSimulationInvalidTimestamp;
 
 import java.util.List;

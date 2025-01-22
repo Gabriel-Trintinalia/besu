@@ -46,7 +46,6 @@ import org.hyperledger.besu.evm.worldstate.WorldUpdater;
 
 import java.math.BigInteger;
 import java.util.Optional;
-import java.util.function.Supplier;
 import javax.annotation.Nonnull;
 
 import com.google.common.annotations.VisibleForTesting;
@@ -344,7 +343,7 @@ public class TransactionSimulator {
       final WorldUpdater updater,
       final MiningBeneficiaryCalculator miningBeneficiaryCalculator,
       final long simulationGasCap,
-      final Supplier<MainnetTransactionProcessor> transactionProcessor) {
+      final MainnetTransactionProcessor transactionProcessor) {
 
     final Address miningBeneficiary = miningBeneficiaryCalculator.calculateBeneficiary(header);
 
@@ -373,10 +372,9 @@ public class TransactionSimulator {
     final long simulationGasCap =
         calculateSimulationGasCap(callParams.getGasLimit(), processableHeader.getGasLimit());
 
-    Supplier<MainnetTransactionProcessor> transactionProcessor =
-        () ->
-            simulationTransactionProcessorFactory.getTransactionProcessor(
-                processableHeader, maybeStateOverrides);
+    MainnetTransactionProcessor transactionProcessor =
+        simulationTransactionProcessorFactory.getTransactionProcessor(
+            processableHeader, maybeStateOverrides);
 
     return processWithWorldUpdater(
         callParams,
@@ -400,7 +398,7 @@ public class TransactionSimulator {
       final WorldUpdater updater,
       final Address miningBeneficiary,
       final long simulationGasCap,
-      final Supplier<MainnetTransactionProcessor> transactionProcessorSupplier) {
+      final MainnetTransactionProcessor transactionProcessor) {
     final ProtocolSpec protocolSpec = protocolSchedule.getByBlockHeader(processableHeader);
 
     final Address senderAddress =
@@ -430,8 +428,6 @@ public class TransactionSimulator {
             .getNonce()
             .orElse(
                 Optional.ofNullable(updater.get(senderAddress)).map(Account::getNonce).orElse(0L));
-
-    MainnetTransactionProcessor transactionProcessor = transactionProcessorSupplier.get();
 
     final Optional<BlockHeader> maybeParentHeader =
         blockchain.getBlockHeader(blockHeaderToProcess.getParentHash());

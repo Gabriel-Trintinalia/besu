@@ -14,15 +14,16 @@
  */
 package org.hyperledger.besu.ethereum.transaction;
 
-import static org.hyperledger.besu.ethereum.transaction.SimulationError.BLOCK_NUMBERS_NOT_ASCENDING;
-import static org.hyperledger.besu.ethereum.transaction.SimulationError.INVALID_NONCES;
-import static org.hyperledger.besu.ethereum.transaction.SimulationError.INVALID_PRECOMPILE_ADDRESS;
-import static org.hyperledger.besu.ethereum.transaction.SimulationError.TIMESTAMPS_NOT_ASCENDING;
-import static org.hyperledger.besu.ethereum.transaction.SimulationError.TOO_MANY_BLOCK_CALLS;
 import static org.hyperledger.besu.ethereum.transaction.TransactionSimulator.DEFAULT_SIMULATION_FROM;
+import static org.hyperledger.besu.ethereum.transaction.exceptions.SimulationError.BLOCK_NUMBERS_NOT_ASCENDING;
+import static org.hyperledger.besu.ethereum.transaction.exceptions.SimulationError.INVALID_NONCES;
+import static org.hyperledger.besu.ethereum.transaction.exceptions.SimulationError.INVALID_PRECOMPILE_ADDRESS;
+import static org.hyperledger.besu.ethereum.transaction.exceptions.SimulationError.TIMESTAMPS_NOT_ASCENDING;
+import static org.hyperledger.besu.ethereum.transaction.exceptions.SimulationError.TOO_MANY_BLOCK_CALLS;
 
 import org.hyperledger.besu.datatypes.Address;
 import org.hyperledger.besu.datatypes.StateOverride;
+import org.hyperledger.besu.ethereum.transaction.exceptions.SimulationError;
 
 import java.util.HashMap;
 import java.util.List;
@@ -63,7 +64,6 @@ public class BlockSimulationParameter {
       final boolean validation,
       final boolean traceTransfers,
       final boolean returnFullTransactions) {
-
     this.blockStateCalls = blockStateCalls;
     this.validation = validation;
     this.traceTransfers = traceTransfers;

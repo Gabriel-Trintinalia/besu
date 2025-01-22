@@ -12,7 +12,7 @@
  *
  * SPDX-License-Identifier: Apache-2.0
  */
-package org.hyperledger.besu.ethereum.transaction;
+package org.hyperledger.besu.ethereum.transaction.exceptions;
 
 public enum SimulationError {
   TOO_MANY_BLOCK_CALLS(-38026, "Too many block calls"),

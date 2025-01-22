@@ -37,12 +37,11 @@ import org.hyperledger.besu.ethereum.core.BlockHeaderBuilder;
 import org.hyperledger.besu.ethereum.core.Difficulty;
 import org.hyperledger.besu.ethereum.core.MiningConfiguration;
 import org.hyperledger.besu.ethereum.core.MutableWorldState;
-import org.hyperledger.besu.ethereum.mainnet.ImmutableTransactionValidationParams;
 import org.hyperledger.besu.ethereum.mainnet.MiningBeneficiaryCalculator;
 import org.hyperledger.besu.ethereum.mainnet.ProtocolSchedule;
 import org.hyperledger.besu.ethereum.mainnet.ProtocolSpec;
-import org.hyperledger.besu.ethereum.mainnet.TransactionValidationParams;
 import org.hyperledger.besu.ethereum.mainnet.feemarket.FeeMarket;
+import org.hyperledger.besu.ethereum.transaction.exceptions.BlockSimulationException;
 import org.hyperledger.besu.ethereum.worldstate.WorldStateArchive;
 import org.hyperledger.besu.evm.account.MutableAccount;
 import org.hyperledger.besu.evm.worldstate.WorldUpdater;
@@ -253,21 +252,5 @@ public class BlockSimulatorTest {
     assertEquals(expectedMixHashOrPrevRandao, result.getMixHash());
     assertEquals(expectedPrevRandao, result.getPrevRandao().get());
     assertEquals(expectedExtraData, result.getExtraData());
-  }
-
-  @Test
-  public void testBuildTransactionValidationParams() {
-    var configWhenValidate =
-        ImmutableTransactionValidationParams.builder()
-            .from(TransactionValidationParams.processingBlock())
-            .build();
-
-    ImmutableTransactionValidationParams params =
-        blockSimulator.buildTransactionValidationParams(true);
-    assertThat(params).isEqualTo(configWhenValidate);
-    assertThat(params.isAllowExceedingBalance()).isFalse();
-
-    params = blockSimulator.buildTransactionValidationParams(false);
-    assertThat(params.isAllowExceedingBalance()).isTrue();
   }
 }

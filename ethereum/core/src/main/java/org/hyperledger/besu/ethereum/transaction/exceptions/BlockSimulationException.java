@@ -12,7 +12,9 @@
  *
  * SPDX-License-Identifier: Apache-2.0
  */
-package org.hyperledger.besu.ethereum.transaction;
+package org.hyperledger.besu.ethereum.transaction.exceptions;
+
+import org.hyperledger.besu.ethereum.transaction.TransactionSimulatorResult;
 
 import java.util.Optional;
 

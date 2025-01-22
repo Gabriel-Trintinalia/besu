@@ -20,7 +20,7 @@ import org.hyperledger.besu.datatypes.Address;
 import org.hyperledger.besu.datatypes.StateOverride;
 import org.hyperledger.besu.datatypes.StateOverrideMap;
 import org.hyperledger.besu.datatypes.parameters.UnsignedLongParameter;
-import org.hyperledger.besu.ethereum.transaction.SimulationError;
+import org.hyperledger.besu.ethereum.transaction.exceptions.SimulationError;
 
 import java.util.List;
 import java.util.Optional;
