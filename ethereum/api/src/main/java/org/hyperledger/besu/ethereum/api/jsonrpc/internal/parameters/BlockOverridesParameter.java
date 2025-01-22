@@ -53,7 +53,7 @@ public class BlockOverridesParameter extends BlockOverrides {
       @JsonProperty("gasLimit") final Optional<UnsignedLongParameter> gasLimit,
       @JsonProperty("feeRecipient") final Optional<Address> feeRecipient,
       @JsonProperty("baseFeePerGas") final Optional<Wei> baseFeePerGas,
-      @JsonProperty("blobBaseFee") final Optional<UnsignedLongParameter> blobBaseFee,
+      @JsonProperty("blobBaseFee") final Optional<Wei> blobBaseFee,
       @JsonProperty("stateRoot") final Optional<Hash> stateRoot,
       @JsonProperty("difficulty") final Optional<BigInteger> difficulty,
       @JsonProperty("extraData") final Optional<Bytes> extraData,

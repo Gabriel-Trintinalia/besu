@@ -14,9 +14,11 @@
  */
 package org.hyperledger.besu.ethereum.transaction;
 
+import static org.hyperledger.besu.ethereum.mainnet.feemarket.ExcessBlobGasCalculator.calculateExcessBlobGasForParent;
 import static org.hyperledger.besu.ethereum.transaction.BlockStateCallChain.normalizeBlockStateCalls;
 import static org.hyperledger.besu.ethereum.transaction.BlockStateOverrider.applyStateOverrides;
 
+import org.hyperledger.besu.datatypes.BlobGas;
 import org.hyperledger.besu.datatypes.Hash;
 import org.hyperledger.besu.datatypes.Wei;
 import org.hyperledger.besu.ethereum.core.Block;
@@ -51,6 +53,7 @@ import org.hyperledger.besu.plugin.data.BlockOverrides;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.Optional;
+import java.util.function.BiFunction;
 
 import com.google.common.annotations.VisibleForTesting;
 import org.apache.tuweni.bytes.Bytes;
@@ -191,6 +194,8 @@ public class BlockSimulator {
       final boolean shouldValidate,
       final MainnetTransactionProcessor transactionProcessor) {
     final var transactionReceiptFactory = protocolSpec.getTransactionReceiptFactory();
+    TransactionValidationParams transactionValidationParams =
+        shouldValidate ? STRICT_VALIDATION_PARAMS : SIMULATION_PARAMS;
 
     BlockCallSimulationResult blockCallSimulationResult =
         new BlockCallSimulationResult(transactionReceiptFactory, blockHeader.getGasLimit());
@@ -209,17 +214,22 @@ public class BlockSimulator {
           transactionSimulator.calculateSimulationGasCap(
               callParameter.getGasLimit(), blockCallSimulationResult.getRemainingGas());
 
+      BiFunction<ProtocolSpec, Optional<BlockHeader>, Wei> blobGasPricePerGasSupplier =
+          getBlobGasPricePerGasSupplier(
+              blockStateCall.getBlockOverrides(), transactionValidationParams);
+
       final Optional<TransactionSimulatorResult> transactionSimulatorResult =
           transactionSimulator.processWithWorldUpdater(
               callParameter,
               Optional.empty(), // We have already applied state overrides on block level
-              shouldValidate ? STRICT_VALIDATION_PARAMS : SIMULATION_PARAMS,
+              transactionValidationParams,
               OperationTracer.NO_TRACING,
               blockHeader,
               transactionUpdater,
               miningBeneficiaryCalculator,
               gasLimit,
-              transactionProcessor);
+              transactionProcessor,
+              blobGasPricePerGasSupplier);
 
       TransactionSimulatorResult transactionSimulationResult =
           transactionSimulatorResult.orElseThrow(
@@ -315,6 +325,25 @@ public class BlockSimulator {
     return builder
         .blockHeaderFunctions(new BlockSimulationBlockHeaderFunctions(blockOverrides))
         .buildBlockHeader();
+  }
+
+  private BiFunction<ProtocolSpec, Optional<BlockHeader>, Wei> getBlobGasPricePerGasSupplier(
+      final BlockOverrides blockOverrides,
+      final TransactionValidationParams transactionValidationParams) {
+    if (blockOverrides.getBlobBaseFee().isPresent()) {
+      return (protocolSchedule, blockHeader) -> blockOverrides.getBlobBaseFee().get();
+    }
+    return (protocolSpec, maybeParentHeader) -> {
+      if (transactionValidationParams.isAllowExceedingBalance()) {
+        return Wei.ZERO;
+      }
+      return protocolSpec
+          .getFeeMarket()
+          .blobGasPricePerGas(
+              maybeParentHeader
+                  .map(parent -> calculateExcessBlobGasForParent(protocolSpec, parent))
+                  .orElse(BlobGas.ZERO));
+    };
   }
 
   private long getNextGasLimit(

@@ -142,6 +142,7 @@ public class BlockSimulatorTest {
             any(),
             any(MiningBeneficiaryCalculator.class),
             0,
+            any(),
             any()))
         .thenReturn(Optional.of(transactionSimulatorResult));
 
@@ -171,6 +172,7 @@ public class BlockSimulatorTest {
             any(),
             any(MiningBeneficiaryCalculator.class),
             0,
+            any(),
             any()))
         .thenReturn(Optional.empty());
 

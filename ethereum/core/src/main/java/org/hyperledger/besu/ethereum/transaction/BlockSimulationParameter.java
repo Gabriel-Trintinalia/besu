@@ -14,6 +14,7 @@
  */
 package org.hyperledger.besu.ethereum.transaction;
 
+import static com.google.common.base.Preconditions.checkNotNull;
 import static org.hyperledger.besu.ethereum.transaction.TransactionSimulator.DEFAULT_SIMULATION_FROM;
 import static org.hyperledger.besu.ethereum.transaction.exceptions.SimulationError.BLOCK_NUMBERS_NOT_ASCENDING;
 import static org.hyperledger.besu.ethereum.transaction.exceptions.SimulationError.INVALID_NONCES;
@@ -64,6 +65,7 @@ public class BlockSimulationParameter {
       final boolean validation,
       final boolean traceTransfers,
       final boolean returnFullTransactions) {
+    checkNotNull(blockStateCalls);
     this.blockStateCalls = blockStateCalls;
     this.validation = validation;
     this.traceTransfers = traceTransfers;

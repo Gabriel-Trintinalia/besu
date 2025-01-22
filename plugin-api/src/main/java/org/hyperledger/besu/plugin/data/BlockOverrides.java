@@ -34,7 +34,7 @@ public class BlockOverrides {
   private final Optional<Long> gasLimit;
   private final Optional<Address> feeRecipient;
   private final Optional<Wei> baseFeePerGas;
-  private final Optional<Long> blobBaseFee;
+  private final Optional<Wei> blobBaseFee;
   private final Optional<Hash> stateRoot;
   private final Optional<BigInteger> difficulty;
   private final Optional<Bytes> extraData;
@@ -64,7 +64,7 @@ public class BlockOverrides {
       final Optional<UnsignedLongParameter> gasLimit,
       final Optional<Address> feeRecipient,
       final Optional<Wei> baseFeePerGas,
-      final Optional<UnsignedLongParameter> blobBaseFee,
+      final Optional<Wei> blobBaseFee,
       final Optional<Hash> stateRoot,
       final Optional<BigInteger> difficulty,
       final Optional<Bytes> extraData,
@@ -76,7 +76,7 @@ public class BlockOverrides {
     this.gasLimit = gasLimit.map(UnsignedLongParameter::getValue);
     this.feeRecipient = feeRecipient;
     this.baseFeePerGas = baseFeePerGas;
-    this.blobBaseFee = blobBaseFee.map(UnsignedLongParameter::getValue);
+    this.blobBaseFee = blobBaseFee;
     this.stateRoot = stateRoot;
     this.difficulty = difficulty;
     this.extraData = extraData;
@@ -179,7 +179,7 @@ public class BlockOverrides {
    *
    * @return the optional blob base fee
    */
-  public Optional<Long> getBlobBaseFee() {
+  public Optional<Wei> getBlobBaseFee() {
     return blobBaseFee;
   }
 
@@ -237,7 +237,7 @@ public class BlockOverrides {
     private Long gasLimit;
     private Address feeRecipient;
     private Wei baseFeePerGas;
-    private Long blobBaseFee;
+    private Wei blobBaseFee;
     private Hash stateRoot;
     private BigInteger difficulty;
     private Bytes extraData;
@@ -329,7 +329,7 @@ public class BlockOverrides {
      * @param blobBaseFee the blob base fee to set
      * @return the builder instance
      */
-    public Builder blobBaseFee(final Long blobBaseFee) {
+    public Builder blobBaseFee(final Wei blobBaseFee) {
       this.blobBaseFee = blobBaseFee;
       return this;
     }

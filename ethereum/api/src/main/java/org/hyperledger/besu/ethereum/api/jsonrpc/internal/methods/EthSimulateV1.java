@@ -48,6 +48,7 @@ import org.hyperledger.besu.ethereum.transaction.BlockSimulator;
 import org.hyperledger.besu.ethereum.transaction.TransactionSimulator;
 import org.hyperledger.besu.ethereum.transaction.exceptions.BlockSimulationException;
 import org.hyperledger.besu.ethereum.transaction.exceptions.BlockSimulationInvalidTimestamp;
+import org.hyperledger.besu.ethereum.transaction.exceptions.SimulationError;
 
 import java.util.List;
 import java.util.Set;
@@ -147,8 +148,15 @@ public class EthSimulateV1 extends AbstractBlockParameterOrBlockHashMethod {
       final JsonRpcRequestContext request, final BlockSimulationException e) {
     JsonRpcError error =
         e.getResult()
-            .map(r -> JsonRpcError.from(r.getValidationResult()))
-            .orElse(new JsonRpcError(RpcErrorType.INTERNAL_ERROR));
+            .map(
+                r -> {
+                  SimulationError simulationError =
+                      SimulationError.of(r.getValidationResult().getInvalidReason());
+                  String message = r.getInvalidReason().orElse(simulationError.getMessage());
+                  return new JsonRpcError(simulationError.getCode(), message, null);
+                })
+            .orElseGet(() -> new JsonRpcError(RpcErrorType.INTERNAL_ERROR));
+
     return new JsonRpcErrorResponse(request.getRequest().getId(), error);
   }
 

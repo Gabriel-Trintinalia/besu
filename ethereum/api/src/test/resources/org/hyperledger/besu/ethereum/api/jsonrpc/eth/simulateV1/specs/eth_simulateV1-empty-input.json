@@ -4,7 +4,52 @@
     "id": 1,
     "method": "eth_simulateV1",
     "params": [
-      {},
+      {
+        "blockStateCalls": [
+          {
+            "blockOverrides": {
+              "baseFeePerGas": "0xf",
+              "blobBaseFee": "0x0"
+            },
+            "stateOverrides": {
+              "0xc000000000000000000000000000000000000000": {
+                "balance": "0x3b9aca00"
+              },
+              "0xc200000000000000000000000000000000000000": {
+                "code": "0x"
+              }
+            },
+            "calls": [
+              {
+                "from": "0xc000000000000000000000000000000000000000",
+                "to": "0xc200000000000000000000000000000000000000",
+                "maxFeePerGas": "0x10",
+                "maxFeePerBlobGas": "0xa",
+                "blobVersionedHashes": [
+                  "0x010657f37554c781402a22917dee2f75def7ab966d7b770905398eba3c444014"
+                ]
+              }
+            ]
+          },
+          {
+            "blockOverrides": {
+              "blobBaseFee": "0x1"
+            },
+            "calls": [
+              {
+                "from": "0xc000000000000000000000000000000000000000",
+                "to": "0xc200000000000000000000000000000000000000",
+                "maxFeePerGas": "0x10",
+                "maxFeePerBlobGas": "0xa",
+                "blobVersionedHashes": [
+                  "0x010657f37554c781402a22917dee2f75def7ab966d7b770905398eba3c444014"
+                ]
+              }
+            ]
+          }
+        ],
+        "validation": true
+      },
       "latest"
     ]
   },
