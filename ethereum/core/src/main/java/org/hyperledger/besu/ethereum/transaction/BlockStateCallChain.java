@@ -204,7 +204,7 @@ public class BlockStateCallChain {
    * @param header the initial block header
    * @return a normalized list of BlockStateCalls
    */
-  public static List<? extends BlockStateCall> normalizeBlockStateCalls(
+  public static List<BlockStateCall> normalizeBlockStateCalls(
       final List<? extends BlockStateCall> blockStateCalls, final BlockHeader header) {
     long lastPresentBlockNumber = calculateLastNormalizedBlockNumber(blockStateCalls);
     if (lastPresentBlockNumber > header.getNumber() + MAX_BLOCK_CALL_SIZE) {

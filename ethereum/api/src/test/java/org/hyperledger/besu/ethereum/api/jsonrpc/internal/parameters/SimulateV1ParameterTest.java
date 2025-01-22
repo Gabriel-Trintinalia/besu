@@ -20,7 +20,7 @@ import org.hyperledger.besu.datatypes.Address;
 import org.hyperledger.besu.datatypes.StateOverride;
 import org.hyperledger.besu.datatypes.StateOverrideMap;
 import org.hyperledger.besu.datatypes.parameters.UnsignedLongParameter;
-import org.hyperledger.besu.ethereum.api.jsonrpc.internal.response.JsonRpcError;
+import org.hyperledger.besu.ethereum.transaction.SimulationError;
 
 import java.util.List;
 import java.util.Optional;
@@ -35,10 +35,11 @@ public class SimulateV1ParameterTest {
   private static final Address INVALID_PRECOMPILE_ADDRESS = Address.fromHexString("0x0B");
 
   private void validateSimulateV1Parameter(
-      final List<JsonBlockStateCallParameter> blockStateCalls, final JsonRpcError expectedError) {
+      final List<JsonBlockStateCallParameter> blockStateCalls,
+      final SimulationError expectedError) {
     SimulateV1Parameter simulateV1Parameter =
         new SimulateV1Parameter(blockStateCalls, false, false, false);
-    Optional<JsonRpcError> maybeValidationError =
+    Optional<SimulationError> maybeValidationError =
         simulateV1Parameter.validate(VALID_PRECOMPILE_ADDRESSES);
     assertThat(maybeValidationError).isPresent();
     assertThat(maybeValidationError.get()).isEqualTo(expectedError);
@@ -50,7 +51,7 @@ public class SimulateV1ParameterTest {
     JsonBlockStateCallParameter blockStateCall2 = createBlockStateCallParameter(1L, null, null);
 
     validateSimulateV1Parameter(
-        List.of(blockStateCall1, blockStateCall2), SimulateV1Parameter.BLOCK_NUMBERS_NOT_ASCENDING);
+        List.of(blockStateCall1, blockStateCall2), SimulationError.BLOCK_NUMBERS_NOT_ASCENDING);
   }
 
   @Test
@@ -59,7 +60,7 @@ public class SimulateV1ParameterTest {
     JsonBlockStateCallParameter blockStateCall2 = createBlockStateCallParameter(null, 1L, null);
 
     validateSimulateV1Parameter(
-        List.of(blockStateCall1, blockStateCall2), SimulateV1Parameter.TIMESTAMPS_NOT_ASCENDING);
+        List.of(blockStateCall1, blockStateCall2), SimulationError.TIMESTAMPS_NOT_ASCENDING);
   }
 
   @Test
@@ -73,7 +74,7 @@ public class SimulateV1ParameterTest {
         createBlockStateCallParameter(null, null, stateOverrideMap);
 
     validateSimulateV1Parameter(
-        List.of(blockStateCall), SimulateV1Parameter.INVALID_PRECOMPILE_ADDRESS);
+        List.of(blockStateCall), SimulationError.INVALID_PRECOMPILE_ADDRESS);
   }
 
   private JsonBlockStateCallParameter createBlockStateCallParameter(

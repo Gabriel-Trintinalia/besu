@@ -15,11 +15,9 @@
 package org.hyperledger.besu.ethereum.transaction;
 
 import static org.hyperledger.besu.ethereum.transaction.BlockStateCallChain.normalizeBlockStateCalls;
+import static org.hyperledger.besu.ethereum.transaction.BlockStateOverrider.applyStateOverrides;
 
-import org.hyperledger.besu.datatypes.Address;
 import org.hyperledger.besu.datatypes.Hash;
-import org.hyperledger.besu.datatypes.StateOverride;
-import org.hyperledger.besu.datatypes.StateOverrideMap;
 import org.hyperledger.besu.datatypes.Wei;
 import org.hyperledger.besu.ethereum.core.Block;
 import org.hyperledger.besu.ethereum.core.BlockBody;
@@ -32,7 +30,6 @@ import org.hyperledger.besu.ethereum.core.MutableWorldState;
 import org.hyperledger.besu.ethereum.core.ParsedExtraData;
 import org.hyperledger.besu.ethereum.core.Transaction;
 import org.hyperledger.besu.ethereum.core.TransactionReceipt;
-import org.hyperledger.besu.ethereum.core.Withdrawal;
 import org.hyperledger.besu.ethereum.mainnet.BodyValidation;
 import org.hyperledger.besu.ethereum.mainnet.ImmutableTransactionValidationParams;
 import org.hyperledger.besu.ethereum.mainnet.MainnetBlockHeaderFunctions;
@@ -47,7 +44,6 @@ import org.hyperledger.besu.ethereum.processing.TransactionProcessingResult;
 import org.hyperledger.besu.ethereum.trie.diffbased.bonsai.cache.NoopBonsaiCachedMerkleTrieLoader;
 import org.hyperledger.besu.ethereum.trie.diffbased.bonsai.worldview.BonsaiWorldState;
 import org.hyperledger.besu.ethereum.worldstate.WorldStateArchive;
-import org.hyperledger.besu.evm.account.MutableAccount;
 import org.hyperledger.besu.evm.tracing.OperationTracer;
 import org.hyperledger.besu.evm.worldstate.WorldUpdater;
 import org.hyperledger.besu.plugin.data.BlockOverrides;
@@ -60,7 +56,6 @@ import java.util.function.Supplier;
 import com.google.common.annotations.VisibleForTesting;
 import org.apache.tuweni.bytes.Bytes;
 import org.apache.tuweni.bytes.Bytes32;
-import org.apache.tuweni.units.bigints.UInt256;
 
 /**
  * Simulates the execution of a block, processing transactions and applying state overrides. This
@@ -92,24 +87,13 @@ public class BlockSimulator {
    * Processes a list of BlockStateCalls sequentially, collecting the results.
    *
    * @param header The block header for all simulations.
-   * @param blockStateCalls The list of BlockStateCalls to process.
+   * @param blockSimulationParameter The BlockSimulationParameter containing the block state calls.
    * @return A list of BlockSimulationResult objects from processing each BlockStateCall.
    */
   public List<BlockSimulationResult> process(
-      final BlockHeader header,
-      final List<? extends BlockStateCall> blockStateCalls,
-      final boolean shouldValidate) {
-    try (final MutableWorldState ws =
-        worldStateArchive
-            .getMutable(header, false)
-            .orElseThrow(
-                () ->
-                    new IllegalArgumentException(
-                        "Public world state not available for block " + header.toLogString()))) {
-
-      var fullBlockStateCalls = normalizeBlockStateCalls(blockStateCalls, header);
-      return process(
-          header, fullBlockStateCalls, new SimulationState((BonsaiWorldState) ws), shouldValidate);
+      final BlockHeader header, final BlockSimulationParameter blockSimulationParameter) {
+    try (final MutableWorldState ws = getWorldState(header)) {
+      return process(header, blockSimulationParameter, ws);
     } catch (IllegalArgumentException | BlockSimulationException e) {
       throw e;
     } catch (final Exception e) {
@@ -120,62 +104,64 @@ public class BlockSimulator {
   /**
    * Processes a list of BlockStateCalls sequentially, collecting the results.
    *
-   * @param header The block header for all simulations.
-   * @param blockStateCalls The list of BlockStateCalls to process.
+   * @param blockHeader The block header for all simulations.
+   * @param simulationParameter The BlockSimulationParameter containing the block state calls.
    * @param worldState The initial MutableWorldState to start with.
    * @return A list of BlockSimulationResult objects from processing each BlockStateCall.
    */
   public List<BlockSimulationResult> process(
-      final BlockHeader header,
-      final List<? extends BlockStateCall> blockStateCalls,
-      final MutableWorldState worldState,
-      final boolean shouldValidate) {
+      final BlockHeader blockHeader,
+      final BlockSimulationParameter simulationParameter,
+      final MutableWorldState worldState) {
+    List<BlockSimulationResult> results = new ArrayList<>();
 
-    var headerToProcess = header;
-    List<BlockSimulationResult> simulationResults = new ArrayList<>();
-    for (BlockStateCall blockStateCall : blockStateCalls) {
-      BlockSimulationResult simulationResult =
-          processSingleBlockStateCall(headerToProcess, blockStateCall, worldState, shouldValidate);
-      simulationResults.add(simulationResult);
-      headerToProcess = simulationResult.getBlock().getHeader();
+    // Fill gaps between blocks and set the correct block number and timestamp
+    List<BlockStateCall> blockStateCalls =
+        normalizeBlockStateCalls(simulationParameter.getBlockStateCalls(), blockHeader);
+
+    BlockHeader currentBlockHeader = blockHeader;
+    for (BlockStateCall stateCall : blockStateCalls) {
+      BlockSimulationResult result =
+          processBlockStateCall(
+              currentBlockHeader, stateCall, worldState, simulationParameter.isValidation());
+      results.add(result);
+      currentBlockHeader = result.getBlock().getHeader();
     }
-    return simulationResults;
+    return results;
   }
 
   /**
    * Processes a single BlockStateCall, simulating the block execution.
    *
-   * @param header The block header for the simulation.
+   * @param baseBlockHeader The block header for the simulation.
    * @param blockStateCall The BlockStateCall to process.
    * @param ws The MutableWorldState to use for the simulation.
    * @return A BlockSimulationResult from processing the BlockStateCall.
    */
-  private BlockSimulationResult processSingleBlockStateCall(
-      final BlockHeader header,
+  private BlockSimulationResult processBlockStateCall(
+      final BlockHeader baseBlockHeader,
       final BlockStateCall blockStateCall,
       final MutableWorldState ws,
       final boolean shouldValidate) {
-    BlockOverrides blockOverrides = blockStateCall.getBlockOverrides();
-    long timestamp = blockOverrides.getTimestamp().orElse(header.getTimestamp() + 1);
-    ProtocolSpec newProtocolSpec = protocolSchedule.getForNextBlockHeader(header, timestamp);
 
-    // Apply block header overrides and state overrides
-    BlockHeader blockHeader =
-        applyBlockHeaderOverrides(header, newProtocolSpec, blockOverrides, shouldValidate);
-
+    // Apply state overrides to the world state
     blockStateCall.getStateOverrideMap().ifPresent(overrides -> applyStateOverrides(overrides, ws));
 
-    // Override the mining beneficiary calculator if a fee recipient is specified, otherwise use the
-    // default
-    MiningBeneficiaryCalculator miningBeneficiaryCalculator =
-        getMiningBeneficiaryCalculator(blockOverrides, newProtocolSpec);
+    BlockOverrides blockOverrides = blockStateCall.getBlockOverrides();
+    ProtocolSpec protocolSpec =
+        protocolSchedule.getForNextBlockHeader(
+            baseBlockHeader, blockOverrides.getTimestamp().orElseThrow());
 
-    List<TransactionSimulatorResult> transactionSimulatorResults =
+    // Create the block header with the overrides
+    BlockHeader overridenBaseblockHeader =
+        overrideBlockHeader(baseBlockHeader, protocolSpec, blockOverrides, shouldValidate);
+
+    List<TransactionSimulatorResult> simulatorResults =
         processTransactions(
-            blockHeader, blockStateCall, ws, miningBeneficiaryCalculator, shouldValidate);
+            overridenBaseblockHeader, blockStateCall, ws, protocolSpec, shouldValidate);
 
-    return finalizeBlock(
-        blockHeader, blockStateCall, ws, newProtocolSpec, transactionSimulatorResults);
+    return createFinalBlock(
+        overridenBaseblockHeader, simulatorResults, blockOverrides, ws, protocolSpec);
   }
 
   @VisibleForTesting
@@ -183,8 +169,11 @@ public class BlockSimulator {
       final BlockHeader blockHeader,
       final BlockStateCall blockStateCall,
       final MutableWorldState ws,
-      final MiningBeneficiaryCalculator miningBeneficiaryCalculator,
+      final ProtocolSpec protocolSpec,
       final boolean shouldValidate) {
+
+    MiningBeneficiaryCalculator miningBeneficiaryCalculator =
+        getMiningBeneficiaryCalculator(blockStateCall.getBlockOverrides(), protocolSpec);
 
     List<TransactionSimulatorResult> transactionSimulations = new ArrayList<>();
     long gasUsed = 0;
@@ -229,13 +218,12 @@ public class BlockSimulator {
   }
 
   @VisibleForTesting
-  protected BlockSimulationResult finalizeBlock(
+  protected BlockSimulationResult createFinalBlock(
       final BlockHeader blockHeader,
-      final BlockStateCall blockStateCall,
+      final List<TransactionSimulatorResult> transactionSimulations,
+      final BlockOverrides blockOverrides,
       final MutableWorldState ws,
-      final ProtocolSpec protocolSpec,
-      final List<TransactionSimulatorResult> transactionSimulations) {
-
+      final ProtocolSpec protocolSpec) {
     long currentGasUsed = 0;
     final var transactionReceiptFactory = protocolSpec.getTransactionReceiptFactory();
 
@@ -243,7 +231,6 @@ public class BlockSimulator {
     final List<Transaction> transactions = new ArrayList<>();
 
     for (TransactionSimulatorResult transactionSimulatorResult : transactionSimulations) {
-
       TransactionProcessingResult transactionProcessingResult = transactionSimulatorResult.result();
       final Transaction transaction = transactionSimulatorResult.transaction();
       currentGasUsed += transaction.getGasLimit() - transactionProcessingResult.getGasRemaining();
@@ -255,52 +242,26 @@ public class BlockSimulator {
       transactions.add(transaction);
     }
 
-    Hash stateRootHash = ws.rootHash();
-    // TODO - Implement withdrawals
-    final List<Withdrawal> withdrawals = List.of();
     BlockHeader finalBlockHeader =
-        createFinalBlockHeader(
-            blockHeader,
-            stateRootHash,
-            transactions,
-            blockStateCall.getBlockOverrides(),
-            receipts,
-            withdrawals,
-            currentGasUsed);
-    Block block =
-        new Block(
-            finalBlockHeader, new BlockBody(transactions, List.of(), Optional.of(withdrawals)));
-    return new BlockSimulationResult(block, receipts, transactionSimulations);
-  }
+        BlockHeaderBuilder.createDefault()
+            .populateFrom(blockHeader)
+            .ommersHash(BodyValidation.ommersHash(List.of()))
+            .stateRoot(blockOverrides.getStateRoot().orElse(ws.rootHash()))
+            .transactionsRoot(BodyValidation.transactionsRoot(transactions))
+            .receiptsRoot(BodyValidation.receiptsRoot(receipts))
+            .logsBloom(BodyValidation.logsBloom(receipts))
+            .gasUsed(currentGasUsed)
+            .withdrawalsRoot(null)
+            .requestsHash(null)
+            .extraData(blockOverrides.getExtraData().orElse(Bytes.EMPTY))
+            .withdrawalsRoot(BodyValidation.withdrawalsRoot(List.of()))
+            .blockHeaderFunctions(new SimulatorBlockHeaderFunctions(blockOverrides))
+            .buildBlockHeader();
 
-  /**
-   * Applies state overrides to the world state.
-   *
-   * @param stateOverrideMap The StateOverrideMap containing the state overrides.
-   * @param ws The MutableWorldState to apply the overrides to.
-   */
-  @VisibleForTesting
-  protected void applyStateOverrides(
-      final StateOverrideMap stateOverrideMap, final MutableWorldState ws) {
-    var updater = ws.updater();
-    for (Address accountToOverride : stateOverrideMap.keySet()) {
-      final StateOverride override = stateOverrideMap.get(accountToOverride);
-      MutableAccount account = updater.getOrCreate(accountToOverride);
-      override.getNonce().ifPresent(account::setNonce);
-      if (override.getBalance().isPresent()) {
-        account.setBalance(override.getBalance().get());
-      }
-      override.getCode().ifPresent(n -> account.setCode(Bytes.fromHexString(n)));
-      override
-          .getStateDiff()
-          .ifPresent(
-              d ->
-                  d.forEach(
-                      (key, value) ->
-                          account.setStorageValue(
-                              UInt256.fromHexString(key), UInt256.fromHexString(value))));
-    }
-    updater.commit();
+    Block block =
+        new Block(finalBlockHeader, new BlockBody(transactions, List.of(), Optional.of(List.of())));
+
+    return new BlockSimulationResult(block, receipts, transactionSimulations);
   }
 
   /**
@@ -312,13 +273,14 @@ public class BlockSimulator {
    * @return The modified block header.
    */
   @VisibleForTesting
-  protected BlockHeader applyBlockHeaderOverrides(
+  protected BlockHeader overrideBlockHeader(
       final BlockHeader header,
       final ProtocolSpec newProtocolSpec,
       final BlockOverrides blockOverrides,
       final boolean shouldValidate) {
-    long timestamp = blockOverrides.getTimestamp().orElse(header.getTimestamp() + 12);
-    long blockNumber = blockOverrides.getBlockNumber().orElse(header.getNumber() + 1);
+    // at this point we must have a timestamp and block number
+    long timestamp = blockOverrides.getTimestamp().orElseThrow();
+    long blockNumber = blockOverrides.getBlockNumber().orElseThrow();
 
     BlockHeaderBuilder builder =
         BlockHeaderBuilder.createDefault()
@@ -353,42 +315,6 @@ public class BlockSimulator {
     blockOverrides.getMixHash().ifPresent(builder::mixHash);
 
     return builder.buildBlockHeader();
-  }
-
-  /**
-   * Creates the final block header after applying state changes and transaction processing.
-   *
-   * @param blockHeader The original block header.
-   * @param stateRootHash The state root hash after applying state changes.
-   * @param transactions The list of transactions in the block.
-   * @param blockOverrides The BlockOverrides to apply.
-   * @param receipts The list of transaction receipts.
-   * @param currentGasUsed The total gas used in the block.
-   * @return The final block header.
-   */
-  private BlockHeader createFinalBlockHeader(
-      final BlockHeader blockHeader,
-      final Hash stateRootHash,
-      final List<Transaction> transactions,
-      final BlockOverrides blockOverrides,
-      final List<TransactionReceipt> receipts,
-      final List<Withdrawal> withdrawals,
-      final long currentGasUsed) {
-
-    return BlockHeaderBuilder.createDefault()
-        .populateFrom(blockHeader)
-        .ommersHash(BodyValidation.ommersHash(List.of()))
-        .stateRoot(blockOverrides.getStateRoot().orElse(stateRootHash))
-        .transactionsRoot(BodyValidation.transactionsRoot(transactions))
-        .receiptsRoot(BodyValidation.receiptsRoot(receipts))
-        .logsBloom(BodyValidation.logsBloom(receipts))
-        .gasUsed(currentGasUsed)
-        .withdrawalsRoot(null)
-        .requestsHash(null)
-        .extraData(blockOverrides.getExtraData().orElse(Bytes.EMPTY))
-        .withdrawalsRoot(BodyValidation.withdrawalsRoot(withdrawals))
-        .blockHeaderFunctions(new SimulatorBlockHeaderFunctions(blockOverrides))
-        .buildBlockHeader();
   }
 
   /**
@@ -451,6 +377,17 @@ public class BlockSimulator {
         .orElse(null);
   }
 
+  private SimulationWorldState getWorldState(final BlockHeader blockHeader) {
+    final MutableWorldState ws =
+        worldStateArchive
+            .getMutable(blockHeader, false)
+            .orElseThrow(
+                () ->
+                    new IllegalArgumentException(
+                        "Public world state not available for block " + blockHeader.toLogString()));
+    return new SimulationWorldState((BonsaiWorldState) ws);
+  }
+
   private static class SimulatorBlockHeaderFunctions implements BlockHeaderFunctions {
 
     private final BlockOverrides blockOverrides;
@@ -472,9 +409,9 @@ public class BlockSimulator {
     }
   }
 
-  public static class SimulationState extends BonsaiWorldState {
+  private static class SimulationWorldState extends BonsaiWorldState {
 
-    private SimulationState(final BonsaiWorldState mutableWorldState) {
+    private SimulationWorldState(final BonsaiWorldState mutableWorldState) {
       super(mutableWorldState, new NoopBonsaiCachedMerkleTrieLoader());
     }
 

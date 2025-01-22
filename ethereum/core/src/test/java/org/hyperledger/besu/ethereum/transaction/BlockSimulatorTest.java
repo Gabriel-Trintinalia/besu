@@ -15,7 +15,7 @@
 package org.hyperledger.besu.ethereum.transaction;
 
 import static org.assertj.core.api.AssertionsForClassTypes.assertThat;
-import static org.hyperledger.besu.ethereum.transaction.BlockStateCallChain.normalizeBlockStateCalls;
+import static org.hyperledger.besu.ethereum.transaction.BlockStateOverrider.applyStateOverrides;
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertNotNull;
 import static org.junit.jupiter.api.Assertions.assertThrows;
@@ -49,7 +49,6 @@ import org.hyperledger.besu.evm.worldstate.WorldUpdater;
 import org.hyperledger.besu.plugin.data.BlockOverrides;
 
 import java.math.BigInteger;
-import java.util.Collections;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
@@ -103,7 +102,7 @@ public class BlockSimulatorTest {
         .thenReturn(Optional.of(mutableWorldState));
 
     List<BlockSimulationResult> results =
-        blockSimulator.process(blockHeader, Collections.emptyList(), false);
+        blockSimulator.process(blockHeader, BlockSimulationParameter.EMPTY);
 
     assertNotNull(results);
     verify(worldStateArchive).getMutable(any(BlockHeader.class), eq(false));
@@ -117,7 +116,7 @@ public class BlockSimulatorTest {
     IllegalArgumentException exception =
         assertThrows(
             IllegalArgumentException.class,
-            () -> blockSimulator.process(blockHeader, Collections.emptyList(), false));
+            () -> blockSimulator.process(blockHeader, BlockSimulationParameter.EMPTY));
 
     assertEquals(
         String.format("Public world state not available for block %s", blockHeader.toLogString()),
@@ -152,7 +151,7 @@ public class BlockSimulatorTest {
             BlockSimulationException.class,
             () ->
                 blockSimulator.process(
-                    blockHeader, List.of(blockStateCall), mutableWorldState, false));
+                    blockHeader, new BlockSimulationParameter(blockStateCall), mutableWorldState));
 
     assertEquals(
         "Transaction simulator result is invalid: Invalid Transaction", exception.getMessage());
@@ -181,7 +180,7 @@ public class BlockSimulatorTest {
             BlockSimulationException.class,
             () ->
                 blockSimulator.process(
-                    blockHeader, List.of(blockStateCall), mutableWorldState, false));
+                    blockHeader, new BlockSimulationParameter(blockStateCall), mutableWorldState));
 
     assertEquals("Transaction simulator result is empty", exception.getMessage());
   }
@@ -206,7 +205,7 @@ public class BlockSimulatorTest {
     when(stateOverride.getCode()).thenReturn(Optional.of(""));
     when(stateOverride.getStateDiff()).thenReturn(Optional.of(new HashMap<>(Map.of("0x0", "0x1"))));
 
-    blockSimulator.applyStateOverrides(stateOverrideMap, mutableWorldState);
+    applyStateOverrides(stateOverrideMap, mutableWorldState);
 
     verify(mutableAccount).setNonce(anyLong());
     verify(mutableAccount).setBalance(any(Wei.class));
@@ -215,7 +214,7 @@ public class BlockSimulatorTest {
   }
 
   @Test
-  public void shouldApplyBlockHeaderOverridesCorrectly() {
+  public void shouldOverrideBlockHeaderCorrectly() {
     ProtocolSpec protocolSpec = mock(ProtocolSpec.class);
 
     var expectedTimestamp = 1L;
@@ -242,7 +241,7 @@ public class BlockSimulatorTest {
             .build();
 
     BlockHeader result =
-        blockSimulator.applyBlockHeaderOverrides(blockHeader, protocolSpec, blockOverrides, true);
+        blockSimulator.overrideBlockHeader(blockHeader, protocolSpec, blockOverrides, true);
 
     assertNotNull(result);
     assertEquals(expectedTimestamp, result.getTimestamp());
@@ -270,23 +269,5 @@ public class BlockSimulatorTest {
 
     params = blockSimulator.buildTransactionValidationParams(false);
     assertThat(params.isAllowExceedingBalance()).isTrue();
-  }
-
-  @Test
-  public void testNormalizeCalls() {
-    BlockHeader header = mock(BlockHeader.class);
-    when(header.getNumber()).thenReturn(0L);
-    when(header.getTimestamp()).thenReturn(0L);
-
-    BlockOverrides blockOverrides = BlockOverrides.builder().blockNumber(2L).build();
-    BlockStateCall blockStateCall = new BlockStateCall(List.of(), blockOverrides, null);
-
-    var normalizedCalls = normalizeBlockStateCalls(List.of(blockStateCall), header);
-    assertThat(normalizedCalls.size()).isEqualTo(2);
-
-    BlockOverrides normalizedOverrides = normalizedCalls.getFirst().getBlockOverrides();
-    assertThat(normalizedOverrides.getBlockNumber().orElseThrow()).isEqualTo(1L);
-    assertThat(normalizedOverrides.getTimestamp().orElseThrow()).isEqualTo(12L);
-    assertThat(normalizedCalls.getLast()).isEqualTo(blockStateCall);
   }
 }

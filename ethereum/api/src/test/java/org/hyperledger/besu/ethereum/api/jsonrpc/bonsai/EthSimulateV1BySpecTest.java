@@ -45,7 +45,7 @@ public class EthSimulateV1BySpecTest extends AbstractJsonRpcHttpBySpecTest {
   }
 
   public static Object[][] specs() {
-    return findSpecFiles(new String[] {"eth/simulateV1/specs/debug"});
+    return findSpecFiles(new String[] {"eth/simulateV1/specs"});
   }
 
   @Test

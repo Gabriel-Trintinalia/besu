@@ -14,9 +14,9 @@
  */
 package org.hyperledger.besu.ethereum.api.jsonrpc.internal.methods;
 
-import static org.hyperledger.besu.ethereum.api.jsonrpc.internal.parameters.SimulateV1Parameter.TIMESTAMPS_NOT_ASCENDING;
 import static org.hyperledger.besu.ethereum.api.jsonrpc.internal.response.RpcErrorType.BLOCK_NOT_FOUND;
 import static org.hyperledger.besu.ethereum.api.jsonrpc.internal.response.RpcErrorType.INVALID_PARAMS;
+import static org.hyperledger.besu.ethereum.transaction.SimulationError.TIMESTAMPS_NOT_ASCENDING;
 
 import org.hyperledger.besu.datatypes.Address;
 import org.hyperledger.besu.datatypes.Hash;
@@ -114,7 +114,12 @@ public class EthSimulateV1 extends AbstractBlockParameterOrBlockHashMethod {
 
       var maybeValidationError = simulateV1Parameter.validate(getValidPrecompileAddresses(header));
       if (maybeValidationError.isPresent()) {
-        return new JsonRpcErrorResponse(request.getRequest().getId(), maybeValidationError.get());
+        JsonRpcError error =
+            new JsonRpcError(
+                maybeValidationError.get().getCode(),
+                maybeValidationError.get().getMessage(),
+                null);
+        return new JsonRpcErrorResponse(request.getRequest().getId(), error);
       }
       return process(header, simulateV1Parameter);
     } catch (final BlockSimulationException e) {
@@ -132,8 +137,7 @@ public class EthSimulateV1 extends AbstractBlockParameterOrBlockHashMethod {
 
   private Object process(final BlockHeader header, final SimulateV1Parameter simulateV1Parameter) {
     final List<BlockSimulationResult> simulationResults =
-        blockSimulator.process(
-            header, simulateV1Parameter.getBlockStateCalls(), simulateV1Parameter.isValidation());
+        blockSimulator.process(header, simulateV1Parameter);
     return simulateV1Parameter.isReturnFullTransactions()
         ? createResponseFull(simulationResults)
         : createResponse(simulationResults);
