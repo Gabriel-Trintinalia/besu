@@ -16,7 +16,6 @@ package org.hyperledger.besu.ethereum.transaction;
 
 import org.hyperledger.besu.ethereum.core.Block;
 import org.hyperledger.besu.ethereum.core.TransactionReceipt;
-import org.hyperledger.besu.evm.log.Log;
 import org.hyperledger.besu.plugin.data.BlockBody;
 import org.hyperledger.besu.plugin.data.BlockHeader;
 
@@ -29,9 +28,9 @@ public class BlockSimulationResult {
   List<TransactionSimulatorResult> transactionSimulationResults;
 
   public BlockSimulationResult(
-    final Block block,
-    final List<? extends TransactionReceipt> receipts,
-    final List<TransactionSimulatorResult> transactionSimulationResults) {
+      final Block block,
+      final List<? extends TransactionReceipt> receipts,
+      final List<TransactionSimulatorResult> transactionSimulationResults) {
     this.block = block;
     this.receipts = new ArrayList<>(receipts);
     this.transactionSimulationResults = transactionSimulationResults;

@@ -113,13 +113,15 @@ public class BlockStateCallResult extends BlockResult {
 
     List<LogWithMetadata> logs = new ArrayList<>();
     for (var transactionSimulation : simulationResult.getTransactionSimulations()) {
-      logs.addAll(LogWithMetadata.generate(0,
-        transactionSimulation.result().getLogs(),
-        block.getHeader().getNumber(),
-        block.getHash(),
-        transactionSimulation.transaction().getHash(),
-        block.getBody().getTransactions().indexOf(transactionSimulation.transaction()),
-        false));
+      logs.addAll(
+          LogWithMetadata.generate(
+              0,
+              transactionSimulation.result().getLogs(),
+              block.getHeader().getNumber(),
+              block.getHash(),
+              transactionSimulation.transaction().getHash(),
+              block.getBody().getTransactions().indexOf(transactionSimulation.transaction()),
+              false));
     }
 
     var callProcessingResults =

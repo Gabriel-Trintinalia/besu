@@ -16,14 +16,12 @@ package org.hyperledger.besu.ethereum.transaction;
 
 import static org.hyperledger.besu.ethereum.mainnet.feemarket.ExcessBlobGasCalculator.calculateExcessBlobGasForParent;
 import static org.hyperledger.besu.ethereum.transaction.BlockStateCallChain.normalizeBlockStateCalls;
-import static org.hyperledger.besu.evm.processor.SimulationMessageCallProcessor.SIMULATION_TRANSFER_ADDRESS;
 
 import org.hyperledger.besu.datatypes.Address;
 import org.hyperledger.besu.datatypes.BlobGas;
 import org.hyperledger.besu.datatypes.Hash;
 import org.hyperledger.besu.datatypes.StateOverride;
 import org.hyperledger.besu.datatypes.StateOverrideMap;
-import org.hyperledger.besu.datatypes.TransactionType;
 import org.hyperledger.besu.datatypes.Wei;
 import org.hyperledger.besu.ethereum.core.Block;
 import org.hyperledger.besu.ethereum.core.BlockBody;
@@ -36,7 +34,6 @@ import org.hyperledger.besu.ethereum.core.MutableWorldState;
 import org.hyperledger.besu.ethereum.core.ParsedExtraData;
 import org.hyperledger.besu.ethereum.core.Transaction;
 import org.hyperledger.besu.ethereum.core.TransactionReceipt;
-import org.hyperledger.besu.ethereum.mainnet.AbstractBlockProcessor;
 import org.hyperledger.besu.ethereum.mainnet.BodyValidation;
 import org.hyperledger.besu.ethereum.mainnet.ImmutableTransactionValidationParams;
 import org.hyperledger.besu.ethereum.mainnet.MainnetBlockHeaderFunctions;
@@ -47,14 +44,12 @@ import org.hyperledger.besu.ethereum.mainnet.ProtocolSpec;
 import org.hyperledger.besu.ethereum.mainnet.TransactionValidationParams;
 import org.hyperledger.besu.ethereum.mainnet.feemarket.BaseFeeMarket;
 import org.hyperledger.besu.ethereum.mainnet.feemarket.FeeMarket;
-import org.hyperledger.besu.ethereum.processing.TransactionProcessingResult;
 import org.hyperledger.besu.ethereum.transaction.exceptions.BlockSimulationException;
 import org.hyperledger.besu.ethereum.trie.diffbased.bonsai.cache.NoopBonsaiCachedMerkleTrieLoader;
 import org.hyperledger.besu.ethereum.trie.diffbased.bonsai.worldview.BonsaiWorldState;
 import org.hyperledger.besu.ethereum.worldstate.WorldStateArchive;
 import org.hyperledger.besu.evm.account.MutableAccount;
 import org.hyperledger.besu.evm.tracing.OperationTracer;
-import org.hyperledger.besu.evm.worldstate.WorldState;
 import org.hyperledger.besu.evm.worldstate.WorldUpdater;
 import org.hyperledger.besu.plugin.data.BlockOverrides;
 
@@ -198,7 +193,8 @@ public class BlockSimulator {
             shouldValidate,
             transactionProcessor);
 
-    return createFinalBlock(overridenBaseblockHeader, blockCallSimulationResult, blockOverrides, ws);
+    return createFinalBlock(
+        overridenBaseblockHeader, blockCallSimulationResult, blockOverrides, ws);
   }
 
   protected BlockCallSimulationResult processTransactions(
@@ -210,7 +206,7 @@ public class BlockSimulator {
       final MainnetTransactionProcessor transactionProcessor) {
 
     TransactionValidationParams transactionValidationParams =
-      shouldValidate ? STRICT_VALIDATION_PARAMS : SIMULATION_PARAMS;
+        shouldValidate ? STRICT_VALIDATION_PARAMS : SIMULATION_PARAMS;
 
     BlockCallSimulationResult blockCallSimulationResult =
         new BlockCallSimulationResult(protocolSpec, blockHeader.getGasLimit());
@@ -268,7 +264,8 @@ public class BlockSimulator {
 
     List<Transaction> transactions = blockCallSimulationResult.getTransactions();
     List<TransactionReceipt> receipts = blockCallSimulationResult.getReceipts();
-    List<TransactionSimulatorResult> simulationResults = blockCallSimulationResult.getTransactionSimulationResults();
+    List<TransactionSimulatorResult> simulationResults =
+        blockCallSimulationResult.getTransactionSimulationResults();
 
     BlockHeader finalBlockHeader =
         BlockHeaderBuilder.createDefault()

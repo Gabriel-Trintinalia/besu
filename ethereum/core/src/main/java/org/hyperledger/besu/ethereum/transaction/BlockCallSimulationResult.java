@@ -23,7 +23,6 @@ import org.hyperledger.besu.ethereum.core.TransactionReceipt;
 import org.hyperledger.besu.ethereum.mainnet.AbstractBlockProcessor;
 import org.hyperledger.besu.ethereum.mainnet.ProtocolSpec;
 import org.hyperledger.besu.ethereum.processing.TransactionProcessingResult;
-import org.hyperledger.besu.evm.log.Log;
 import org.hyperledger.besu.evm.worldstate.WorldState;
 
 import java.util.ArrayList;
@@ -33,37 +32,36 @@ import java.util.Optional;
 import java.util.stream.Collectors;
 
 /**
- * This class represents the results of simulating block calls. It maintains a list of simulation
- * results and tracks the cumulative gas used.
+ * Represents the results of simulating block calls, maintaining a list of simulation results and
+ * tracking cumulative gas used.
  */
 public class BlockCallSimulationResult {
 
-  private final List<TransactionSimulatorResultWithMetadata>
-      transactionSimulatorResultWithMetadata = new ArrayList<>();
+  private final List<TransactionSimulatorResultWithMetadata> transactionSimulatorResults =
+      new ArrayList<>();
   private long cumulativeGasUsed = 0;
   private final AbstractBlockProcessor.TransactionReceiptFactory transactionReceiptFactory;
   private final long blockGasLimit;
 
   /**
-   * Constructs a new BlockCallSimulationResults instance.
+   * Constructs a new BlockCallSimulationResult instance.
    *
-   * @param protocolSpec the protocolSpec
+   * @param protocolSpec the protocol specification
    * @param blockGasLimit the gas limit for the block
    */
-  public BlockCallSimulationResult(
-      final ProtocolSpec protocolSpec,
-      final long blockGasLimit) {
-    this.transactionReceiptFactory = createTransactionReceiptFactory(protocolSpec);
+  public BlockCallSimulationResult(final ProtocolSpec protocolSpec, final long blockGasLimit) {
+    this.transactionReceiptFactory =
+        new SimulationTransactionReceiptFactory(protocolSpec.getTransactionReceiptFactory());
     this.blockGasLimit = blockGasLimit;
   }
 
   /**
-   * Returns an unmodifiable list of block call simulation results.
+   * Returns an unmodifiable list of transaction simulation results with metadata.
    *
-   * @return an unmodifiable list of {@link BlockCallSimulationResult}
+   * @return an unmodifiable list of {@link TransactionSimulatorResultWithMetadata}
    */
-  public List<TransactionSimulatorResultWithMetadata> getTransactionSimulatorResultWithMetadata() {
-    return Collections.unmodifiableList(transactionSimulatorResultWithMetadata);
+  public List<TransactionSimulatorResultWithMetadata> getTransactionSimulatorResults() {
+    return Collections.unmodifiableList(transactionSimulatorResults);
   }
 
   /**
@@ -85,22 +83,20 @@ public class BlockCallSimulationResult {
   }
 
   /**
-   * Adds a new transaction simulation result to the list of block call simulation results. Updates
-   * the cumulative gas used and creates a transaction receipt.
+   * Adds a new transaction simulation result to the list and updates the cumulative gas used.
    *
    * @param result the result of the transaction simulation
-   * @param ws the mutable world state after the transaction
+   * @param worldState the mutable world state after the transaction
    */
-  public void add(final TransactionSimulatorResult result, final MutableWorldState ws) {
+  public void add(final TransactionSimulatorResult result, final MutableWorldState worldState) {
     long gasUsedByTransaction = result.result().getEstimateGasUsedByTransaction();
     cumulativeGasUsed += gasUsedByTransaction;
 
-    // Create a transaction receipt with logs that are not transfer logs
-    final TransactionReceipt transactionReceipt =
+    TransactionReceipt transactionReceipt =
         transactionReceiptFactory.create(
-            result.transaction().getType(), result.result(), ws, cumulativeGasUsed);
+            result.transaction().getType(), result.result(), worldState, cumulativeGasUsed);
 
-    transactionSimulatorResultWithMetadata.add(
+    transactionSimulatorResults.add(
         new TransactionSimulatorResultWithMetadata(result, transactionReceipt, cumulativeGasUsed));
   }
 
@@ -110,7 +106,7 @@ public class BlockCallSimulationResult {
    * @return a list of transactions
    */
   public List<Transaction> getTransactions() {
-    return transactionSimulatorResultWithMetadata.stream()
+    return transactionSimulatorResults.stream()
         .map(result -> result.result().transaction())
         .collect(Collectors.toList());
   }
@@ -121,7 +117,7 @@ public class BlockCallSimulationResult {
    * @return a list of transaction receipts
    */
   public List<TransactionReceipt> getReceipts() {
-    return transactionSimulatorResultWithMetadata.stream()
+    return transactionSimulatorResults.stream()
         .map(TransactionSimulatorResultWithMetadata::receipt)
         .collect(Collectors.toList());
   }
@@ -132,54 +128,35 @@ public class BlockCallSimulationResult {
    * @return a list of transaction simulation results
    */
   public List<TransactionSimulatorResult> getTransactionSimulationResults() {
-    return transactionSimulatorResultWithMetadata.stream()
+    return transactionSimulatorResults.stream()
         .map(TransactionSimulatorResultWithMetadata::result)
         .collect(Collectors.toList());
   }
 
-  /**
-   * Creates a new transaction receipt factory that filters out transfer logs.
-   *
-   * @param protocolSpec the protocol spec
-   * @return a new transaction receipt factory
-   */
-  private AbstractBlockProcessor.TransactionReceiptFactory createTransactionReceiptFactory(
-    final ProtocolSpec protocolSpec) {
-    return new SimulationTransactionReceiptFactory(protocolSpec.getTransactionReceiptFactory());
-  }
-
-  /** This record represents a single block call simulation result. */
+  /** Represents a single block call simulation result with metadata. */
   public record TransactionSimulatorResultWithMetadata(
       TransactionSimulatorResult result, TransactionReceipt receipt, long cumulativeGasUsed) {}
 
   /** Overrides the transaction receipt factory to filter out transfer logs. */
-  private record SimulationTransactionReceiptFactory(AbstractBlockProcessor.TransactionReceiptFactory delegate)
+  private record SimulationTransactionReceiptFactory(
+      AbstractBlockProcessor.TransactionReceiptFactory delegate)
       implements AbstractBlockProcessor.TransactionReceiptFactory {
 
-    /**
-     * Creates a new transaction receipt with logs that are not transfer logs.
-     *
-     * @param transactionType the transaction type
-     * @param result the transaction processing result
-     * @param worldState the world state after the transaction
-     * @param gasUsed the gas used by the transaction
-     * @return a new transaction receipt
-     */
     @Override
-      public TransactionReceipt create(
+    public TransactionReceipt create(
         final TransactionType transactionType,
         final TransactionProcessingResult result,
         final WorldState worldState,
         final long gasUsed) {
-        TransactionReceipt receipt = delegate.create(transactionType, result, worldState, gasUsed);
-        return new TransactionReceipt(
+      TransactionReceipt receipt = delegate.create(transactionType, result, worldState, gasUsed);
+      return new TransactionReceipt(
           transactionType,
           receipt.getStatus(),
           receipt.getCumulativeGasUsed(),
           receipt.getLogsList().stream()
-            .filter(log -> !log.getLogger().equals(SIMULATION_TRANSFER_ADDRESS))
-            .toList(),
+              .filter(log -> !log.getLogger().equals(SIMULATION_TRANSFER_ADDRESS))
+              .toList(),
           Optional.empty());
-      }
     }
+  }
 }
