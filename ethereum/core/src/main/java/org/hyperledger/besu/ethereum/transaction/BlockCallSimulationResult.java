@@ -28,11 +28,12 @@ import org.hyperledger.besu.evm.worldstate.WorldState;
 import java.util.ArrayList;
 import java.util.Collections;
 import java.util.List;
+import java.util.Objects;
 import java.util.Optional;
 import java.util.stream.Collectors;
 
 /**
- * Represents the results of simulating block calls, maintaining a list of simulation results and
+ * Manages the results of simulating block calls, including a list of simulation results and
  * tracking cumulative gas used.
  */
 public class BlockCallSimulationResult {
@@ -43,52 +44,34 @@ public class BlockCallSimulationResult {
   private final AbstractBlockProcessor.TransactionReceiptFactory transactionReceiptFactory;
   private final long blockGasLimit;
 
-  /**
-   * Constructs a new BlockCallSimulationResult instance.
-   *
-   * @param protocolSpec the protocol specification
-   * @param blockGasLimit the gas limit for the block
-   */
   public BlockCallSimulationResult(final ProtocolSpec protocolSpec, final long blockGasLimit) {
     this.transactionReceiptFactory =
         new SimulationTransactionReceiptFactory(protocolSpec.getTransactionReceiptFactory());
     this.blockGasLimit = blockGasLimit;
   }
 
-  /**
-   * Returns an unmodifiable list of transaction simulation results with metadata.
-   *
-   * @return an unmodifiable list of {@link TransactionSimulatorResultWithMetadata}
-   */
   public List<TransactionSimulatorResultWithMetadata> getTransactionSimulatorResults() {
     return Collections.unmodifiableList(transactionSimulatorResults);
   }
 
-  /**
-   * Returns the remaining gas available for the block.
-   *
-   * @return the remaining gas
-   */
   public long getRemainingGas() {
     return Math.max(blockGasLimit - cumulativeGasUsed, 0);
   }
 
-  /**
-   * Returns the cumulative gas used so far.
-   *
-   * @return the cumulative gas used
-   */
   public long getCumulativeGasUsed() {
     return cumulativeGasUsed;
   }
 
   /**
-   * Adds a new transaction simulation result to the list and updates the cumulative gas used.
+   * Adds a new transaction simulation result, updating the cumulative gas used.
    *
-   * @param result the result of the transaction simulation
-   * @param worldState the mutable world state after the transaction
+   * @param result the transaction simulation result
+   * @param worldState the world state after the transaction
    */
   public void add(final TransactionSimulatorResult result, final MutableWorldState worldState) {
+    Objects.requireNonNull(result, "TransactionSimulatorResult cannot be null");
+    Objects.requireNonNull(worldState, "WorldState cannot be null");
+
     long gasUsedByTransaction = result.result().getEstimateGasUsedByTransaction();
     cumulativeGasUsed += gasUsedByTransaction;
 
@@ -100,33 +83,18 @@ public class BlockCallSimulationResult {
         new TransactionSimulatorResultWithMetadata(result, transactionReceipt, cumulativeGasUsed));
   }
 
-  /**
-   * Returns a list of transactions from the simulation results.
-   *
-   * @return a list of transactions
-   */
   public List<Transaction> getTransactions() {
     return transactionSimulatorResults.stream()
         .map(result -> result.result().transaction())
         .collect(Collectors.toList());
   }
 
-  /**
-   * Returns a list of transaction receipts from the simulation results.
-   *
-   * @return a list of transaction receipts
-   */
   public List<TransactionReceipt> getReceipts() {
     return transactionSimulatorResults.stream()
         .map(TransactionSimulatorResultWithMetadata::receipt)
         .collect(Collectors.toList());
   }
 
-  /**
-   * Returns a list of transaction simulation results.
-   *
-   * @return a list of transaction simulation results
-   */
   public List<TransactionSimulatorResult> getTransactionSimulationResults() {
     return transactionSimulatorResults.stream()
         .map(TransactionSimulatorResultWithMetadata::result)
@@ -137,11 +105,20 @@ public class BlockCallSimulationResult {
   public record TransactionSimulatorResultWithMetadata(
       TransactionSimulatorResult result, TransactionReceipt receipt, long cumulativeGasUsed) {}
 
-  /** Overrides the transaction receipt factory to filter out transfer logs. */
+  /** A transaction receipt factory that filters out logs from the simulation transfer address. */
   private record SimulationTransactionReceiptFactory(
       AbstractBlockProcessor.TransactionReceiptFactory delegate)
       implements AbstractBlockProcessor.TransactionReceiptFactory {
 
+    /**
+     * Creates a new transaction receipt, filtering out transfer logs.
+     *
+     * @param transactionType the transaction type
+     * @param result the transaction processing result
+     * @param worldState the world state after the transaction
+     * @param gasUsed the gas used by the transaction
+     * @return the new transaction receipt
+     */
     @Override
     public TransactionReceipt create(
         final TransactionType transactionType,
@@ -155,7 +132,7 @@ public class BlockCallSimulationResult {
           receipt.getCumulativeGasUsed(),
           receipt.getLogsList().stream()
               .filter(log -> !log.getLogger().equals(SIMULATION_TRANSFER_ADDRESS))
-              .toList(),
+              .collect(Collectors.toList()),
           Optional.empty());
     }
   }
