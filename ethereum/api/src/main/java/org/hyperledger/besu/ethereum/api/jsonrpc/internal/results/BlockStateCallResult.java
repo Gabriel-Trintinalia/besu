@@ -24,6 +24,7 @@ import org.hyperledger.besu.ethereum.processing.TransactionProcessingResult;
 import org.hyperledger.besu.ethereum.transaction.BlockSimulationResult;
 import org.hyperledger.besu.ethereum.transaction.TransactionSimulatorResult;
 
+import java.util.ArrayList;
 import java.util.List;
 import java.util.stream.Collectors;
 
@@ -110,7 +111,16 @@ public class BlockStateCallResult extends BlockResult {
             ? createFullTransactionResults(block)
             : createHashTransactionResults(block);
 
-    var logs = LogWithMetadata.generate(block, simulationResult.getReceipts(), false);
+    List<LogWithMetadata> logs = new ArrayList<>();
+    for (var transactionSimulation : simulationResult.getTransactionSimulations()) {
+      logs.addAll(LogWithMetadata.generate(0,
+        transactionSimulation.result().getLogs(),
+        block.getHeader().getNumber(),
+        block.getHash(),
+        transactionSimulation.transaction().getHash(),
+        block.getBody().getTransactions().indexOf(transactionSimulation.transaction()),
+        false));
+    }
 
     var callProcessingResults =
         simulationResult.getTransactionSimulations().stream()

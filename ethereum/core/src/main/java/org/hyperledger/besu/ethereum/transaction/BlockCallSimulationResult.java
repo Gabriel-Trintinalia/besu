@@ -14,14 +14,22 @@
  */
 package org.hyperledger.besu.ethereum.transaction;
 
+import static org.hyperledger.besu.evm.processor.SimulationMessageCallProcessor.SIMULATION_TRANSFER_ADDRESS;
+
+import org.hyperledger.besu.datatypes.TransactionType;
 import org.hyperledger.besu.ethereum.core.MutableWorldState;
 import org.hyperledger.besu.ethereum.core.Transaction;
 import org.hyperledger.besu.ethereum.core.TransactionReceipt;
 import org.hyperledger.besu.ethereum.mainnet.AbstractBlockProcessor;
+import org.hyperledger.besu.ethereum.mainnet.ProtocolSpec;
+import org.hyperledger.besu.ethereum.processing.TransactionProcessingResult;
+import org.hyperledger.besu.evm.log.Log;
+import org.hyperledger.besu.evm.worldstate.WorldState;
 
 import java.util.ArrayList;
 import java.util.Collections;
 import java.util.List;
+import java.util.Optional;
 import java.util.stream.Collectors;
 
 /**
@@ -39,13 +47,13 @@ public class BlockCallSimulationResult {
   /**
    * Constructs a new BlockCallSimulationResults instance.
    *
-   * @param transactionReceiptFactory the factory to create transaction receipts
+   * @param protocolSpec the protocolSpec
    * @param blockGasLimit the gas limit for the block
    */
   public BlockCallSimulationResult(
-      final AbstractBlockProcessor.TransactionReceiptFactory transactionReceiptFactory,
+      final ProtocolSpec protocolSpec,
       final long blockGasLimit) {
-    this.transactionReceiptFactory = transactionReceiptFactory;
+    this.transactionReceiptFactory = createTransactionReceiptFactory(protocolSpec);
     this.blockGasLimit = blockGasLimit;
   }
 
@@ -86,9 +94,12 @@ public class BlockCallSimulationResult {
   public void add(final TransactionSimulatorResult result, final MutableWorldState ws) {
     long gasUsedByTransaction = result.result().getEstimateGasUsedByTransaction();
     cumulativeGasUsed += gasUsedByTransaction;
+
+    // Create a transaction receipt with logs that are not transfer logs
     final TransactionReceipt transactionReceipt =
         transactionReceiptFactory.create(
             result.transaction().getType(), result.result(), ws, cumulativeGasUsed);
+
     transactionSimulatorResultWithMetadata.add(
         new TransactionSimulatorResultWithMetadata(result, transactionReceipt, cumulativeGasUsed));
   }
@@ -126,7 +137,49 @@ public class BlockCallSimulationResult {
         .collect(Collectors.toList());
   }
 
+  /**
+   * Creates a new transaction receipt factory that filters out transfer logs.
+   *
+   * @param protocolSpec the protocol spec
+   * @return a new transaction receipt factory
+   */
+  private AbstractBlockProcessor.TransactionReceiptFactory createTransactionReceiptFactory(
+    final ProtocolSpec protocolSpec) {
+    return new SimulationTransactionReceiptFactory(protocolSpec.getTransactionReceiptFactory());
+  }
+
   /** This record represents a single block call simulation result. */
   public record TransactionSimulatorResultWithMetadata(
       TransactionSimulatorResult result, TransactionReceipt receipt, long cumulativeGasUsed) {}
+
+  /** Overrides the transaction receipt factory to filter out transfer logs. */
+  private record SimulationTransactionReceiptFactory(AbstractBlockProcessor.TransactionReceiptFactory delegate)
+      implements AbstractBlockProcessor.TransactionReceiptFactory {
+
+    /**
+     * Creates a new transaction receipt with logs that are not transfer logs.
+     *
+     * @param transactionType the transaction type
+     * @param result the transaction processing result
+     * @param worldState the world state after the transaction
+     * @param gasUsed the gas used by the transaction
+     * @return a new transaction receipt
+     */
+    @Override
+      public TransactionReceipt create(
+        final TransactionType transactionType,
+        final TransactionProcessingResult result,
+        final WorldState worldState,
+        final long gasUsed) {
+        TransactionReceipt receipt = delegate.create(transactionType, result, worldState, gasUsed);
+        return new TransactionReceipt(
+          transactionType,
+          receipt.getStatus(),
+          receipt.getCumulativeGasUsed(),
+          receipt.getLogsList().stream()
+            .filter(log -> !log.getLogger().equals(SIMULATION_TRANSFER_ADDRESS))
+            .toList(),
+          Optional.empty());
+      }
+    }
 }

@@ -72,7 +72,6 @@ public class BlockSimulatorTest {
   @Mock private MiningConfiguration miningConfiguration;
   @Mock private MutableWorldState mutableWorldState;
   private BlockHeader blockHeader;
-
   private BlockSimulator blockSimulator;
 
   @BeforeEach
