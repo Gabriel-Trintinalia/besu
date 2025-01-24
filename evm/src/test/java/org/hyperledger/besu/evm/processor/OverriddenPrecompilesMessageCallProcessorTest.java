@@ -1,5 +1,5 @@
 /*
- * Copyright contributors to Hyperledger Besu.
+ * Copyright contributors to Besu.
  *
  * Licensed under the Apache License, Version 2.0 (the "License"); you may not use this file except in compliance with
  * the License. You may obtain a copy of the License at
@@ -26,106 +26,124 @@ import org.hyperledger.besu.evm.precompile.PrecompiledContract;
 import java.util.HashMap;
 import java.util.Map;
 
+import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 
 class OverriddenPrecompilesMessageCallProcessorTest {
 
-  @Test
-  void testConstructorWithNoOverrides() {
-    PrecompiledContract precompiledContract = mock(PrecompiledContract.class);
-    PrecompileContractRegistry originalRegistry = new PrecompileContractRegistry();
-    originalRegistry.put(Address.fromHexString("0x01"), precompiledContract);
-    MessageCallProcessor originalProcessor = new MessageCallProcessor(null, originalRegistry, null);
+  private PrecompiledContract originalPrecompiledContract;
+  private PrecompileContractRegistry originalRegistry;
+  private MessageCallProcessor originalProcessor;
 
+  private static final Address ORIGINAL_ADDRESS_1 = Address.fromHexString("0x01");
+  private static final Address ORIGINAL_ADDRESS_2 = Address.fromHexString("0x02");
+
+  private static final Address OVERRIDE_ADDRESS = Address.fromHexString("0x03");
+  private static final Address NON_EXISTENT_ADDRESS = Address.fromHexString("0x04");
+
+  @BeforeEach
+  void setUp() {
+    originalPrecompiledContract = mock(PrecompiledContract.class);
+    originalRegistry = new PrecompileContractRegistry();
+    originalRegistry.put(ORIGINAL_ADDRESS_1, originalPrecompiledContract);
+    originalRegistry.put(ORIGINAL_ADDRESS_2, originalPrecompiledContract);
+    originalProcessor = new MessageCallProcessor(null, originalRegistry, null);
+  }
+
+  @Test
+  void shouldPreserveOriginalPrecompilesWhenNoOverridesProvided() {
     OverriddenPrecompilesMessageCallProcessor processor =
         new OverriddenPrecompilesMessageCallProcessor(originalProcessor, new HashMap<>());
 
     assertNotNull(processor);
     assertThat(processor.getPrecompileAddresses())
-        .isEqualTo(originalRegistry.getPrecompileAddresses());
-    processor
-        .getPrecompileAddresses()
-        .forEach(
-            address ->
-                assertThat(processor.precompiles.get(address))
-                    .isEqualTo(originalProcessor.precompiles.get(address)));
+        .containsExactlyInAnyOrder(ORIGINAL_ADDRESS_1, ORIGINAL_ADDRESS_2);
+    assertThat(processor.precompiles.get(ORIGINAL_ADDRESS_1))
+        .isEqualTo(originalPrecompiledContract);
   }
 
   @Test
-  void testConstructorWithOverrides() {
-    PrecompiledContract precompiledContract = mock(PrecompiledContract.class);
-    PrecompileContractRegistry originalRegistry = new PrecompileContractRegistry();
-    originalRegistry.put(Address.fromHexString("0x01"), precompiledContract);
-    MessageCallProcessor originalProcessor = new MessageCallProcessor(null, originalRegistry, null);
-
+  void shouldCorrectlyApplyOverrides() {
     Map<Address, Address> precompileOverrides = new HashMap<>();
-
-    // Add an override, so that the original precompile address 0x01 is replaced with 0x02
-    precompileOverrides.put(Address.fromHexString("0x01"), Address.fromHexString("0x02"));
+    precompileOverrides.put(ORIGINAL_ADDRESS_1, OVERRIDE_ADDRESS);
 
     OverriddenPrecompilesMessageCallProcessor processor =
         new OverriddenPrecompilesMessageCallProcessor(originalProcessor, precompileOverrides);
 
     assertNotNull(processor);
-
-    assertThat(processor.precompiles.get(Address.fromHexString("0x01"))).isNull();
-    assertThat(processor.precompiles.get(Address.fromHexString("0x02")))
-        .isEqualTo(originalProcessor.precompiles.get(Address.fromHexString("0x01")));
+    assertThat(processor.precompiles.getPrecompileAddresses().contains(ORIGINAL_ADDRESS_1))
+        .isFalse();
+    assertThat(processor.precompiles.get(OVERRIDE_ADDRESS)).isEqualTo(originalPrecompiledContract);
   }
 
   @Test
-  void shouldThrowIfOverridesAddressNotFound() {
-    PrecompiledContract precompiledContract = mock(PrecompiledContract.class);
-    PrecompileContractRegistry originalRegistry = new PrecompileContractRegistry();
-    originalRegistry.put(Address.fromHexString("0x01"), precompiledContract);
-    MessageCallProcessor originalProcessor = new MessageCallProcessor(null, originalRegistry, null);
+  void shouldHandleBothOverriddenAndNonOverriddenPrecompiles() {
+    PrecompiledContract precompiledContract2 = mock(PrecompiledContract.class);
+    originalRegistry.put(
+        OVERRIDE_ADDRESS,
+        precompiledContract2);
 
     Map<Address, Address> precompileOverrides = new HashMap<>();
+    precompileOverrides.put(
+        ORIGINAL_ADDRESS_1, NON_EXISTENT_ADDRESS);
 
-    // Add an override for an address that does not exist in the original registry
-    precompileOverrides.put(Address.fromHexString("0x02"), Address.fromHexString("0x03"));
+    OverriddenPrecompilesMessageCallProcessor processor =
+        new OverriddenPrecompilesMessageCallProcessor(originalProcessor, precompileOverrides);
+
+    assertNotNull(processor);
+    assertThat(processor.precompiles.getPrecompileAddresses().contains(ORIGINAL_ADDRESS_1))
+        .isFalse();
+    assertThat(processor.precompiles.get(NON_EXISTENT_ADDRESS))
+        .isEqualTo(originalPrecompiledContract);
+    assertThat(processor.precompiles.get(OVERRIDE_ADDRESS)).isEqualTo(precompiledContract2);
+  }
+
+  @Test
+  void shouldThrowIfOverrideAddressNotFoundInOriginalRegistry() {
+    Map<Address, Address> precompileOverrides = new HashMap<>();
+    precompileOverrides.put(NON_EXISTENT_ADDRESS, OVERRIDE_ADDRESS);
 
     Exception exception =
         assertThrows(
             IllegalArgumentException.class,
-            () -> {
-              new OverriddenPrecompilesMessageCallProcessor(originalProcessor, precompileOverrides);
-            });
+            () ->
+                new OverriddenPrecompilesMessageCallProcessor(
+                    originalProcessor, precompileOverrides));
+
     assertThat(exception.getMessage())
-        .contains("Address 0x0000000000000000000000000000000000000002 is not a precompile.");
+        .contains("Address " + NON_EXISTENT_ADDRESS + " is not a precompile.");
   }
 
   @Test
-  void testProcessorWithOverriddenAndNonOverriddenPrecompiles() {
-    PrecompiledContract precompiledContract1 = mock(PrecompiledContract.class);
-    PrecompiledContract precompiledContract2 = mock(PrecompiledContract.class);
-    PrecompiledContract precompiledContract3 = mock(PrecompiledContract.class);
-
-    PrecompileContractRegistry originalRegistry = new PrecompileContractRegistry();
-    originalRegistry.put(Address.fromHexString("0x01"), precompiledContract1);
-    originalRegistry.put(Address.fromHexString("0x02"), precompiledContract2);
-    originalRegistry.put(Address.fromHexString("0x03"), precompiledContract3);
-
-    MessageCallProcessor originalProcessor = new MessageCallProcessor(null, originalRegistry, null);
-
+  void shouldThrowWhenDuplicateNewAddressIsProvided() {
     Map<Address, Address> precompileOverrides = new HashMap<>();
-    // Override precompile at address 0x01 with address 0x04
-    precompileOverrides.put(Address.fromHexString("0x01"), Address.fromHexString("0x04"));
+    precompileOverrides.put(ORIGINAL_ADDRESS_1, OVERRIDE_ADDRESS);
+    precompileOverrides.put(ORIGINAL_ADDRESS_2, OVERRIDE_ADDRESS); // Duplicate new address
 
-    OverriddenPrecompilesMessageCallProcessor processor =
-        new OverriddenPrecompilesMessageCallProcessor(originalProcessor, precompileOverrides);
+    Exception exception =
+        assertThrows(
+            IllegalArgumentException.class,
+            () ->
+                new OverriddenPrecompilesMessageCallProcessor(
+                    originalProcessor, precompileOverrides));
 
-    assertNotNull(processor);
+    assertThat(exception.getMessage())
+        .contains("Duplicate precompile address: " + OVERRIDE_ADDRESS);
+  }
 
-    // Check overridden precompile
-    assertThat(processor.precompiles.get(Address.fromHexString("0x01"))).isNull();
-    assertThat(processor.precompiles.get(Address.fromHexString("0x04")))
-        .isEqualTo(originalProcessor.precompiles.get(Address.fromHexString("0x01")));
+  @Test
+  void shouldThrowWhenOriginalAddressIsReusedAsNewAddress() {
+    Map<Address, Address> precompileOverrides = new HashMap<>();
+    precompileOverrides.put(ORIGINAL_ADDRESS_1, ORIGINAL_ADDRESS_2);
 
-    // Check non-overridden precompiles
-    assertThat(processor.precompiles.get(Address.fromHexString("0x02")))
-        .isEqualTo(originalProcessor.precompiles.get(Address.fromHexString("0x02")));
-    assertThat(processor.precompiles.get(Address.fromHexString("0x03")))
-        .isEqualTo(originalProcessor.precompiles.get(Address.fromHexString("0x03")));
+    Exception exception =
+        assertThrows(
+            IllegalArgumentException.class,
+            () ->
+                new OverriddenPrecompilesMessageCallProcessor(
+                    originalProcessor, precompileOverrides));
+
+    assertThat(exception.getMessage())
+        .contains("Duplicate precompile address: " + ORIGINAL_ADDRESS_2);
   }
 }

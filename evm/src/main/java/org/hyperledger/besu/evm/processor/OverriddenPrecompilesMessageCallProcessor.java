@@ -61,6 +61,9 @@ public class OverriddenPrecompilesMessageCallProcessor extends MessageCallProces
           if (!originalAddresses.contains(oldAddress)) {
             throw new IllegalArgumentException("Address " + oldAddress + " is not a precompile.");
           }
+          if (newRegistry.getPrecompileAddresses().contains(newAddress)) {
+            throw new IllegalArgumentException("Duplicate precompile address: " + newAddress);
+          }
           newRegistry.put(newAddress, originalRegistry.get(oldAddress));
         });
 
@@ -68,8 +71,15 @@ public class OverriddenPrecompilesMessageCallProcessor extends MessageCallProces
     originalAddresses.stream()
         .filter(originalAddress -> !precompileOverrides.containsKey(originalAddress))
         .forEach(
-            originalAddress ->
-                newRegistry.put(originalAddress, originalRegistry.get(originalAddress)));
+            originalAddress -> {
+              // Check if the original address is being reused as a new address (not a typical case
+              // but good to check)
+              if (newRegistry.getPrecompileAddresses().contains(originalAddress)) {
+                throw new IllegalArgumentException(
+                    "Duplicate precompile address: " + originalAddress);
+              }
+              newRegistry.put(originalAddress, originalRegistry.get(originalAddress));
+            });
 
     return newRegistry;
   }
