@@ -79,13 +79,10 @@ class OverriddenPrecompilesMessageCallProcessorTest {
   @Test
   void shouldHandleBothOverriddenAndNonOverriddenPrecompiles() {
     PrecompiledContract precompiledContract2 = mock(PrecompiledContract.class);
-    originalRegistry.put(
-        OVERRIDE_ADDRESS,
-        precompiledContract2);
+    originalRegistry.put(OVERRIDE_ADDRESS, precompiledContract2);
 
     Map<Address, Address> precompileOverrides = new HashMap<>();
-    precompileOverrides.put(
-        ORIGINAL_ADDRESS_1, NON_EXISTENT_ADDRESS);
+    precompileOverrides.put(ORIGINAL_ADDRESS_1, NON_EXISTENT_ADDRESS);
 
     OverriddenPrecompilesMessageCallProcessor processor =
         new OverriddenPrecompilesMessageCallProcessor(originalProcessor, precompileOverrides);

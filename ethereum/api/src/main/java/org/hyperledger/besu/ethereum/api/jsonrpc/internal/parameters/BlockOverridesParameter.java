@@ -31,7 +31,7 @@ public class BlockOverridesParameter extends BlockOverrides {
   /**
    * Constructs a new BlockOverrides instance.
    *
-   * @param time the optional timestamp
+   * @param timestamp the optional timestamp
    * @param blockNumber the optional block number
    * @param blockHash the optional block hash
    * @param prevRandao the optional previous Randao
@@ -46,7 +46,7 @@ public class BlockOverridesParameter extends BlockOverrides {
    */
   @JsonCreator
   public BlockOverridesParameter(
-      @JsonProperty("time") final Optional<UnsignedLongParameter> time,
+      @JsonProperty("time") final Optional<UnsignedLongParameter> timestamp,
       @JsonProperty("number") final Optional<UnsignedLongParameter> blockNumber,
       @JsonProperty("hash") final Optional<Hash> blockHash,
       @JsonProperty("prevRandao") final Optional<String> prevRandao,
@@ -59,7 +59,7 @@ public class BlockOverridesParameter extends BlockOverrides {
       @JsonProperty("extraData") final Optional<Bytes> extraData,
       @JsonProperty("mixHash") final Optional<Hash> mixHash) {
     super(
-        time,
+        timestamp,
         blockNumber,
         blockHash,
         prevRandao,

@@ -15,7 +15,6 @@
 package org.hyperledger.besu.ethereum.transaction;
 
 import static org.assertj.core.api.AssertionsForClassTypes.assertThat;
-import static org.hyperledger.besu.ethereum.transaction.BlockStateOverrider.applyStateOverrides;
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertNotNull;
 import static org.junit.jupiter.api.Assertions.assertThrows;
@@ -206,7 +205,8 @@ public class BlockSimulatorTest {
     when(stateOverride.getCode()).thenReturn(Optional.of(""));
     when(stateOverride.getStateDiff()).thenReturn(Optional.of(new HashMap<>(Map.of("0x0", "0x1"))));
 
-    applyStateOverrides(stateOverrideMap, mutableWorldState);
+    blockSimulator.applyStateOverrides(
+        new BlockStateCall(null, null, stateOverrideMap), mutableWorldState);
 
     verify(mutableAccount).setNonce(anyLong());
     verify(mutableAccount).setBalance(any(Wei.class));

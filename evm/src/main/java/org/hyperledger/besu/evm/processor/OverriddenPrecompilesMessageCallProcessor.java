@@ -55,7 +55,6 @@ public class OverriddenPrecompilesMessageCallProcessor extends MessageCallProces
     PrecompileContractRegistry newRegistry = new PrecompileContractRegistry();
     Set<Address> originalAddresses = originalRegistry.getPrecompileAddresses();
 
-    // Using streams to iterate over the overrides
     precompileOverrides.forEach(
         (oldAddress, newAddress) -> {
           if (!originalAddresses.contains(oldAddress)) {
@@ -67,13 +66,10 @@ public class OverriddenPrecompilesMessageCallProcessor extends MessageCallProces
           newRegistry.put(newAddress, originalRegistry.get(oldAddress));
         });
 
-    // Adding precompiles from the original registry that are not overridden
     originalAddresses.stream()
         .filter(originalAddress -> !precompileOverrides.containsKey(originalAddress))
         .forEach(
             originalAddress -> {
-              // Check if the original address is being reused as a new address (not a typical case
-              // but good to check)
               if (newRegistry.getPrecompileAddresses().contains(originalAddress)) {
                 throw new IllegalArgumentException(
                     "Duplicate precompile address: " + originalAddress);

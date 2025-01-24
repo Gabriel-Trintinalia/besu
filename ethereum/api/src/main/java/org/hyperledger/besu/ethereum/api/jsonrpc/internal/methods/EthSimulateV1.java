@@ -30,19 +30,10 @@ import org.hyperledger.besu.ethereum.api.jsonrpc.internal.response.JsonRpcError;
 import org.hyperledger.besu.ethereum.api.jsonrpc.internal.response.JsonRpcErrorResponse;
 import org.hyperledger.besu.ethereum.api.jsonrpc.internal.response.RpcErrorType;
 import org.hyperledger.besu.ethereum.api.jsonrpc.internal.results.BlockStateCallResult;
-import org.hyperledger.besu.ethereum.api.jsonrpc.internal.results.CallProcessingResult;
-import org.hyperledger.besu.ethereum.api.jsonrpc.internal.results.LogsResult;
-import org.hyperledger.besu.ethereum.api.jsonrpc.internal.results.TransactionCompleteResult;
-import org.hyperledger.besu.ethereum.api.jsonrpc.internal.results.TransactionHashResult;
-import org.hyperledger.besu.ethereum.api.jsonrpc.internal.results.TransactionResult;
 import org.hyperledger.besu.ethereum.api.query.BlockchainQueries;
-import org.hyperledger.besu.ethereum.api.query.TransactionWithMetadata;
-import org.hyperledger.besu.ethereum.core.Block;
 import org.hyperledger.besu.ethereum.core.BlockHeader;
-import org.hyperledger.besu.ethereum.core.LogWithMetadata;
 import org.hyperledger.besu.ethereum.core.MiningConfiguration;
 import org.hyperledger.besu.ethereum.mainnet.ProtocolSchedule;
-import org.hyperledger.besu.ethereum.processing.TransactionProcessingResult;
 import org.hyperledger.besu.ethereum.transaction.BlockSimulationResult;
 import org.hyperledger.besu.ethereum.transaction.BlockSimulator;
 import org.hyperledger.besu.ethereum.transaction.TransactionSimulator;
@@ -51,6 +42,7 @@ import org.hyperledger.besu.ethereum.transaction.exceptions.BlockSimulationInval
 import org.hyperledger.besu.ethereum.transaction.exceptions.SimulationError;
 
 import java.util.List;
+import java.util.Optional;
 import java.util.Set;
 import java.util.stream.Collectors;
 
@@ -107,13 +99,13 @@ public class EthSimulateV1 extends AbstractBlockParameterOrBlockHashMethod {
   protected Object resultByBlockHeader(
       final JsonRpcRequestContext request, final BlockHeader header) {
     try {
-      var simulateV1Parameter = getBlockStateCalls(request);
-
+      SimulateV1Parameter simulateV1Parameter = getBlockStateCalls(request);
       if (simulateV1Parameter.isTraceTransfers()) {
         LOG.warn("Trace transfers is not implemented yet");
       }
 
-      var maybeValidationError = simulateV1Parameter.validate(getValidPrecompileAddresses(header));
+      Optional<SimulationError> maybeValidationError =
+          simulateV1Parameter.validate(getValidPrecompileAddresses(header));
       if (maybeValidationError.isPresent()) {
         JsonRpcError error =
             new JsonRpcError(
@@ -137,11 +129,15 @@ public class EthSimulateV1 extends AbstractBlockParameterOrBlockHashMethod {
   }
 
   private Object process(final BlockHeader header, final SimulateV1Parameter simulateV1Parameter) {
+
     final List<BlockSimulationResult> simulationResults =
         blockSimulator.process(header, simulateV1Parameter);
-    return simulateV1Parameter.isReturnFullTransactions()
-        ? createResponseFull(simulationResults)
-        : createResponse(simulationResults);
+
+    return simulationResults.stream()
+        .map(
+            result ->
+                BlockStateCallResult.create(result, simulateV1Parameter.isReturnFullTransactions()))
+        .collect(Collectors.toList());
   }
 
   private JsonRpcErrorResponse handleBlockSimulationException(
@@ -175,109 +171,5 @@ public class EthSimulateV1 extends AbstractBlockParameterOrBlockHashMethod {
   private JsonRpcErrorResponse errorResponse(
       final JsonRpcRequestContext request, final RpcErrorType rpcErrorType) {
     return new JsonRpcErrorResponse(request.getRequest().getId(), new JsonRpcError(rpcErrorType));
-  }
-
-  private Object createResponse(final List<BlockSimulationResult> simulationResult) {
-    return simulationResult.stream()
-        .map(
-            result -> {
-              Block block = result.getBlock();
-              List<String> txs =
-                  block.getBody().getTransactions().stream()
-                      .map(transaction -> transaction.getHash().toString())
-                      .toList();
-
-              var logs = LogWithMetadata.generate(block, result.getReceipts(), false);
-
-              var transactionResults =
-                  result.getTransactionSimulations().stream()
-                      .map(
-                          simulatorResult ->
-                              createTransactionProcessingResult(simulatorResult, logs))
-                      .toList();
-
-              List<TransactionResult> transactionHashes =
-                  txs.stream().map(TransactionHashResult::new).collect(Collectors.toList());
-
-              return new BlockStateCallResult(
-                  block.getHeader(),
-                  transactionHashes,
-                  List.of(),
-                  transactionResults,
-                  block.calculateSize(),
-                  block.getBody().getWithdrawals());
-            })
-        .toList();
-  }
-
-  private Object createResponseFull(final List<BlockSimulationResult> simulationResult) {
-    return simulationResult.stream()
-        .map(
-            result -> {
-              Block block = result.getBlock();
-              List<TransactionWithMetadata> txs =
-                  block.getBody().getTransactions().stream()
-                      .map(
-                          transaction ->
-                              new TransactionWithMetadata(
-                                  transaction,
-                                  block.getHeader().getNumber(),
-                                  block.getHeader().getBaseFee(),
-                                  block.getHash(),
-                                  block.getBody().getTransactions().indexOf(transaction)))
-                      .toList();
-
-              var logs = LogWithMetadata.generate(block, result.getReceipts(), false);
-
-              var transactionResults =
-                  result.getTransactionSimulations().stream()
-                      .map(
-                          simulatorResult ->
-                              createTransactionProcessingResult(simulatorResult, logs))
-                      .toList();
-              List<TransactionResult> transactionHashes =
-                  txs.stream().map(TransactionCompleteResult::new).collect(Collectors.toList());
-              return new BlockStateCallResult(
-                  block.getHeader(),
-                  transactionHashes,
-                  List.of(),
-                  transactionResults,
-                  block.calculateSize(),
-                  block.getBody().getWithdrawals());
-            })
-        .toList();
-  }
-
-  private CallProcessingResult createTransactionProcessingResult(
-      final org.hyperledger.besu.ethereum.transaction.TransactionSimulatorResult simulatorResult,
-      final List<LogWithMetadata> logs) {
-
-    Hash transactionHash = simulatorResult.transaction().getHash();
-    var transactionLogs =
-        logs.stream()
-            .filter(log -> log.getTransactionHash().equals(transactionHash))
-            .collect(Collectors.toList());
-
-    TransactionProcessingResult result = simulatorResult.result();
-
-    JsonRpcError error = null;
-    if (result.getRevertReason().isPresent()) {
-      error =
-          new JsonRpcError(
-              RpcErrorType.REVERT_ERROR,
-              simulatorResult.result().getRevertReason().get().toHexString());
-    }
-
-    if (result.getExceptionalHaltReason().isPresent()) {
-      error =
-          new JsonRpcError(-32015, result.getExceptionalHaltReason().get().getDescription(), null);
-    }
-
-    return new CallProcessingResult(
-        simulatorResult.result().isSuccessful() ? 1 : 0,
-        simulatorResult.result().getOutput(),
-        simulatorResult.result().getEstimateGasUsedByTransaction(),
-        error,
-        new LogsResult(transactionLogs)); // TODO ADD LOG
   }
 }

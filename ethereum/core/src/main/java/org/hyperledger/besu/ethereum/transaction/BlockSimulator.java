@@ -189,33 +189,6 @@ public class BlockSimulator {
     return createFinalBlock(overridenBaseblockHeader, simulatorResults, blockOverrides, ws);
   }
 
-  private void applyStateOverrides(BlockStateCall blockStateCall, MutableWorldState ws) {
-    blockStateCall
-        .getStateOverrideMap()
-        .ifPresent(
-            stateOverrideMap -> {
-              var updater = ws.updater();
-              for (Address accountToOverride : stateOverrideMap.keySet()) {
-                final StateOverride override = stateOverrideMap.get(accountToOverride);
-                MutableAccount account = updater.getOrCreate(accountToOverride);
-                override.getNonce().ifPresent(account::setNonce);
-                if (override.getBalance().isPresent()) {
-                  account.setBalance(override.getBalance().get());
-                }
-                override.getCode().ifPresent(n -> account.setCode(Bytes.fromHexString(n)));
-                override
-                    .getStateDiff()
-                    .ifPresent(
-                        d ->
-                            d.forEach(
-                                (key, value) ->
-                                    account.setStorageValue(
-                                        UInt256.fromHexString(key), UInt256.fromHexString(value))));
-              }
-              updater.commit();
-            });
-  }
-
   protected BlockCallSimulationResult processTransactions(
       final BlockHeader blockHeader,
       final BlockStateCall blockStateCall,
@@ -355,6 +328,35 @@ public class BlockSimulator {
     return builder
         .blockHeaderFunctions(new BlockSimulationBlockHeaderFunctions(blockOverrides))
         .buildBlockHeader();
+  }
+
+  @VisibleForTesting
+  protected void applyStateOverrides(
+      final BlockStateCall blockStateCall, final MutableWorldState ws) {
+    blockStateCall
+        .getStateOverrideMap()
+        .ifPresent(
+            stateOverrideMap -> {
+              var updater = ws.updater();
+              for (Address accountToOverride : stateOverrideMap.keySet()) {
+                final StateOverride override = stateOverrideMap.get(accountToOverride);
+                MutableAccount account = updater.getOrCreate(accountToOverride);
+                override.getNonce().ifPresent(account::setNonce);
+                if (override.getBalance().isPresent()) {
+                  account.setBalance(override.getBalance().get());
+                }
+                override.getCode().ifPresent(n -> account.setCode(Bytes.fromHexString(n)));
+                override
+                    .getStateDiff()
+                    .ifPresent(
+                        d ->
+                            d.forEach(
+                                (key, value) ->
+                                    account.setStorageValue(
+                                        UInt256.fromHexString(key), UInt256.fromHexString(value))));
+              }
+              updater.commit();
+            });
   }
 
   private BiFunction<ProtocolSpec, Optional<BlockHeader>, Wei> getBlobGasPricePerGasSupplier(
