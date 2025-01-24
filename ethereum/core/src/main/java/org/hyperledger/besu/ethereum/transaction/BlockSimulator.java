@@ -16,10 +16,11 @@ package org.hyperledger.besu.ethereum.transaction;
 
 import static org.hyperledger.besu.ethereum.mainnet.feemarket.ExcessBlobGasCalculator.calculateExcessBlobGasForParent;
 import static org.hyperledger.besu.ethereum.transaction.BlockStateCallChain.normalizeBlockStateCalls;
-import static org.hyperledger.besu.ethereum.transaction.BlockStateOverrider.applyStateOverrides;
 
+import org.hyperledger.besu.datatypes.Address;
 import org.hyperledger.besu.datatypes.BlobGas;
 import org.hyperledger.besu.datatypes.Hash;
+import org.hyperledger.besu.datatypes.StateOverride;
 import org.hyperledger.besu.datatypes.Wei;
 import org.hyperledger.besu.ethereum.core.Block;
 import org.hyperledger.besu.ethereum.core.BlockBody;
@@ -46,6 +47,7 @@ import org.hyperledger.besu.ethereum.transaction.exceptions.BlockSimulationExcep
 import org.hyperledger.besu.ethereum.trie.diffbased.bonsai.cache.NoopBonsaiCachedMerkleTrieLoader;
 import org.hyperledger.besu.ethereum.trie.diffbased.bonsai.worldview.BonsaiWorldState;
 import org.hyperledger.besu.ethereum.worldstate.WorldStateArchive;
+import org.hyperledger.besu.evm.account.MutableAccount;
 import org.hyperledger.besu.evm.tracing.OperationTracer;
 import org.hyperledger.besu.evm.worldstate.WorldUpdater;
 import org.hyperledger.besu.plugin.data.BlockOverrides;
@@ -58,6 +60,7 @@ import java.util.function.BiFunction;
 import com.google.common.annotations.VisibleForTesting;
 import org.apache.tuweni.bytes.Bytes;
 import org.apache.tuweni.bytes.Bytes32;
+import org.apache.tuweni.units.bigints.UInt256;
 
 /**
  * Simulates the execution of a block, processing transactions and applying state overrides. This
@@ -158,8 +161,6 @@ public class BlockSimulator {
       final MutableWorldState ws,
       final boolean shouldValidate) {
 
-    blockStateCall.getStateOverrideMap().ifPresent(overrides -> applyStateOverrides(overrides, ws));
-
     BlockOverrides blockOverrides = blockStateCall.getBlockOverrides();
     ProtocolSpec protocolSpec =
         protocolSchedule.getForNextBlockHeader(
@@ -167,6 +168,8 @@ public class BlockSimulator {
 
     BlockHeader overridenBaseblockHeader =
         overrideBlockHeader(baseBlockHeader, protocolSpec, blockOverrides, shouldValidate);
+
+    applyStateOverrides(blockStateCall, ws);
 
     // Create the transaction processor with precompile address overrides
     MainnetTransactionProcessor transactionProcessor =
@@ -184,6 +187,33 @@ public class BlockSimulator {
             transactionProcessor);
 
     return createFinalBlock(overridenBaseblockHeader, simulatorResults, blockOverrides, ws);
+  }
+
+  private void applyStateOverrides(BlockStateCall blockStateCall, MutableWorldState ws) {
+    blockStateCall
+        .getStateOverrideMap()
+        .ifPresent(
+            stateOverrideMap -> {
+              var updater = ws.updater();
+              for (Address accountToOverride : stateOverrideMap.keySet()) {
+                final StateOverride override = stateOverrideMap.get(accountToOverride);
+                MutableAccount account = updater.getOrCreate(accountToOverride);
+                override.getNonce().ifPresent(account::setNonce);
+                if (override.getBalance().isPresent()) {
+                  account.setBalance(override.getBalance().get());
+                }
+                override.getCode().ifPresent(n -> account.setCode(Bytes.fromHexString(n)));
+                override
+                    .getStateDiff()
+                    .ifPresent(
+                        d ->
+                            d.forEach(
+                                (key, value) ->
+                                    account.setStorageValue(
+                                        UInt256.fromHexString(key), UInt256.fromHexString(value))));
+              }
+              updater.commit();
+            });
   }
 
   protected BlockCallSimulationResult processTransactions(

@@ -18,6 +18,7 @@ import org.hyperledger.besu.datatypes.Address;
 import org.hyperledger.besu.evm.precompile.PrecompileContractRegistry;
 
 import java.util.Map;
+import java.util.Set;
 
 /**
  * A message call processor designed specifically for simulation purposes that allows for overriding
@@ -45,15 +46,31 @@ public class OverriddenPrecompilesMessageCallProcessor extends MessageCallProces
    * @param originalRegistry the original precompile contract registry
    * @param precompileOverrides the address overrides
    * @return a new PrecompileContractRegistry with the overrides applied
+   * @throws IllegalArgumentException if an override address does not exist in the original registry
    */
   private static PrecompileContractRegistry createRegistryWithPrecompileOverrides(
       final PrecompileContractRegistry originalRegistry,
       final Map<Address, Address> precompileOverrides) {
+
     PrecompileContractRegistry newRegistry = new PrecompileContractRegistry();
-    for (Address originalAddress : originalRegistry.getPrecompileAddresses()) {
-      Address effectiveAddress = precompileOverrides.getOrDefault(originalAddress, originalAddress);
-      newRegistry.put(effectiveAddress, originalRegistry.get(originalAddress));
-    }
+    Set<Address> originalAddresses = originalRegistry.getPrecompileAddresses();
+
+    // Using streams to iterate over the overrides
+    precompileOverrides.forEach(
+        (oldAddress, newAddress) -> {
+          if (!originalAddresses.contains(oldAddress)) {
+            throw new IllegalArgumentException("Address " + oldAddress + " is not a precompile.");
+          }
+          newRegistry.put(newAddress, originalRegistry.get(oldAddress));
+        });
+
+    // Adding precompiles from the original registry that are not overridden
+    originalAddresses.stream()
+        .filter(originalAddress -> !precompileOverrides.containsKey(originalAddress))
+        .forEach(
+            originalAddress ->
+                newRegistry.put(originalAddress, originalRegistry.get(originalAddress)));
+
     return newRegistry;
   }
 }

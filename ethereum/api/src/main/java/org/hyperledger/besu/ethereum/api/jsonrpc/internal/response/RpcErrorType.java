@@ -166,7 +166,7 @@ public enum RpcErrorType implements RpcMethodError {
   TX_FEECAP_EXCEEDED(-32000, "Transaction fee cap exceeded"),
   REVERT_ERROR(
       -32000,
-      "execution reverted",
+      "Execution reverted",
       data -> JsonRpcErrorResponse.decodeRevertReason(Bytes.fromHexString(data))),
   TRANSACTION_NOT_FOUND(-32000, "Transaction not found"),
   MAX_PRIORITY_FEE_PER_GAS_EXCEEDS_MAX_FEE_PER_GAS(
