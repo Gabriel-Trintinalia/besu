@@ -19,7 +19,7 @@ import org.hyperledger.besu.datatypes.StateOverrideMap;
 import org.hyperledger.besu.ethereum.core.ProcessableBlockHeader;
 import org.hyperledger.besu.ethereum.mainnet.MainnetTransactionProcessor;
 import org.hyperledger.besu.ethereum.mainnet.ProtocolSchedule;
-import org.hyperledger.besu.evm.processor.OverriddenPrecompilesMessageCallProcessor;
+import org.hyperledger.besu.evm.processor.SimulationMessageCallProcessor;
 
 import java.util.Map;
 import java.util.Optional;
@@ -47,39 +47,36 @@ public class SimulationTransactionProcessorFactory {
    */
   public MainnetTransactionProcessor getTransactionProcessor(
       final ProcessableBlockHeader processableHeader,
-      final Optional<StateOverrideMap> maybeStateOverrides) {
+      final Optional<StateOverrideMap> maybeStateOverrides,
+      final boolean isTraceTransfers) {
 
     MainnetTransactionProcessor baseProcessor =
         protocolSchedule.getByBlockHeader(processableHeader).getTransactionProcessor();
 
-    return maybeStateOverrides
-        .flatMap(this::extractPrecompileAddressOverrides)
-        .map(
-            precompileOverrides -> createProcessorWithOverrides(baseProcessor, precompileOverrides))
-        .orElse(baseProcessor);
+    Map<Address, Address> precompileOverrides =
+        maybeStateOverrides.map(this::extractPrecompileAddressOverrides).orElse(Map.of());
+
+    return createProcessor(baseProcessor, precompileOverrides, isTraceTransfers);
   }
 
-  private Optional<Map<Address, Address>> extractPrecompileAddressOverrides(
+  private Map<Address, Address> extractPrecompileAddressOverrides(
       final StateOverrideMap stateOverrides) {
-    Map<Address, Address> addressOverrides =
-        stateOverrides.entrySet().stream()
-            .filter(entry -> entry.getValue().getMovePrecompileToAddress().isPresent())
-            .collect(
-                Collectors.toMap(
-                    Map.Entry::getKey,
-                    entry -> entry.getValue().getMovePrecompileToAddress().get()));
-
-    return addressOverrides.isEmpty() ? Optional.empty() : Optional.of(addressOverrides);
+    return stateOverrides.entrySet().stream()
+        .filter(entry -> entry.getValue().getMovePrecompileToAddress().isPresent())
+        .collect(
+            Collectors.toMap(
+                Map.Entry::getKey, entry -> entry.getValue().getMovePrecompileToAddress().get()));
   }
 
-  private MainnetTransactionProcessor createProcessorWithOverrides(
+  private MainnetTransactionProcessor createProcessor(
       final MainnetTransactionProcessor baseProcessor,
-      final Map<Address, Address> precompileAddressOverrides) {
+      final Map<Address, Address> precompileAddressOverrides,
+      final boolean isTraceTransfers) {
     return MainnetTransactionProcessor.builder()
         .populateFrom(baseProcessor)
         .messageCallProcessor(
-            new OverriddenPrecompilesMessageCallProcessor(
-                baseProcessor.getMessageCallProcessor(), precompileAddressOverrides))
+            new SimulationMessageCallProcessor(
+                baseProcessor.getMessageCallProcessor(), precompileAddressOverrides, isTraceTransfers))
         .build();
   }
 }

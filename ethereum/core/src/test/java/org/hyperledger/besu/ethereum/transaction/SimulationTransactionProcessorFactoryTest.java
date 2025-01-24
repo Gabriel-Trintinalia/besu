@@ -67,7 +67,7 @@ public class SimulationTransactionProcessorFactoryTest {
   @Test
   void shouldReturnProcessorWithOriginalPrecompileAddressesIfNoOverrides() {
     MainnetTransactionProcessor simulationTransactionProcessor =
-        factory.getTransactionProcessor(null, Optional.empty());
+        factory.getTransactionProcessor(null, Optional.empty(), false);
     Set<Address> precompileAddresses =
         simulationTransactionProcessor.getMessageCallProcessor().getPrecompileAddresses();
 
@@ -82,7 +82,7 @@ public class SimulationTransactionProcessorFactoryTest {
         new StateOverride.Builder().withMovePrecompileToAddress(newPrecompileAddress).build());
 
     MainnetTransactionProcessor simulationTransactionProcessor =
-        factory.getTransactionProcessor(null, Optional.of(stateOverrideMap));
+        factory.getTransactionProcessor(null, Optional.of(stateOverrideMap), false);
     Set<Address> precompileAddresses =
         simulationTransactionProcessor.getMessageCallProcessor().getPrecompileAddresses();
 

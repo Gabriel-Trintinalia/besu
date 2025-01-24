@@ -14,30 +14,50 @@
  */
 package org.hyperledger.besu.evm.processor;
 
+import static org.apache.tuweni.bytes.Bytes32.leftPad;
+
+import org.apache.tuweni.bytes.Bytes;
 import org.hyperledger.besu.datatypes.Address;
+import org.hyperledger.besu.datatypes.Wei;
+import org.hyperledger.besu.evm.frame.MessageFrame;
+import org.hyperledger.besu.evm.log.Log;
+import org.hyperledger.besu.evm.log.LogTopic;
 import org.hyperledger.besu.evm.precompile.PrecompileContractRegistry;
 
 import java.util.Map;
+import java.util.Objects;
 import java.util.Set;
+
+import com.google.common.collect.ImmutableList;
 
 /**
  * A message call processor designed specifically for simulation purposes that allows for overriding
  * precompile addresses.
  */
-public class OverriddenPrecompilesMessageCallProcessor extends MessageCallProcessor {
+public class SimulationMessageCallProcessor extends MessageCallProcessor {
 
+  public static final Address TRANSFER_ADDRESS = Address.fromHexString("0xeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeee");
+  public static final Bytes TRANSFER_TOPIC =
+    Bytes.fromHexString("ddf252ad1be2c89b69c2b068fc378daa952ba7f163c4a11628f55a4df523b3ef");
+
+  final boolean isTraceTransfers;
   /**
    * Instantiates a new Modifiable precompiles message call processor for simulation.
    *
    * @param originalProcessor the original processor
    * @param precompileOverrides the address overrides
    */
-  public OverriddenPrecompilesMessageCallProcessor(
-      final MessageCallProcessor originalProcessor,
-      final Map<Address, Address> precompileOverrides) {
+  public SimulationMessageCallProcessor(
+    final MessageCallProcessor originalProcessor,
+    final Map<Address, Address> precompileOverrides,
+    final boolean isTraceTransfers) {
     super(
         originalProcessor.evm,
-        createRegistryWithPrecompileOverrides(originalProcessor.precompiles, precompileOverrides));
+        precompileOverrides.isEmpty()
+            ? originalProcessor.precompiles
+            : createRegistryWithPrecompileOverrides(
+                originalProcessor.precompiles, precompileOverrides));
+    this.isTraceTransfers = isTraceTransfers;
   }
 
   /**
@@ -78,5 +98,25 @@ public class OverriddenPrecompilesMessageCallProcessor extends MessageCallProces
             });
 
     return newRegistry;
+  }
+
+  @Override
+  protected void transferValue(final MessageFrame frame) {
+    super.transferValue(frame);
+    if(shouldEmitTransferLog(frame)) {
+      emitEthTransferLog(frame);
+    }
+  }
+
+  private boolean shouldEmitTransferLog(final MessageFrame frame) {
+    return isTraceTransfers && frame.getValue().compareTo(Wei.ZERO) > 0 && !frame.getRecipientAddress().equals(TRANSFER_ADDRESS);
+  }
+
+  private void emitEthTransferLog(final MessageFrame frame) {
+    final ImmutableList.Builder<LogTopic> builder = ImmutableList.builderWithExpectedSize(3);
+    builder.add(LogTopic.create(TRANSFER_TOPIC));
+    builder.add(LogTopic.create(leftPad (frame.getSenderAddress())));
+    builder.add(LogTopic.create(leftPad(frame.getRecipientAddress())));
+    frame.addLog(new Log(TRANSFER_ADDRESS, frame.getValue(), builder.build()));
   }
 }

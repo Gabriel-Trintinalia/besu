@@ -140,7 +140,7 @@ public class BlockSimulator {
     for (BlockStateCall stateCall : blockStateCalls) {
       BlockSimulationResult result =
           processBlockStateCall(
-              currentBlockHeader, stateCall, worldState, simulationParameter.isValidation());
+              currentBlockHeader, stateCall, worldState, simulationParameter.isValidation(), simulationParameter.isTraceTransfers());
       results.add(result);
       currentBlockHeader = result.getBlock().getHeader();
     }
@@ -159,7 +159,8 @@ public class BlockSimulator {
       final BlockHeader baseBlockHeader,
       final BlockStateCall blockStateCall,
       final MutableWorldState ws,
-      final boolean shouldValidate) {
+      final boolean shouldValidate,
+      final boolean isTraceTransfers) {
 
     BlockOverrides blockOverrides = blockStateCall.getBlockOverrides();
     ProtocolSpec protocolSpec =
@@ -177,7 +178,7 @@ public class BlockSimulator {
     MainnetTransactionProcessor transactionProcessor =
         new SimulationTransactionProcessorFactory(protocolSchedule)
             .getTransactionProcessor(
-                overridenBaseblockHeader, blockStateCall.getStateOverrideMap());
+                overridenBaseblockHeader, blockStateCall.getStateOverrideMap(), isTraceTransfers);
 
     BlockCallSimulationResult simulatorResults =
         processTransactions(

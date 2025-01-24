@@ -29,7 +29,7 @@ import java.util.Map;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 
-class OverriddenPrecompilesMessageCallProcessorTest {
+class SimulationMessageCallProcessorTest {
 
   private PrecompiledContract originalPrecompiledContract;
   private PrecompileContractRegistry originalRegistry;
@@ -52,8 +52,8 @@ class OverriddenPrecompilesMessageCallProcessorTest {
 
   @Test
   void shouldPreserveOriginalPrecompilesWhenNoOverridesProvided() {
-    OverriddenPrecompilesMessageCallProcessor processor =
-        new OverriddenPrecompilesMessageCallProcessor(originalProcessor, new HashMap<>());
+    SimulationMessageCallProcessor processor =
+        new SimulationMessageCallProcessor(originalProcessor, new HashMap<>(), false);
 
     assertNotNull(processor);
     assertThat(processor.getPrecompileAddresses())
@@ -67,8 +67,8 @@ class OverriddenPrecompilesMessageCallProcessorTest {
     Map<Address, Address> precompileOverrides = new HashMap<>();
     precompileOverrides.put(ORIGINAL_ADDRESS_1, OVERRIDE_ADDRESS);
 
-    OverriddenPrecompilesMessageCallProcessor processor =
-        new OverriddenPrecompilesMessageCallProcessor(originalProcessor, precompileOverrides);
+    SimulationMessageCallProcessor processor =
+        new SimulationMessageCallProcessor(originalProcessor, precompileOverrides, false);
 
     assertNotNull(processor);
     assertThat(processor.precompiles.getPrecompileAddresses().contains(ORIGINAL_ADDRESS_1))
@@ -84,8 +84,8 @@ class OverriddenPrecompilesMessageCallProcessorTest {
     Map<Address, Address> precompileOverrides = new HashMap<>();
     precompileOverrides.put(ORIGINAL_ADDRESS_1, NON_EXISTENT_ADDRESS);
 
-    OverriddenPrecompilesMessageCallProcessor processor =
-        new OverriddenPrecompilesMessageCallProcessor(originalProcessor, precompileOverrides);
+    SimulationMessageCallProcessor processor =
+        new SimulationMessageCallProcessor(originalProcessor, precompileOverrides,false);
 
     assertNotNull(processor);
     assertThat(processor.precompiles.getPrecompileAddresses().contains(ORIGINAL_ADDRESS_1))
@@ -103,9 +103,7 @@ class OverriddenPrecompilesMessageCallProcessorTest {
     Exception exception =
         assertThrows(
             IllegalArgumentException.class,
-            () ->
-                new OverriddenPrecompilesMessageCallProcessor(
-                    originalProcessor, precompileOverrides));
+            () -> new SimulationMessageCallProcessor(originalProcessor, precompileOverrides, false));
 
     assertThat(exception.getMessage())
         .contains("Address " + NON_EXISTENT_ADDRESS + " is not a precompile.");
@@ -120,9 +118,7 @@ class OverriddenPrecompilesMessageCallProcessorTest {
     Exception exception =
         assertThrows(
             IllegalArgumentException.class,
-            () ->
-                new OverriddenPrecompilesMessageCallProcessor(
-                    originalProcessor, precompileOverrides));
+            () -> new SimulationMessageCallProcessor(originalProcessor, precompileOverrides,false));
 
     assertThat(exception.getMessage())
         .contains("Duplicate precompile address: " + OVERRIDE_ADDRESS);
@@ -136,9 +132,7 @@ class OverriddenPrecompilesMessageCallProcessorTest {
     Exception exception =
         assertThrows(
             IllegalArgumentException.class,
-            () ->
-                new OverriddenPrecompilesMessageCallProcessor(
-                    originalProcessor, precompileOverrides));
+            () -> new SimulationMessageCallProcessor(originalProcessor, precompileOverrides,false));
 
     assertThat(exception.getMessage())
         .contains("Duplicate precompile address: " + ORIGINAL_ADDRESS_2);
