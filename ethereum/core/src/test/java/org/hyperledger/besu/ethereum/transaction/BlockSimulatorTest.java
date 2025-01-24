@@ -205,8 +205,7 @@ public class BlockSimulatorTest {
     when(stateOverride.getCode()).thenReturn(Optional.of(""));
     when(stateOverride.getStateDiff()).thenReturn(Optional.of(new HashMap<>(Map.of("0x0", "0x1"))));
 
-    blockSimulator.applyStateOverrides(
-        new BlockStateCall(null, null, stateOverrideMap), mutableWorldState);
+    blockSimulator.applyStateOverrides(stateOverrideMap, mutableWorldState);
 
     verify(mutableAccount).setNonce(anyLong());
     verify(mutableAccount).setBalance(any(Wei.class));

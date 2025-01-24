@@ -21,6 +21,7 @@ import org.hyperledger.besu.datatypes.Address;
 import org.hyperledger.besu.datatypes.BlobGas;
 import org.hyperledger.besu.datatypes.Hash;
 import org.hyperledger.besu.datatypes.StateOverride;
+import org.hyperledger.besu.datatypes.StateOverrideMap;
 import org.hyperledger.besu.datatypes.Wei;
 import org.hyperledger.besu.ethereum.core.Block;
 import org.hyperledger.besu.ethereum.core.BlockBody;
@@ -60,7 +61,6 @@ import java.util.function.BiFunction;
 import com.google.common.annotations.VisibleForTesting;
 import org.apache.tuweni.bytes.Bytes;
 import org.apache.tuweni.bytes.Bytes32;
-import org.apache.tuweni.units.bigints.UInt256;
 
 /**
  * Simulates the execution of a block, processing transactions and applying state overrides. This
@@ -169,7 +169,9 @@ public class BlockSimulator {
     BlockHeader overridenBaseblockHeader =
         overrideBlockHeader(baseBlockHeader, protocolSpec, blockOverrides, shouldValidate);
 
-    applyStateOverrides(blockStateCall, ws);
+    blockStateCall
+        .getStateOverrideMap()
+        .ifPresent(stateOverrideMap -> applyStateOverrides(stateOverrideMap, ws));
 
     // Create the transaction processor with precompile address overrides
     MainnetTransactionProcessor transactionProcessor =
@@ -279,6 +281,24 @@ public class BlockSimulator {
   }
 
   /**
+   * Applies state overrides to the world state.
+   *
+   * @param stateOverrideMap The StateOverrideMap containing the state overrides.
+   * @param ws The MutableWorldState to apply the overrides to.
+   */
+  @VisibleForTesting
+  protected void applyStateOverrides(
+      final StateOverrideMap stateOverrideMap, final MutableWorldState ws) {
+    var updater = ws.updater();
+    for (Address accountToOverride : stateOverrideMap.keySet()) {
+      final StateOverride override = stateOverrideMap.get(accountToOverride);
+      MutableAccount account = updater.getOrCreate(accountToOverride);
+      transactionSimulator.applyOverrides(account, override);
+    }
+    updater.commit();
+  }
+
+  /**
    * Applies block header overrides to the block header.
    *
    * @param header The original block header.
@@ -328,35 +348,6 @@ public class BlockSimulator {
     return builder
         .blockHeaderFunctions(new BlockSimulationBlockHeaderFunctions(blockOverrides))
         .buildBlockHeader();
-  }
-
-  @VisibleForTesting
-  protected void applyStateOverrides(
-      final BlockStateCall blockStateCall, final MutableWorldState ws) {
-    blockStateCall
-        .getStateOverrideMap()
-        .ifPresent(
-            stateOverrideMap -> {
-              var updater = ws.updater();
-              for (Address accountToOverride : stateOverrideMap.keySet()) {
-                final StateOverride override = stateOverrideMap.get(accountToOverride);
-                MutableAccount account = updater.getOrCreate(accountToOverride);
-                override.getNonce().ifPresent(account::setNonce);
-                if (override.getBalance().isPresent()) {
-                  account.setBalance(override.getBalance().get());
-                }
-                override.getCode().ifPresent(n -> account.setCode(Bytes.fromHexString(n)));
-                override
-                    .getStateDiff()
-                    .ifPresent(
-                        d ->
-                            d.forEach(
-                                (key, value) ->
-                                    account.setStorageValue(
-                                        UInt256.fromHexString(key), UInt256.fromHexString(value))));
-              }
-              updater.commit();
-            });
   }
 
   private BiFunction<ProtocolSpec, Optional<BlockHeader>, Wei> getBlobGasPricePerGasSupplier(
