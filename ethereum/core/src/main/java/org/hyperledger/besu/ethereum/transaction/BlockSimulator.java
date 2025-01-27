@@ -44,7 +44,7 @@ import org.hyperledger.besu.ethereum.mainnet.ProtocolSpec;
 import org.hyperledger.besu.ethereum.mainnet.TransactionValidationParams;
 import org.hyperledger.besu.ethereum.mainnet.feemarket.BaseFeeMarket;
 import org.hyperledger.besu.ethereum.mainnet.feemarket.FeeMarket;
-import org.hyperledger.besu.ethereum.transaction.exceptions.BlockSimulationException;
+import org.hyperledger.besu.ethereum.transaction.exceptions.BlockStateCallException;
 import org.hyperledger.besu.ethereum.trie.diffbased.bonsai.cache.NoopBonsaiCachedMerkleTrieLoader;
 import org.hyperledger.besu.ethereum.trie.diffbased.bonsai.worldview.BonsaiWorldState;
 import org.hyperledger.besu.ethereum.worldstate.WorldStateArchive;
@@ -111,7 +111,7 @@ public class BlockSimulator {
       final BlockHeader header, final BlockSimulationParameter blockSimulationParameter) {
     try (final MutableWorldState ws = getWorldState(header)) {
       return process(header, blockSimulationParameter, ws);
-    } catch (IllegalArgumentException | BlockSimulationException e) {
+    } catch (IllegalArgumentException | BlockStateCallException e) {
       throw e;
     } catch (final Exception e) {
       throw new RuntimeException("Error simulating block", e);
@@ -244,10 +244,10 @@ public class BlockSimulator {
 
       TransactionSimulatorResult transactionSimulationResult =
           transactionSimulatorResult.orElseThrow(
-              () -> new BlockSimulationException("Transaction simulator result is empty"));
+              () -> new BlockStateCallException("Transaction simulator result is empty"));
 
       if (transactionSimulationResult.isInvalid()) {
-        throw new BlockSimulationException(
+        throw new BlockStateCallException(
             "Transaction simulator result is invalid", transactionSimulationResult);
       }
       transactionUpdater.commit();

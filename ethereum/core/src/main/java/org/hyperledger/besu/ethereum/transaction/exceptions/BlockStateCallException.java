@@ -18,16 +18,16 @@ import org.hyperledger.besu.ethereum.transaction.TransactionSimulatorResult;
 
 import java.util.Optional;
 
-public class BlockSimulationException extends RuntimeException {
+public class BlockStateCallException extends RuntimeException {
 
   final TransactionSimulatorResult result;
 
-  public BlockSimulationException(final String message) {
+  public BlockStateCallException(final String message) {
     super(message);
     this.result = null;
   }
 
-  public BlockSimulationException(final String message, final TransactionSimulatorResult result) {
+  public BlockStateCallException(final String message, final TransactionSimulatorResult result) {
     super(message);
     this.result = result;
   }

@@ -41,7 +41,7 @@ import org.hyperledger.besu.ethereum.mainnet.MiningBeneficiaryCalculator;
 import org.hyperledger.besu.ethereum.mainnet.ProtocolSchedule;
 import org.hyperledger.besu.ethereum.mainnet.ProtocolSpec;
 import org.hyperledger.besu.ethereum.mainnet.feemarket.FeeMarket;
-import org.hyperledger.besu.ethereum.transaction.exceptions.BlockSimulationException;
+import org.hyperledger.besu.ethereum.transaction.exceptions.BlockStateCallException;
 import org.hyperledger.besu.ethereum.worldstate.WorldStateArchive;
 import org.hyperledger.besu.evm.account.MutableAccount;
 import org.hyperledger.besu.evm.worldstate.WorldUpdater;
@@ -143,9 +143,9 @@ public class BlockSimulatorTest {
             any()))
         .thenReturn(Optional.of(transactionSimulatorResult));
 
-    BlockSimulationException exception =
+    BlockStateCallException exception =
         assertThrows(
-            BlockSimulationException.class,
+            BlockStateCallException.class,
             () ->
                 blockSimulator.process(
                     blockHeader, new BlockSimulationParameter(blockStateCall), mutableWorldState));
@@ -173,9 +173,9 @@ public class BlockSimulatorTest {
             any()))
         .thenReturn(Optional.empty());
 
-    BlockSimulationException exception =
+    BlockStateCallException exception =
         assertThrows(
-            BlockSimulationException.class,
+            BlockStateCallException.class,
             () ->
                 blockSimulator.process(
                     blockHeader, new BlockSimulationParameter(blockStateCall), mutableWorldState));

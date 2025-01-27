@@ -16,7 +16,7 @@ package org.hyperledger.besu.ethereum.api.jsonrpc.internal.methods;
 
 import static org.hyperledger.besu.ethereum.api.jsonrpc.internal.response.RpcErrorType.BLOCK_NOT_FOUND;
 import static org.hyperledger.besu.ethereum.api.jsonrpc.internal.response.RpcErrorType.INVALID_PARAMS;
-import static org.hyperledger.besu.ethereum.transaction.exceptions.SimulationError.TIMESTAMPS_NOT_ASCENDING;
+import static org.hyperledger.besu.ethereum.transaction.exceptions.BlockStateCallError.TIMESTAMPS_NOT_ASCENDING;
 
 import org.hyperledger.besu.datatypes.Address;
 import org.hyperledger.besu.datatypes.Hash;
@@ -37,9 +37,9 @@ import org.hyperledger.besu.ethereum.mainnet.ProtocolSchedule;
 import org.hyperledger.besu.ethereum.transaction.BlockSimulationResult;
 import org.hyperledger.besu.ethereum.transaction.BlockSimulator;
 import org.hyperledger.besu.ethereum.transaction.TransactionSimulator;
-import org.hyperledger.besu.ethereum.transaction.exceptions.BlockSimulationException;
+import org.hyperledger.besu.ethereum.transaction.exceptions.BlockStateCallException;
 import org.hyperledger.besu.ethereum.transaction.exceptions.BlockSimulationInvalidTimestamp;
-import org.hyperledger.besu.ethereum.transaction.exceptions.SimulationError;
+import org.hyperledger.besu.ethereum.transaction.exceptions.BlockStateCallError;
 
 import java.util.List;
 import java.util.Optional;
@@ -104,7 +104,7 @@ public class EthSimulateV1 extends AbstractBlockParameterOrBlockHashMethod {
         LOG.warn("Trace transfers is not implemented yet");
       }
 
-      Optional<SimulationError> maybeValidationError =
+      Optional<BlockStateCallError> maybeValidationError =
           simulateV1Parameter.validate(getValidPrecompileAddresses(header));
       if (maybeValidationError.isPresent()) {
         JsonRpcError error =
@@ -115,7 +115,7 @@ public class EthSimulateV1 extends AbstractBlockParameterOrBlockHashMethod {
         return new JsonRpcErrorResponse(request.getRequest().getId(), error);
       }
       return process(header, simulateV1Parameter);
-    } catch (final BlockSimulationException e) {
+    } catch (final BlockStateCallException e) {
       return handleBlockSimulationException(request, e);
     } catch (final BlockSimulationInvalidTimestamp e) {
       return new JsonRpcErrorResponse(
@@ -141,15 +141,15 @@ public class EthSimulateV1 extends AbstractBlockParameterOrBlockHashMethod {
   }
 
   private JsonRpcErrorResponse handleBlockSimulationException(
-      final JsonRpcRequestContext request, final BlockSimulationException e) {
+      final JsonRpcRequestContext request, final BlockStateCallException e) {
     JsonRpcError error =
         e.getResult()
             .map(
                 r -> {
-                  SimulationError simulationError =
-                      SimulationError.of(r.getValidationResult().getInvalidReason());
-                  String message = r.getInvalidReason().orElse(simulationError.getMessage());
-                  return new JsonRpcError(simulationError.getCode(), message, null);
+                  BlockStateCallError blockStateCallError =
+                      BlockStateCallError.of(r.getValidationResult().getInvalidReason());
+                  String message = r.getInvalidReason().orElse(blockStateCallError.getMessage());
+                  return new JsonRpcError(blockStateCallError.getCode(), message, null);
                 })
             .orElseGet(() -> new JsonRpcError(RpcErrorType.INTERNAL_ERROR));
 

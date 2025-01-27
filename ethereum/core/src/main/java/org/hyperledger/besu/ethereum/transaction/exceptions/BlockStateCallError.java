@@ -16,7 +16,7 @@ package org.hyperledger.besu.ethereum.transaction.exceptions;
 
 import org.hyperledger.besu.ethereum.transaction.TransactionInvalidReason;
 
-public enum SimulationError {
+public enum BlockStateCallError {
   TOO_MANY_BLOCK_CALLS(-38026, "Too many block calls"),
   BLOCK_NUMBERS_NOT_ASCENDING(-38020, "Block numbers are not ascending"),
   TIMESTAMPS_NOT_ASCENDING(-38021, "Timestamps are not ascending"),
@@ -30,7 +30,7 @@ public enum SimulationError {
   private final int code;
   private final String message;
 
-  SimulationError(final int code, final String message) {
+  BlockStateCallError(final int code, final String message) {
     this.code = code;
     this.message = message;
   }
@@ -39,7 +39,7 @@ public enum SimulationError {
     return code;
   }
 
-  public static SimulationError of(final TransactionInvalidReason transactionInvalidReason) {
+  public static BlockStateCallError of(final TransactionInvalidReason transactionInvalidReason) {
     return switch (transactionInvalidReason) {
       case UPFRONT_COST_EXCEEDS_BALANCE -> UPFRONT_COST_EXCEEDS_BALANCE;
       case GAS_PRICE_TOO_LOW -> GAS_PRICE_TOO_LOW;

@@ -20,7 +20,7 @@ import org.hyperledger.besu.datatypes.Address;
 import org.hyperledger.besu.datatypes.StateOverride;
 import org.hyperledger.besu.datatypes.StateOverrideMap;
 import org.hyperledger.besu.datatypes.parameters.UnsignedLongParameter;
-import org.hyperledger.besu.ethereum.transaction.exceptions.SimulationError;
+import org.hyperledger.besu.ethereum.transaction.exceptions.BlockStateCallError;
 
 import java.util.List;
 import java.util.Optional;
@@ -36,10 +36,10 @@ public class SimulateV1ParameterTest {
 
   private void validateSimulateV1Parameter(
       final List<JsonBlockStateCallParameter> blockStateCalls,
-      final SimulationError expectedError) {
+      final BlockStateCallError expectedError) {
     SimulateV1Parameter simulateV1Parameter =
         new SimulateV1Parameter(blockStateCalls, false, false, false);
-    Optional<SimulationError> maybeValidationError =
+    Optional<BlockStateCallError> maybeValidationError =
         simulateV1Parameter.validate(VALID_PRECOMPILE_ADDRESSES);
     assertThat(maybeValidationError).isPresent();
     assertThat(maybeValidationError.get()).isEqualTo(expectedError);
@@ -51,7 +51,7 @@ public class SimulateV1ParameterTest {
     JsonBlockStateCallParameter blockStateCall2 = createBlockStateCallParameter(1L, null, null);
 
     validateSimulateV1Parameter(
-        List.of(blockStateCall1, blockStateCall2), SimulationError.BLOCK_NUMBERS_NOT_ASCENDING);
+        List.of(blockStateCall1, blockStateCall2), BlockStateCallError.BLOCK_NUMBERS_NOT_ASCENDING);
   }
 
   @Test
@@ -60,7 +60,7 @@ public class SimulateV1ParameterTest {
     JsonBlockStateCallParameter blockStateCall2 = createBlockStateCallParameter(null, 1L, null);
 
     validateSimulateV1Parameter(
-        List.of(blockStateCall1, blockStateCall2), SimulationError.TIMESTAMPS_NOT_ASCENDING);
+        List.of(blockStateCall1, blockStateCall2), BlockStateCallError.TIMESTAMPS_NOT_ASCENDING);
   }
 
   @Test
@@ -74,7 +74,7 @@ public class SimulateV1ParameterTest {
         createBlockStateCallParameter(null, null, stateOverrideMap);
 
     validateSimulateV1Parameter(
-        List.of(blockStateCall), SimulationError.INVALID_PRECOMPILE_ADDRESS);
+        List.of(blockStateCall), BlockStateCallError.INVALID_PRECOMPILE_ADDRESS);
   }
 
   private JsonBlockStateCallParameter createBlockStateCallParameter(
