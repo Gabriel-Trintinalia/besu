@@ -16,6 +16,7 @@ package org.hyperledger.besu.ethereum.transaction;
 
 import static org.hyperledger.besu.ethereum.mainnet.feemarket.ExcessBlobGasCalculator.calculateExcessBlobGasForParent;
 import static org.hyperledger.besu.ethereum.transaction.BlockStateCallChain.normalizeBlockStateCalls;
+import static org.hyperledger.besu.ethereum.trie.diffbased.common.provider.WorldStateQueryParams.withBlockHeaderAndNoUpdateNodeHead;
 
 import org.hyperledger.besu.datatypes.Address;
 import org.hyperledger.besu.datatypes.BlobGas;
@@ -404,7 +405,7 @@ public class BlockSimulator {
   private SimulationWorldState getWorldState(final BlockHeader blockHeader) {
     final MutableWorldState ws =
         worldStateArchive
-            .getMutable(blockHeader, false)
+            .getWorldState(withBlockHeaderAndNoUpdateNodeHead(blockHeader))
             .orElseThrow(
                 () ->
                     new IllegalArgumentException(

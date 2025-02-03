@@ -157,24 +157,24 @@ public class BlockStateCallResult extends BlockResult {
    *     processing
    */
   private static List<LogWithMetadata> generateLogs(
-    final BlockSimulationResult simulationResult, final Block block) {
+      final BlockSimulationResult simulationResult, final Block block) {
     List<LogWithMetadata> logs = new ArrayList<>();
     simulationResult
-      .getTransactionSimulations()
-      .forEach(
-        transactionSimulation ->
-          logs.addAll(
-            LogWithMetadata.generate(
-              0,
-              transactionSimulation.result().getLogs(),
-              block.getHeader().getNumber(),
-              block.getHash(),
-              transactionSimulation.transaction().getHash(),
-              block
-                .getBody()
-                .getTransactions()
-                .indexOf(transactionSimulation.transaction()),
-              false)));
+        .getTransactionSimulations()
+        .forEach(
+            transactionSimulation ->
+                logs.addAll(
+                    LogWithMetadata.generate(
+                        0,
+                        transactionSimulation.result().getLogs(),
+                        block.getHeader().getNumber(),
+                        block.getHash(),
+                        transactionSimulation.transaction().getHash(),
+                        block
+                            .getBody()
+                            .getTransactions()
+                            .indexOf(transactionSimulation.transaction()),
+                        false)));
     return logs;
   }
 
