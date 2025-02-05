@@ -280,7 +280,7 @@ public class BlockSimulator {
             .withdrawalsRoot(BodyValidation.withdrawalsRoot(List.of()))
             .requestsHash(null)
             .extraData(blockOverrides.getExtraData().orElse(Bytes.EMPTY))
-            .blockHeaderFunctions(new BlockSimulationBlockHeaderFunctions(blockOverrides))
+            .blockHeaderFunctions(new BlockStateCallBlockHeaderFunctions(blockOverrides))
             .buildBlockHeader();
 
     Block block =
@@ -354,7 +354,7 @@ public class BlockSimulator {
     blockOverrides.getMixHash().ifPresent(builder::mixHash);
 
     return builder
-        .blockHeaderFunctions(new BlockSimulationBlockHeaderFunctions(blockOverrides))
+        .blockHeaderFunctions(new BlockStateCallBlockHeaderFunctions(blockOverrides))
         .buildBlockHeader();
   }
 
@@ -402,7 +402,7 @@ public class BlockSimulator {
         .orElse(null);
   }
 
-  private SimulationWorldState getWorldState(final BlockHeader blockHeader) {
+  private BlockStateCallWorldState getWorldState(final BlockHeader blockHeader) {
     final MutableWorldState ws =
         worldStateArchive
             .getWorldState(withBlockHeaderAndNoUpdateNodeHead(blockHeader))
@@ -410,16 +410,16 @@ public class BlockSimulator {
                 () ->
                     new IllegalArgumentException(
                         "Public world state not available for block " + blockHeader.toLogString()));
-    return new SimulationWorldState((BonsaiWorldState) ws);
+    return new BlockStateCallWorldState((BonsaiWorldState) ws);
   }
 
-  private static class BlockSimulationBlockHeaderFunctions implements BlockHeaderFunctions {
+  private static class BlockStateCallBlockHeaderFunctions implements BlockHeaderFunctions {
 
     private final BlockOverrides blockOverrides;
     private final MainnetBlockHeaderFunctions blockHeaderFunctions =
         new MainnetBlockHeaderFunctions();
 
-    private BlockSimulationBlockHeaderFunctions(final BlockOverrides blockOverrides) {
+    private BlockStateCallBlockHeaderFunctions(final BlockOverrides blockOverrides) {
       this.blockOverrides = blockOverrides;
     }
 
@@ -434,9 +434,9 @@ public class BlockSimulator {
     }
   }
 
-  private static class SimulationWorldState extends BonsaiWorldState {
+  private static class BlockStateCallWorldState extends BonsaiWorldState {
 
-    private SimulationWorldState(final BonsaiWorldState mutableWorldState) {
+    private BlockStateCallWorldState(final BonsaiWorldState mutableWorldState) {
       super(mutableWorldState, new NoopBonsaiCachedMerkleTrieLoader());
     }
 
