@@ -183,7 +183,7 @@ public class BlockSimulator {
     MainnetTransactionProcessor transactionProcessor =
         new SimulationTransactionProcessorFactory(protocolSchedule)
             .getTransactionProcessor(
-                overridenBaseblockHeader, blockStateCall.getStateOverrideMap(), isTraceTransfers);
+                overridenBaseblockHeader, blockStateCall.getStateOverrideMap());
 
     BlockCallSimulationResult blockCallSimulationResult =
         processTransactions(
@@ -192,7 +192,8 @@ public class BlockSimulator {
             ws,
             protocolSpec,
             shouldValidate,
-            transactionProcessor);
+            transactionProcessor,
+            isTraceTransfers);
 
     return createFinalBlock(
         overridenBaseblockHeader, blockCallSimulationResult, blockOverrides, ws);
@@ -204,7 +205,8 @@ public class BlockSimulator {
       final MutableWorldState ws,
       final ProtocolSpec protocolSpec,
       final boolean shouldValidate,
-      final MainnetTransactionProcessor transactionProcessor) {
+      final MainnetTransactionProcessor transactionProcessor,
+      final boolean isTraceTransfers) {
 
     TransactionValidationParams transactionValidationParams =
         shouldValidate ? STRICT_VALIDATION_PARAMS : SIMULATION_PARAMS;
@@ -220,8 +222,11 @@ public class BlockSimulator {
             .orElseGet(protocolSpec::getMiningBeneficiaryCalculator);
 
     for (CallParameter callParameter : blockStateCall.getCalls()) {
-      final WorldUpdater transactionUpdater = ws.updater();
 
+      OperationTracer operationTracer =
+        isTraceTransfers ? new EthTransferLogOperationTracer() : OperationTracer.NO_TRACING;
+
+      final WorldUpdater transactionUpdater = ws.updater();
       long gasLimit =
           transactionSimulator.calculateSimulationGasCap(
               callParameter.getGasLimit(), blockCallSimulationResult.getRemainingGas());
@@ -235,7 +240,7 @@ public class BlockSimulator {
               callParameter,
               Optional.empty(), // We have already applied state overrides on block level
               transactionValidationParams,
-              OperationTracer.NO_TRACING,
+              operationTracer,
               blockHeader,
               transactionUpdater,
               miningBeneficiaryCalculator,
@@ -252,7 +257,7 @@ public class BlockSimulator {
             "Transaction simulator result is invalid", transactionSimulationResult);
       }
       transactionUpdater.commit();
-      blockCallSimulationResult.add(transactionSimulationResult, ws);
+      blockCallSimulationResult.add(transactionSimulationResult, ws, operationTracer);
     }
     return blockCallSimulationResult;
   }
@@ -265,8 +270,6 @@ public class BlockSimulator {
 
     List<Transaction> transactions = blockCallSimulationResult.getTransactions();
     List<TransactionReceipt> receipts = blockCallSimulationResult.getReceipts();
-    List<TransactionSimulatorResult> simulationResults =
-        blockCallSimulationResult.getTransactionSimulationResults();
 
     BlockHeader finalBlockHeader =
         BlockHeaderBuilder.createDefault()
@@ -285,7 +288,8 @@ public class BlockSimulator {
 
     Block block =
         new Block(finalBlockHeader, new BlockBody(transactions, List.of(), Optional.of(List.of())));
-    return new BlockSimulationResult(block, receipts, simulationResults);
+
+    return new BlockSimulationResult(block, blockCallSimulationResult);
   }
 
   /**

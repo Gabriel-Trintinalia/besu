@@ -116,8 +116,7 @@ public class SimulationTransactionProcessorFactoryTest {
   void shouldPreserveOriginalPrecompilesWhenNoOverridesProvided() {
     HashMap<Address, Address> precompileOverrides = new HashMap<>();
     SimulationMessageCallProcessor processor =
-        new SimulationMessageCallProcessor(
-            originalProcessor, createSupplier(precompileOverrides), false);
+        new SimulationMessageCallProcessor(originalProcessor, createSupplier(precompileOverrides));
 
     assertNotNull(processor);
     Assertions.assertThat(processor.getPrecompileAddresses())
@@ -132,8 +131,7 @@ public class SimulationTransactionProcessorFactoryTest {
     precompileOverrides.put(ORIGINAL_ADDRESS_1, OVERRIDE_ADDRESS);
 
     SimulationMessageCallProcessor processor =
-        new SimulationMessageCallProcessor(
-            originalProcessor, createSupplier(precompileOverrides), false);
+        new SimulationMessageCallProcessor(originalProcessor, createSupplier(precompileOverrides));
 
     assertNotNull(processor);
     Assertions.assertThat(
@@ -152,8 +150,7 @@ public class SimulationTransactionProcessorFactoryTest {
     precompileOverrides.put(ORIGINAL_ADDRESS_1, NON_EXISTENT_ADDRESS);
 
     SimulationMessageCallProcessor processor =
-        new SimulationMessageCallProcessor(
-            originalProcessor, createSupplier(precompileOverrides), false);
+        new SimulationMessageCallProcessor(originalProcessor, createSupplier(precompileOverrides));
 
     assertNotNull(processor);
     Assertions.assertThat(
@@ -175,7 +172,7 @@ public class SimulationTransactionProcessorFactoryTest {
             IllegalArgumentException.class,
             () ->
                 new SimulationMessageCallProcessor(
-                    originalProcessor, createSupplier(precompileOverrides), false));
+                    originalProcessor, createSupplier(precompileOverrides)));
 
     Assertions.assertThat(exception.getMessage())
         .contains("Address " + NON_EXISTENT_ADDRESS + " is not a precompile.");
@@ -192,7 +189,7 @@ public class SimulationTransactionProcessorFactoryTest {
             IllegalArgumentException.class,
             () ->
                 new SimulationMessageCallProcessor(
-                    originalProcessor, createSupplier(precompileOverrides), false));
+                    originalProcessor, createSupplier(precompileOverrides)));
 
     Assertions.assertThat(exception.getMessage())
         .contains("Duplicate precompile address: " + OVERRIDE_ADDRESS);
@@ -208,7 +205,7 @@ public class SimulationTransactionProcessorFactoryTest {
             IllegalArgumentException.class,
             () ->
                 new SimulationMessageCallProcessor(
-                    originalProcessor, createSupplier(precompileOverrides), false));
+                    originalProcessor, createSupplier(precompileOverrides)));
 
     Assertions.assertThat(exception.getMessage())
         .contains("Duplicate precompile address: " + ORIGINAL_ADDRESS_2);

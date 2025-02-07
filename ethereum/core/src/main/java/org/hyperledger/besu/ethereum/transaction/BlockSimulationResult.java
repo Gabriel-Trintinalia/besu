@@ -15,6 +15,7 @@
 package org.hyperledger.besu.ethereum.transaction;
 
 import org.hyperledger.besu.ethereum.core.Block;
+import org.hyperledger.besu.ethereum.core.LogWithMetadata;
 import org.hyperledger.besu.ethereum.core.TransactionReceipt;
 import org.hyperledger.besu.plugin.data.BlockBody;
 import org.hyperledger.besu.plugin.data.BlockHeader;
@@ -24,16 +25,12 @@ import java.util.List;
 
 public class BlockSimulationResult {
   final Block block;
-  final List<TransactionReceipt> receipts;
-  List<TransactionSimulatorResult> transactionSimulationResults;
+  final BlockCallSimulationResult blockCallSimulationResult;
 
   public BlockSimulationResult(
-      final Block block,
-      final List<? extends TransactionReceipt> receipts,
-      final List<TransactionSimulatorResult> transactionSimulationResults) {
+      final Block block, final BlockCallSimulationResult blockCallSimulationResult) {
     this.block = block;
-    this.receipts = new ArrayList<>(receipts);
-    this.transactionSimulationResults = transactionSimulationResults;
+    this.blockCallSimulationResult = blockCallSimulationResult;
   }
 
   public BlockHeader getBlockHeader() {
@@ -45,14 +42,35 @@ public class BlockSimulationResult {
   }
 
   public List<TransactionReceipt> getReceipts() {
-    return receipts;
+    return blockCallSimulationResult.getReceipts();
   }
 
   public List<TransactionSimulatorResult> getTransactionSimulations() {
-    return transactionSimulationResults;
+    return blockCallSimulationResult.getTransactionSimulationResults();
   }
 
   public Block getBlock() {
     return block;
+  }
+
+  public List<LogWithMetadata> getLogsWithMetadata() {
+    List<LogWithMetadata> logs = new ArrayList<>();
+    blockCallSimulationResult
+        .getTransactionSimulatorResults()
+        .forEach(
+            transactionSimulation ->
+                logs.addAll(
+                    LogWithMetadata.generate(
+                        0,
+                        transactionSimulation.logs(),
+                        block.getHeader().getNumber(),
+                        block.getHash(),
+                        transactionSimulation.result().transaction().getHash(),
+                        block
+                            .getBody()
+                            .getTransactions()
+                            .indexOf(transactionSimulation.result().transaction()),
+                        false)));
+    return logs;
   }
 }

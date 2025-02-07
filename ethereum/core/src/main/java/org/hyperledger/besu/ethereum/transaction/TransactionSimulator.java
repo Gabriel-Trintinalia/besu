@@ -378,7 +378,7 @@ public class TransactionSimulator {
 
     MainnetTransactionProcessor transactionProcessor =
         simulationTransactionProcessorFactory.getTransactionProcessor(
-            processableHeader, maybeStateOverrides, false);
+            processableHeader, maybeStateOverrides);
 
     BiFunction<ProtocolSpec, Optional<BlockHeader>, Wei> blobGasPricePerGasSupplier =
         (protocolSpec, maybeParentHeader) -> {

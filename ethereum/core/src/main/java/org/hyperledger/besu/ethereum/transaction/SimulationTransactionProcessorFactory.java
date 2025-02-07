@@ -49,8 +49,7 @@ public class SimulationTransactionProcessorFactory {
    */
   public MainnetTransactionProcessor getTransactionProcessor(
       final ProcessableBlockHeader processableHeader,
-      final Optional<StateOverrideMap> maybeStateOverrides,
-      final boolean isTraceTransfers) {
+      final Optional<StateOverrideMap> maybeStateOverrides) {
 
     MainnetTransactionProcessor baseProcessor =
         protocolSchedule.getByBlockHeader(processableHeader).getTransactionProcessor();
@@ -58,7 +57,7 @@ public class SimulationTransactionProcessorFactory {
     Map<Address, Address> precompileOverrides =
         maybeStateOverrides.map(this::extractPrecompileAddressOverrides).orElse(Map.of());
 
-    return createProcessor(baseProcessor, precompileOverrides, isTraceTransfers);
+    return createProcessor(baseProcessor, precompileOverrides);
   }
 
   private Map<Address, Address> extractPrecompileAddressOverrides(
@@ -72,8 +71,7 @@ public class SimulationTransactionProcessorFactory {
 
   private MainnetTransactionProcessor createProcessor(
       final MainnetTransactionProcessor baseProcessor,
-      final Map<Address, Address> precompileAddressOverrides,
-      final boolean isTraceTransfers) {
+      final Map<Address, Address> precompileAddressOverrides) {
     return MainnetTransactionProcessor.builder()
         .populateFrom(baseProcessor)
         .messageCallProcessor(
@@ -81,8 +79,7 @@ public class SimulationTransactionProcessorFactory {
                 baseProcessor.getMessageCallProcessor(),
                 originalPrecompileRegistry ->
                     overridePrecompileAddresses(
-                        originalPrecompileRegistry, precompileAddressOverrides),
-                isTraceTransfers))
+                        originalPrecompileRegistry, precompileAddressOverrides)))
         .build();
   }
 
