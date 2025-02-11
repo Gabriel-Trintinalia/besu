@@ -117,9 +117,6 @@ public class BlockStateCallResult extends BlockResult {
    * Constructs a {@link CallProcessingResult} from a transaction simulation result and associated
    * logs.
    *
-   * <p>This method evaluates the transaction simulation result to determine success, output, gas
-   * used, and any errors or logs associated with the transaction.
-   *
    * @param simulatorResult the result of simulating a single transaction
    * @param logs a list of logs associated with the transaction
    * @return a {@link CallProcessingResult} representing the outcome of the transaction simulation

@@ -205,11 +205,11 @@ public class Transaction
             maybeAccessList.isPresent(), "Must specify access list for access list transaction");
       }
 
-      /* if (versionedHashes.isPresent() || maxFeePerBlobGas.isPresent()) {
+      if (versionedHashes.isPresent() || maxFeePerBlobGas.isPresent()) {
         checkArgument(
             transactionType.supportsBlob(),
             "Must not specify blob versioned hashes or max fee per blob gas for transaction not supporting it");
-      }*/
+      }
 
       if (transactionType.supportsBlob()) {
         checkArgument(

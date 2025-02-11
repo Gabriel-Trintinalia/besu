@@ -27,7 +27,7 @@ import java.util.Optional;
  * A class that manages a chain of BlockStateCalls. It fills gaps between blocks and sets the
  * correct block number and timestamp when they are not set.
  */
-public class BlockStateCallChain {
+public class BlockStateCalls {
 
   private static final long MAX_BLOCK_CALL_SIZE = 256; // Define the maximum block number
 
@@ -44,7 +44,7 @@ public class BlockStateCallChain {
    *
    * @param header the initial block header
    */
-  BlockStateCallChain(final BlockHeader header) {
+  BlockStateCalls(final BlockHeader header) {
     this.blockStateCalls = new ArrayList<>();
     this.lastAddedBlockNumber = header.getNumber();
     this.lastAddedTimestamp = header.getTimestamp();
@@ -58,7 +58,7 @@ public class BlockStateCallChain {
    *
    * @param header the initial block header
    */
-  BlockStateCallChain(final BlockHeader header, final long maxBlockCallSize) {
+  BlockStateCalls(final BlockHeader header, final long maxBlockCallSize) {
     this.blockStateCalls = new ArrayList<>();
     this.lastAddedBlockNumber = header.getNumber();
     this.lastAddedTimestamp = header.getTimestamp();
@@ -204,9 +204,9 @@ public class BlockStateCallChain {
    * @param header the initial block header
    * @return a normalized list of BlockStateCalls
    */
-  public static List<BlockStateCall> normalizeBlockStateCalls(
+  public static List<BlockStateCall> fillBlockStateCalls(
       final List<? extends BlockStateCall> blockStateCalls, final BlockHeader header) {
-    long lastPresentBlockNumber = calculateLastNormalizedBlockNumber(blockStateCalls);
+    long lastPresentBlockNumber = calculateLastAddedBlockNumber(blockStateCalls);
     if (lastPresentBlockNumber > header.getNumber() + MAX_BLOCK_CALL_SIZE) {
       throw new IllegalArgumentException(
           String.format(
@@ -216,14 +216,14 @@ public class BlockStateCallChain {
               header.getNumber(),
               MAX_BLOCK_CALL_SIZE));
     }
-    BlockStateCallChain chain = new BlockStateCallChain(header);
+    BlockStateCalls chain = new BlockStateCalls(header);
     for (BlockStateCall blockStateCall : blockStateCalls) {
       chain.add(blockStateCall);
     }
     return chain.getBlockStateCalls();
   }
 
-  private static long calculateLastNormalizedBlockNumber(
+  private static long calculateLastAddedBlockNumber(
       final List<? extends BlockStateCall> blockStateCalls) {
     var lastPresentBlockNumber =
         blockStateCalls.stream()

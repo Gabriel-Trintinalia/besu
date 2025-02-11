@@ -29,9 +29,9 @@ import java.util.List;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 
-class BlockStateCallChainTest {
+class BlockStateCallsTest {
   private BlockHeader mockBlockHeader;
-  private BlockStateCallChain blockStateCallChain;
+  private BlockStateCalls blockStateCalls;
   private static final long MAX_BLOCK_CALL_SIZE = 10;
   private final long headerBlockNumber = 1L;
   private final long headerTimestamp = 1000L;
@@ -41,14 +41,14 @@ class BlockStateCallChainTest {
     mockBlockHeader = mock(BlockHeader.class);
     when(mockBlockHeader.getNumber()).thenReturn(headerBlockNumber);
     when(mockBlockHeader.getTimestamp()).thenReturn(headerTimestamp);
-    blockStateCallChain = new BlockStateCallChain(mockBlockHeader, MAX_BLOCK_CALL_SIZE);
+    blockStateCalls = new BlockStateCalls(mockBlockHeader, MAX_BLOCK_CALL_SIZE);
   }
 
   /** Tests that a BlockStateCall is added to the chain correctly. */
   @Test
   void shouldAddBlockStateCallToChain() {
-    blockStateCallChain.add(createBlockStateCall(2L, 1012L));
-    List<BlockStateCall> blockStateCalls = blockStateCallChain.getBlockStateCalls();
+    blockStateCalls.add(createBlockStateCall(2L, 1012L));
+    List<BlockStateCall> blockStateCalls = this.blockStateCalls.getBlockStateCalls();
     assertEquals(1, blockStateCalls.size());
     assertEquals(2L, blockStateCalls.getFirst().getBlockOverrides().getBlockNumber().orElseThrow());
     assertEquals(
@@ -58,8 +58,8 @@ class BlockStateCallChainTest {
   /** Tests that gaps between block numbers are filled correctly when adding a BlockStateCall. */
   @Test
   void shouldFillGapsBetweenBlockNumbers() {
-    blockStateCallChain.add(createBlockStateCall(4L, 1036L));
-    List<BlockStateCall> blockStateCalls = blockStateCallChain.getBlockStateCalls();
+    blockStateCalls.add(createBlockStateCall(4L, 1036L));
+    List<BlockStateCall> blockStateCalls = this.blockStateCalls.getBlockStateCalls();
     assertEquals(3, blockStateCalls.size());
     assertEquals(2L, blockStateCalls.get(0).getBlockOverrides().getBlockNumber().orElseThrow());
     assertEquals(1012L, blockStateCalls.get(0).getBlockOverrides().getTimestamp().orElseThrow());
@@ -75,8 +75,8 @@ class BlockStateCallChainTest {
   @Test
   void shouldUpdateBlockNumberIfNotPresent() {
     long expectedBlockNumber = headerBlockNumber + 1;
-    blockStateCallChain.add(createBlockStateCall(null, null));
-    List<BlockStateCall> blockStateCalls = blockStateCallChain.getBlockStateCalls();
+    blockStateCalls.add(createBlockStateCall(null, null));
+    List<BlockStateCall> blockStateCalls = this.blockStateCalls.getBlockStateCalls();
     assertEquals(1, blockStateCalls.size());
     assertEquals(
         expectedBlockNumber,
@@ -88,8 +88,8 @@ class BlockStateCallChainTest {
   void shouldUpdateTimestampIfNotPresent() {
     long blockNumber = headerBlockNumber + 2;
     long expectedTimestamp = headerTimestamp + (blockNumber - headerBlockNumber) * 12;
-    blockStateCallChain.add(createBlockStateCall(blockNumber, null));
-    List<BlockStateCall> blockStateCalls = blockStateCallChain.getBlockStateCalls();
+    blockStateCalls.add(createBlockStateCall(blockNumber, null));
+    List<BlockStateCall> blockStateCalls = this.blockStateCalls.getBlockStateCalls();
     assertEquals(
         expectedTimestamp,
         blockStateCalls.getLast().getBlockOverrides().getTimestamp().orElseThrow());
@@ -100,13 +100,12 @@ class BlockStateCallChainTest {
    * numbers and timestamps.
    */
   @Test
-  void shouldNormalizeBlockStateCalls() {
+  void shouldFillBlockStateCalls() {
     List<BlockStateCall> blockStateCalls = new ArrayList<>();
     blockStateCalls.add(createBlockStateCall(3L, 1024L));
     blockStateCalls.add(createBlockStateCall(5L, 1048L));
 
-    var normalizedCalls =
-        BlockStateCallChain.normalizeBlockStateCalls(blockStateCalls, mockBlockHeader);
+    var normalizedCalls = BlockStateCalls.fillBlockStateCalls(blockStateCalls, mockBlockHeader);
 
     assertEquals(4, normalizedCalls.size());
     assertEquals(2L, normalizedCalls.get(0).getBlockOverrides().getBlockNumber().orElseThrow());
@@ -128,7 +127,7 @@ class BlockStateCallChainTest {
     IllegalArgumentException exception =
         assertThrows(
             IllegalArgumentException.class,
-            () -> blockStateCallChain.add(createBlockStateCall(headerBlockNumber, 1012L)));
+            () -> blockStateCalls.add(createBlockStateCall(headerBlockNumber, 1012L)));
     String expectedMessage =
         String.format(
             "Block number %d is invalid. It must be greater than %d.",
@@ -145,7 +144,7 @@ class BlockStateCallChainTest {
     IllegalArgumentException exception =
         assertThrows(
             IllegalArgumentException.class,
-            () -> blockStateCallChain.add(createBlockStateCall(2L, headerTimestamp)));
+            () -> blockStateCalls.add(createBlockStateCall(2L, headerTimestamp)));
     String expectedMessage =
         String.format(
             "Timestamp %d is invalid. It must be greater than %d.",
@@ -159,11 +158,11 @@ class BlockStateCallChainTest {
    */
   @Test
   void shouldNormalizeChainAndFailOnInvalidTimestamp() {
-    blockStateCallChain.add(createBlockStateCall(3L, 1100L));
+    blockStateCalls.add(createBlockStateCall(3L, 1100L));
     IllegalArgumentException exception =
         assertThrows(
             IllegalArgumentException.class,
-            () -> blockStateCallChain.add(createBlockStateCall(5L, 1012L)));
+            () -> blockStateCalls.add(createBlockStateCall(5L, 1012L)));
     assertEquals(
         "Timestamp 1012 is invalid. It must be greater than 1124.", exception.getMessage());
   }
@@ -175,7 +174,7 @@ class BlockStateCallChainTest {
     long invalidBlockNumber = maxAllowedBlockNumber + 1;
     BlockStateCall blockStateCall = createBlockStateCall(invalidBlockNumber, null);
     IllegalArgumentException exception =
-        assertThrows(IllegalArgumentException.class, () -> blockStateCallChain.add(blockStateCall));
+        assertThrows(IllegalArgumentException.class, () -> blockStateCalls.add(blockStateCall));
 
     String expectedMessage =
         String.format(
@@ -185,7 +184,7 @@ class BlockStateCallChainTest {
   }
 
   @Test
-  void shouldThrowExceptionWhenNormalizeBlockStateCallsExceedsMaxBlockCallSize() {
+  void shouldThrowExceptionWhenFillBlockStateCallsExceedsMaxBlockCallSize() {
     List<BlockStateCall> blockStateCalls = new ArrayList<>();
     blockStateCalls.add(createBlockStateCall(101L, 1609459212L));
     blockStateCalls.add(createBlockStateCall(257L, 1609459248L));
@@ -194,7 +193,7 @@ class BlockStateCallChainTest {
     IllegalArgumentException exception =
         assertThrows(
             IllegalArgumentException.class,
-            () -> BlockStateCallChain.normalizeBlockStateCalls(blockStateCalls, mockBlockHeader));
+            () -> BlockStateCalls.fillBlockStateCalls(blockStateCalls, mockBlockHeader));
     assertEquals(
         "Block number 258 exceeds the limit of 257 (header: 1 + MAX_BLOCK_CALL_SIZE: 256)",
         exception.getMessage());

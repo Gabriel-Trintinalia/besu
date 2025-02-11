@@ -24,7 +24,17 @@ import com.fasterxml.jackson.annotation.JsonPropertyOrder;
 import org.apache.tuweni.bytes.Bytes;
 
 /** A single log result. */
-@JsonPropertyOrder(alphabetic = true)
+@JsonPropertyOrder({
+  "logIndex",
+  "removed",
+  "blockNumber",
+  "blockHash",
+  "transactionHash",
+  "transactionIndex",
+  "address",
+  "data",
+  "topics"
+})
 public class LogResult implements JsonRpcResult {
 
   private final String logIndex;

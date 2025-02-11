@@ -75,7 +75,7 @@ public class LogWithMetadata extends Log
   }
 
   public static List<LogWithMetadata> generate(
-      final Block block, final List<? extends TransactionReceipt> receipts, final boolean removed) {
+      final Block block, final List<TransactionReceipt> receipts, final boolean removed) {
     final List<LogWithMetadata> logsWithMetadata = new ArrayList<>();
     int logIndexOffset = 0;
     for (int txi = 0; txi < receipts.size(); ++txi) {
