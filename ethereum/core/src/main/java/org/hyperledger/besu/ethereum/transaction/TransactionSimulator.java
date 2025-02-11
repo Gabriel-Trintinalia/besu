@@ -71,7 +71,7 @@ public class TransactionSimulator {
 
   // TODO: Identify a better default from account to use, such as the registered
   // coinbase or an account currently unlocked by the client.
-  public static final Address DEFAULT_SIMULATION_FROM =
+  private static final Address DEFAULT_FROM =
       Address.fromHexString("0x0000000000000000000000000000000000000000");
 
   private final Blockchain blockchain;
@@ -399,7 +399,7 @@ public class TransactionSimulator {
 
     final ProtocolSpec protocolSpec = protocolSchedule.getByBlockHeader(processableHeader);
     final Address senderAddress =
-        callParams.getFrom() != null ? callParams.getFrom() : DEFAULT_SIMULATION_FROM;
+        callParams.getFrom() != null ? callParams.getFrom() : DEFAULT_FROM;
 
     final ProcessableBlockHeader blockHeaderToProcess;
     if (transactionValidationParams.isAllowExceedingBalance()

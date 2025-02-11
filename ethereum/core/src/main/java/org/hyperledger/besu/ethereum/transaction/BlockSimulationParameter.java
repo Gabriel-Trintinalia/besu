@@ -15,7 +15,6 @@
 package org.hyperledger.besu.ethereum.transaction;
 
 import static com.google.common.base.Preconditions.checkNotNull;
-import static org.hyperledger.besu.ethereum.transaction.TransactionSimulator.DEFAULT_SIMULATION_FROM;
 import static org.hyperledger.besu.ethereum.transaction.exceptions.BlockStateCallError.BLOCK_NUMBERS_NOT_ASCENDING;
 import static org.hyperledger.besu.ethereum.transaction.exceptions.BlockStateCallError.INVALID_NONCES;
 import static org.hyperledger.besu.ethereum.transaction.exceptions.BlockStateCallError.INVALID_PRECOMPILE_ADDRESS;
@@ -34,15 +33,14 @@ import java.util.Set;
 
 public class BlockSimulationParameter {
   private static final int MAX_BLOCK_CALL_SIZE = 256;
-
+  private static final Address DEFAULT_FROM =
+      Address.fromHexString("0x0000000000000000000000000000000000000000");
   static final BlockSimulationParameter EMPTY =
       new BlockSimulationParameter(List.of(), false, false, false);
 
   final List<? extends BlockStateCall> blockStateCalls;
   private final boolean validation;
-
   private final boolean traceTransfers;
-
   private final boolean returnFullTransactions;
 
   public BlockSimulationParameter(final List<? extends BlockStateCall> blockStateCalls) {
@@ -145,8 +143,7 @@ public class BlockSimulationParameter {
     Map<Address, Long> previousNonces = new HashMap<>();
     for (BlockStateCall call : blockStateCalls) {
       for (CallParameter callParameter : call.getCalls()) {
-        Address fromAddress =
-            Optional.ofNullable(callParameter.getFrom()).orElse(DEFAULT_SIMULATION_FROM);
+        Address fromAddress = Optional.ofNullable(callParameter.getFrom()).orElse(DEFAULT_FROM);
         Optional<Long> nonce = callParameter.getNonce();
 
         if (nonce.isPresent()) {
