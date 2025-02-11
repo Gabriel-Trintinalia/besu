@@ -67,7 +67,8 @@ public class EthSimulateV1 extends AbstractBlockParameterOrBlockHashMethod {
             blockchainQueries.getWorldStateArchive(),
             protocolSchedule,
             transactionSimulator,
-            miningConfiguration);
+            miningConfiguration,
+            blockchainQueries.getBlockchain());
   }
 
   @Override
