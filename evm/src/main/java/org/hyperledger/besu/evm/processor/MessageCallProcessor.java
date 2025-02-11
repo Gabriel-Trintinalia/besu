@@ -103,7 +103,7 @@ public class MessageCallProcessor extends AbstractMessageProcessor {
    * <p>Assumes that the transaction has been validated so that the sender has the required fund as
    * of the world state of this executor.
    */
-  protected void transferValue(final MessageFrame frame) {
+  private void transferValue(final MessageFrame frame) {
     final MutableAccount senderAccount = frame.getWorldUpdater().getSenderAccount(frame);
 
     // The yellow paper explicitly states that if the recipient account doesn't exist at this
