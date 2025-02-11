@@ -365,34 +365,10 @@ public class TransactionSimulator {
                       .orElse(BlobGas.ZERO));
         };
 
-    return processWithWorldUpdater(
-        callParams,
-        maybeStateOverrides,
-        transactionValidationParams,
-        operationTracer,
-        processableHeader,
-        updater,
-        miningBeneficiary,
-        simulationGasCap,
-        transactionProcessor,
-        blobGasPricePerGasSupplier);
-  }
-
-  @Nonnull
-  private Optional<TransactionSimulatorResult> processWithWorldUpdater(
-      final CallParameter callParams,
-      final Optional<StateOverrideMap> maybeStateOverrides,
-      final TransactionValidationParams transactionValidationParams,
-      final OperationTracer operationTracer,
-      final ProcessableBlockHeader processableHeader,
-      final WorldUpdater updater,
-      final Address miningBeneficiary,
-      final long simulationGasCap,
-      final MainnetTransactionProcessor transactionProcessor,
-      final BiFunction<ProtocolSpec, Optional<BlockHeader>, Wei> blobGasPricePerGasCalculator) {
     final ProtocolSpec protocolSpec = protocolSchedule.getByBlockHeader(processableHeader);
     final BlockHashLookup blockHashLookup =
         protocolSpec.getBlockHashProcessor().createBlockHashLookup(blockchain, processableHeader);
+
     return processWithWorldUpdater(
         callParams,
         maybeStateOverrides,
@@ -403,7 +379,7 @@ public class TransactionSimulator {
         miningBeneficiary,
         simulationGasCap,
         transactionProcessor,
-        blobGasPricePerGasCalculator,
+        blobGasPricePerGasSupplier,
         blockHashLookup);
   }
 
