@@ -32,6 +32,7 @@ import org.hyperledger.besu.datatypes.StateOverrideMap;
 import org.hyperledger.besu.datatypes.Wei;
 import org.hyperledger.besu.datatypes.parameters.UnsignedLongParameter;
 import org.hyperledger.besu.ethereum.GasLimitCalculator;
+import org.hyperledger.besu.ethereum.chain.Blockchain;
 import org.hyperledger.besu.ethereum.core.BlockHeader;
 import org.hyperledger.besu.ethereum.core.BlockHeaderBuilder;
 import org.hyperledger.besu.ethereum.core.Difficulty;
@@ -40,6 +41,7 @@ import org.hyperledger.besu.ethereum.core.MutableWorldState;
 import org.hyperledger.besu.ethereum.mainnet.MiningBeneficiaryCalculator;
 import org.hyperledger.besu.ethereum.mainnet.ProtocolSchedule;
 import org.hyperledger.besu.ethereum.mainnet.ProtocolSpec;
+import org.hyperledger.besu.ethereum.mainnet.blockhash.BlockHashProcessor;
 import org.hyperledger.besu.ethereum.mainnet.feemarket.FeeMarket;
 import org.hyperledger.besu.ethereum.transaction.exceptions.BlockStateCallException;
 import org.hyperledger.besu.ethereum.trie.diffbased.common.provider.WorldStateQueryParams;
@@ -72,6 +74,8 @@ public class BlockSimulatorTest {
   @Mock private TransactionSimulator transactionSimulator;
   @Mock private MiningConfiguration miningConfiguration;
   @Mock private MutableWorldState mutableWorldState;
+  @Mock private Blockchain blockchain;
+
   private BlockHeader blockHeader;
   private BlockSimulator blockSimulator;
 
@@ -79,7 +83,11 @@ public class BlockSimulatorTest {
   public void setUp() {
     blockSimulator =
         new BlockSimulator(
-            worldStateArchive, protocolSchedule, transactionSimulator, miningConfiguration);
+            worldStateArchive,
+            protocolSchedule,
+            transactionSimulator,
+            miningConfiguration,
+            blockchain);
     blockHeader = BlockHeaderBuilder.createDefault().buildBlockHeader();
     ProtocolSpec protocolSpec = mock(ProtocolSpec.class);
     when(miningConfiguration.getCoinbase())
@@ -91,6 +99,7 @@ public class BlockSimulatorTest {
     when(protocolSpec.getGasLimitCalculator()).thenReturn(gasLimitCalculator);
     when(gasLimitCalculator.nextGasLimit(anyLong(), anyLong(), anyLong())).thenReturn(1L);
     when(protocolSpec.getFeeMarket()).thenReturn(mock(FeeMarket.class));
+    when(protocolSpec.getBlockHashProcessor()).thenReturn(mock(BlockHashProcessor.class));
   }
 
   @Test
@@ -142,6 +151,7 @@ public class BlockSimulatorTest {
             any(MiningBeneficiaryCalculator.class),
             0,
             any(),
+            any(),
             any()))
         .thenReturn(Optional.of(transactionSimulatorResult));
 
@@ -171,6 +181,7 @@ public class BlockSimulatorTest {
             any(),
             any(MiningBeneficiaryCalculator.class),
             0,
+            any(),
             any(),
             any()))
         .thenReturn(Optional.empty());

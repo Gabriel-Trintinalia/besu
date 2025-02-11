@@ -50,7 +50,7 @@ public class EthTransferLogOperationTracer implements OperationTracer {
   @Override
   public void tracePreExecution(final MessageFrame frame) {
     // Emit log if self-destruct
-    if(frame.getCurrentOperation().getOpcode() == 0xFF) {
+    if (frame.getCurrentOperation().getOpcode() == 0xFF) {
       emitSelfDestructLog(frame);
     }
   }

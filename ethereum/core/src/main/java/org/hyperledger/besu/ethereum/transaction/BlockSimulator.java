@@ -24,6 +24,7 @@ import org.hyperledger.besu.datatypes.Hash;
 import org.hyperledger.besu.datatypes.StateOverride;
 import org.hyperledger.besu.datatypes.StateOverrideMap;
 import org.hyperledger.besu.datatypes.Wei;
+import org.hyperledger.besu.ethereum.chain.Blockchain;
 import org.hyperledger.besu.ethereum.core.Block;
 import org.hyperledger.besu.ethereum.core.BlockBody;
 import org.hyperledger.besu.ethereum.core.BlockHeader;
@@ -50,6 +51,7 @@ import org.hyperledger.besu.ethereum.trie.diffbased.bonsai.cache.NoopBonsaiCache
 import org.hyperledger.besu.ethereum.trie.diffbased.bonsai.worldview.BonsaiWorldState;
 import org.hyperledger.besu.ethereum.worldstate.WorldStateArchive;
 import org.hyperledger.besu.evm.account.MutableAccount;
+import org.hyperledger.besu.evm.blockhash.BlockHashLookup;
 import org.hyperledger.besu.evm.tracing.OperationTracer;
 import org.hyperledger.besu.evm.worldstate.WorldUpdater;
 import org.hyperledger.besu.plugin.data.BlockOverrides;
@@ -89,16 +91,19 @@ public class BlockSimulator {
   private final WorldStateArchive worldStateArchive;
   private final ProtocolSchedule protocolSchedule;
   private final MiningConfiguration miningConfiguration;
+  private final Blockchain blockchain;
 
   public BlockSimulator(
       final WorldStateArchive worldStateArchive,
       final ProtocolSchedule protocolSchedule,
       final TransactionSimulator transactionSimulator,
-      final MiningConfiguration miningConfiguration) {
+      final MiningConfiguration miningConfiguration,
+      final Blockchain blockchain) {
     this.worldStateArchive = worldStateArchive;
     this.protocolSchedule = protocolSchedule;
     this.miningConfiguration = miningConfiguration;
     this.transactionSimulator = transactionSimulator;
+    this.blockchain = blockchain;
   }
 
   /**
@@ -185,6 +190,9 @@ public class BlockSimulator {
             .getTransactionProcessor(
                 overridenBaseblockHeader, blockStateCall.getStateOverrideMap());
 
+    BlockHashLookup blockHashLookup =
+        createBlockHashLookup(blockOverrides, protocolSpec, overridenBaseblockHeader);
+
     BlockCallSimulationResult blockCallSimulationResult =
         processTransactions(
             overridenBaseblockHeader,
@@ -193,7 +201,8 @@ public class BlockSimulator {
             protocolSpec,
             shouldValidate,
             transactionProcessor,
-            isTraceTransfers);
+            isTraceTransfers,
+            blockHashLookup);
 
     return createFinalBlock(
         overridenBaseblockHeader, blockCallSimulationResult, blockOverrides, ws);
@@ -206,7 +215,8 @@ public class BlockSimulator {
       final ProtocolSpec protocolSpec,
       final boolean shouldValidate,
       final MainnetTransactionProcessor transactionProcessor,
-      final boolean isTraceTransfers) {
+      final boolean isTraceTransfers,
+      final BlockHashLookup blockHashLookup) {
 
     TransactionValidationParams transactionValidationParams =
         shouldValidate ? STRICT_VALIDATION_PARAMS : SIMULATION_PARAMS;
@@ -224,7 +234,7 @@ public class BlockSimulator {
     for (CallParameter callParameter : blockStateCall.getCalls()) {
 
       OperationTracer operationTracer =
-        isTraceTransfers ? new EthTransferLogOperationTracer() : OperationTracer.NO_TRACING;
+          isTraceTransfers ? new EthTransferLogOperationTracer() : OperationTracer.NO_TRACING;
 
       final WorldUpdater transactionUpdater = ws.updater();
       long gasLimit =
@@ -246,7 +256,8 @@ public class BlockSimulator {
               miningBeneficiaryCalculator,
               gasLimit,
               transactionProcessor,
-              blobGasPricePerGasSupplier);
+              blobGasPricePerGasSupplier,
+              blockHashLookup);
 
       TransactionSimulatorResult transactionSimulationResult =
           transactionSimulatorResult.orElseThrow(
@@ -448,5 +459,29 @@ public class BlockSimulator {
     public Hash rootHash() {
       return calculateRootHash(Optional.empty(), getAccumulator().copy());
     }
+  }
+
+  /**
+   * Creates a BlockHashLookup for the block simulation. If a BlockHashLookup is provided in the
+   * BlockOverrides, it is used. Otherwise, the default BlockHashLookup is created.
+   *
+   * @param blockOverrides The BlockOverrides to use.
+   * @param newProtocolSpec The ProtocolSpec for the block.
+   * @param blockHeader The block header for the simulation.
+   * @return The BlockHashLookup for the block simulation.
+   */
+  private BlockHashLookup createBlockHashLookup(
+      final BlockOverrides blockOverrides,
+      final ProtocolSpec newProtocolSpec,
+      final BlockHeader blockHeader) {
+    return blockOverrides
+        .getBlockHashLookup()
+        .<BlockHashLookup>map(
+            blockHashLookup -> (frame, blockNumber) -> blockHashLookup.apply(blockNumber))
+        .orElseGet(
+            () ->
+                newProtocolSpec
+                    .getBlockHashProcessor()
+                    .createBlockHashLookup(blockchain, blockHeader));
   }
 }

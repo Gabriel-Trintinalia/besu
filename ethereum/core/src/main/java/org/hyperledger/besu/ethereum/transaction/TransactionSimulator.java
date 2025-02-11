@@ -42,6 +42,7 @@ import org.hyperledger.besu.ethereum.vm.DebugOperationTracer;
 import org.hyperledger.besu.ethereum.worldstate.WorldStateArchive;
 import org.hyperledger.besu.evm.account.Account;
 import org.hyperledger.besu.evm.account.MutableAccount;
+import org.hyperledger.besu.evm.blockhash.BlockHashLookup;
 import org.hyperledger.besu.evm.tracing.OperationTracer;
 import org.hyperledger.besu.evm.worldstate.WorldUpdater;
 
@@ -346,7 +347,8 @@ public class TransactionSimulator {
       final MiningBeneficiaryCalculator miningBeneficiaryCalculator,
       final long simulationGasCap,
       final MainnetTransactionProcessor transactionProcessor,
-      final BiFunction<ProtocolSpec, Optional<BlockHeader>, Wei> blobGasPricePerGasSupplier) {
+      final BiFunction<ProtocolSpec, Optional<BlockHeader>, Wei> blobGasPricePerGasSupplier,
+      final BlockHashLookup blockHashLookup) {
 
     final Address miningBeneficiary = miningBeneficiaryCalculator.calculateBeneficiary(header);
 
@@ -360,7 +362,8 @@ public class TransactionSimulator {
         miningBeneficiary,
         simulationGasCap,
         transactionProcessor,
-        blobGasPricePerGasSupplier);
+        blobGasPricePerGasSupplier,
+        blockHashLookup);
   }
 
   @Nonnull
@@ -419,7 +422,37 @@ public class TransactionSimulator {
       final MainnetTransactionProcessor transactionProcessor,
       final BiFunction<ProtocolSpec, Optional<BlockHeader>, Wei> blobGasPricePerGasCalculator) {
     final ProtocolSpec protocolSpec = protocolSchedule.getByBlockHeader(processableHeader);
+    final BlockHashLookup blockHashLookup =
+        protocolSpec.getBlockHashProcessor().createBlockHashLookup(blockchain, processableHeader);
+    return processWithWorldUpdater(
+        callParams,
+        maybeStateOverrides,
+        transactionValidationParams,
+        operationTracer,
+        processableHeader,
+        updater,
+        miningBeneficiary,
+        simulationGasCap,
+        transactionProcessor,
+        blobGasPricePerGasCalculator,
+        blockHashLookup);
+  }
 
+  @Nonnull
+  private Optional<TransactionSimulatorResult> processWithWorldUpdater(
+      final CallParameter callParams,
+      final Optional<StateOverrideMap> maybeStateOverrides,
+      final TransactionValidationParams transactionValidationParams,
+      final OperationTracer operationTracer,
+      final ProcessableBlockHeader processableHeader,
+      final WorldUpdater updater,
+      final Address miningBeneficiary,
+      final long simulationGasCap,
+      final MainnetTransactionProcessor transactionProcessor,
+      final BiFunction<ProtocolSpec, Optional<BlockHeader>, Wei> blobGasPricePerGasCalculator,
+      final BlockHashLookup blockHashLookup) {
+
+    final ProtocolSpec protocolSpec = protocolSchedule.getByBlockHeader(processableHeader);
     final Address senderAddress =
         callParams.getFrom() != null ? callParams.getFrom() : DEFAULT_SIMULATION_FROM;
 
@@ -476,9 +509,7 @@ public class TransactionSimulator {
             blockHeaderToProcess,
             transaction,
             miningBeneficiary,
-            protocolSpec
-                .getBlockHashProcessor()
-                .createBlockHashLookup(blockchain, blockHeaderToProcess),
+            blockHashLookup,
             false,
             transactionValidationParams,
             operationTracer,
