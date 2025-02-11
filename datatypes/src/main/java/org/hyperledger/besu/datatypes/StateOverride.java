@@ -28,7 +28,7 @@ import com.fasterxml.jackson.databind.annotation.JsonDeserialize;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
-/** Account Override parameter class */
+/** State Override parameter class */
 @JsonIgnoreProperties(ignoreUnknown = true)
 @JsonDeserialize(builder = StateOverride.Builder.class)
 public class StateOverride {
@@ -110,11 +110,16 @@ public class StateOverride {
     return movePrecompileToAddress;
   }
 
+  /**
+   * Creates a new builder for State overrides
+   *
+   * @return the builder
+   */
   public static Builder builder() {
     return new Builder();
   }
 
-  /** Builder class for Account overrides */
+  /** Builder class for State overrides */
   @JsonIgnoreProperties(ignoreUnknown = true)
   public static class Builder {
     private Optional<Wei> balance = Optional.empty();

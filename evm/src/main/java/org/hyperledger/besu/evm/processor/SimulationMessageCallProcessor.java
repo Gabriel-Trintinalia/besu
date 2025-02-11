@@ -41,6 +41,11 @@ public class SimulationMessageCallProcessor extends MessageCallProcessor {
         precompileContractRegistryAdapter.apply(originalProcessor.precompiles));
   }
 
+  /**
+   * Gets precompiles.
+   *
+   * @return the PrecompileContractRegistry
+   */
   @VisibleForTesting
   public PrecompileContractRegistry getPrecompiles() {
     return precompiles;

@@ -16,8 +16,14 @@ package org.hyperledger.besu.ethereum.transaction.exceptions;
 
 import java.security.InvalidParameterException;
 
+/** Exception thrown when a block simulation is attempted with an invalid timestamp. */
 public class BlockSimulationInvalidTimestamp extends InvalidParameterException {
 
+  /**
+   * Construct a new BlockSimulationInvalidTimestamp exception with the specified message.
+   *
+   * @param message the message
+   */
   public BlockSimulationInvalidTimestamp(final String message) {
     super(message);
   }

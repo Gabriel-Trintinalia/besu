@@ -18,20 +18,38 @@ import org.hyperledger.besu.ethereum.transaction.TransactionSimulatorResult;
 
 import java.util.Optional;
 
+/** Exception thrown when a block state call fails. */
 public class BlockStateCallException extends RuntimeException {
 
-  final TransactionSimulatorResult result;
+  /** The result of the block state call. */
+  private final TransactionSimulatorResult result;
 
+  /**
+   * Constructs a new BlockStateCallException with the given message.
+   *
+   * @param message the message
+   */
   public BlockStateCallException(final String message) {
     super(message);
     this.result = null;
   }
 
+  /**
+   * Constructs a new BlockStateCallException with the given message and result.
+   *
+   * @param message the message
+   * @param result the result
+   */
   public BlockStateCallException(final String message, final TransactionSimulatorResult result) {
     super(message);
     this.result = result;
   }
 
+  /**
+   * Gets the result of the block state call.
+   *
+   * @return the result
+   */
   public Optional<TransactionSimulatorResult> getResult() {
     return Optional.ofNullable(result);
   }
