@@ -33,7 +33,6 @@ import org.hyperledger.besu.ethereum.core.MutableWorldState;
 import org.hyperledger.besu.ethereum.core.ProcessableBlockHeader;
 import org.hyperledger.besu.ethereum.core.Transaction;
 import org.hyperledger.besu.ethereum.mainnet.MainnetTransactionProcessor;
-import org.hyperledger.besu.ethereum.mainnet.MiningBeneficiaryCalculator;
 import org.hyperledger.besu.ethereum.mainnet.ProtocolSchedule;
 import org.hyperledger.besu.ethereum.mainnet.ProtocolSpec;
 import org.hyperledger.besu.ethereum.mainnet.TransactionValidationParams;
@@ -342,36 +341,6 @@ public class TransactionSimulator {
       final Optional<StateOverrideMap> maybeStateOverrides,
       final TransactionValidationParams transactionValidationParams,
       final OperationTracer operationTracer,
-      final BlockHeader header,
-      final WorldUpdater updater,
-      final MiningBeneficiaryCalculator miningBeneficiaryCalculator,
-      final long simulationGasCap,
-      final MainnetTransactionProcessor transactionProcessor,
-      final BiFunction<ProtocolSpec, Optional<BlockHeader>, Wei> blobGasPricePerGasSupplier,
-      final BlockHashLookup blockHashLookup) {
-
-    final Address miningBeneficiary = miningBeneficiaryCalculator.calculateBeneficiary(header);
-
-    return processWithWorldUpdater(
-        callParams,
-        maybeStateOverrides,
-        transactionValidationParams,
-        operationTracer,
-        header,
-        updater,
-        miningBeneficiary,
-        simulationGasCap,
-        transactionProcessor,
-        blobGasPricePerGasSupplier,
-        blockHashLookup);
-  }
-
-  @Nonnull
-  public Optional<TransactionSimulatorResult> processWithWorldUpdater(
-      final CallParameter callParams,
-      final Optional<StateOverrideMap> maybeStateOverrides,
-      final TransactionValidationParams transactionValidationParams,
-      final OperationTracer operationTracer,
       final ProcessableBlockHeader processableHeader,
       final WorldUpdater updater,
       final Address miningBeneficiary) {
@@ -439,7 +408,7 @@ public class TransactionSimulator {
   }
 
   @Nonnull
-  private Optional<TransactionSimulatorResult> processWithWorldUpdater(
+  public Optional<TransactionSimulatorResult> processWithWorldUpdater(
       final CallParameter callParams,
       final Optional<StateOverrideMap> maybeStateOverrides,
       final TransactionValidationParams transactionValidationParams,

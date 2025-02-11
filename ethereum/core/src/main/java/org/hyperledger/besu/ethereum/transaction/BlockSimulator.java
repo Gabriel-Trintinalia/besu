@@ -253,7 +253,7 @@ public class BlockSimulator {
               operationTracer,
               blockHeader,
               transactionUpdater,
-              miningBeneficiaryCalculator,
+              miningBeneficiaryCalculator.calculateBeneficiary(blockHeader),
               gasLimit,
               transactionProcessor,
               blobGasPricePerGasSupplier,
