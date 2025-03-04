@@ -110,7 +110,6 @@ public class BlockSimulatorTest {
 
     List<BlockSimulationResult> results =
         blockSimulator.process(blockHeader, BlockSimulationParameter.EMPTY);
-
     assertNotNull(results);
     verify(worldStateArchive).getWorldState(withBlockHeaderAndNoUpdateNodeHead(blockHeader));
   }
@@ -151,7 +150,6 @@ public class BlockSimulatorTest {
             () ->
                 blockSimulator.process(
                     blockHeader, new BlockSimulationParameter(blockStateCall), mutableWorldState));
-
     assertEquals(
         "Transaction simulator result is invalid: Invalid Transaction", exception.getMessage());
   }
@@ -172,7 +170,6 @@ public class BlockSimulatorTest {
             () ->
                 blockSimulator.process(
                     blockHeader, new BlockSimulationParameter(blockStateCall), mutableWorldState));
-
     assertEquals("Transaction simulator result is empty", exception.getMessage());
   }
 
