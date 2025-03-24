@@ -127,7 +127,6 @@ public class JsonRpcHttpServiceLoginTest {
     synchronizer = mock(Synchronizer.class);
 
     final Set<Capability> supportedCapabilities = new HashSet<>();
-    supportedCapabilities.add(EthProtocol.ETH62);
     supportedCapabilities.add(EthProtocol.ETH63);
 
     final StubGenesisConfigOptions genesisConfigOptions =

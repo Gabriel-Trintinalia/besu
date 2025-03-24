@@ -30,7 +30,6 @@ import java.util.Set;
 public class EthProtocol implements SubProtocol {
   public static final String NAME = "eth";
   private static final EthProtocol INSTANCE = new EthProtocol();
-  public static final Capability ETH62 = Capability.create(NAME, EthProtocolVersion.V62);
   public static final Capability ETH63 = Capability.create(NAME, EthProtocolVersion.V63);
   public static final Capability ETH64 = Capability.create(NAME, EthProtocolVersion.V64);
   public static final Capability ETH65 = Capability.create(NAME, EthProtocolVersion.V65);

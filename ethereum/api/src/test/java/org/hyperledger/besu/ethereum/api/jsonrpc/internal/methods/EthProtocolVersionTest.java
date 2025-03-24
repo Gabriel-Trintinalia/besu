@@ -86,7 +86,6 @@ public class EthProtocolVersionTest {
 
   private void setupSupportedEthProtocols() {
     supportedCapabilities = new HashSet<>();
-    supportedCapabilities.add(EthProtocol.ETH62);
     supportedCapabilities.add(EthProtocol.ETH63);
     method = new EthProtocolVersion(supportedCapabilities);
   }

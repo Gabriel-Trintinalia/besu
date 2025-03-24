@@ -35,18 +35,6 @@ public class EthProtocolVersion {
   public static final int V67 = 67;
   public static final int V68 = 68;
 
-  /** eth/62 (2015) */
-  private static final List<Integer> eth62Messages =
-      List.of(
-          EthPV62.STATUS,
-          EthPV62.NEW_BLOCK_HASHES,
-          EthPV62.TRANSACTIONS,
-          EthPV62.GET_BLOCK_HEADERS,
-          EthPV62.BLOCK_HEADERS,
-          EthPV62.GET_BLOCK_BODIES,
-          EthPV62.BLOCK_BODIES,
-          EthPV62.NEW_BLOCK);
-
   /**
    * eth/63 (2016)
    *
@@ -121,8 +109,6 @@ public class EthProtocolVersion {
    */
   public static List<Integer> getSupportedMessages(final int protocolVersion) {
     switch (protocolVersion) {
-      case EthProtocolVersion.V62:
-        return eth62Messages;
       case EthProtocolVersion.V63:
       case EthProtocolVersion.V64:
         return eth63Messages;
