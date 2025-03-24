@@ -41,13 +41,13 @@ public class EthProtocolVersionTest {
   }
 
   @Test
-  public void shouldReturn63WhenMaxProtocolIsETH63() {
-
+  public void shouldReturnLatestVersionWhenMaxProtocol() {
     setupSupportedEthProtocols();
-
     final JsonRpcRequestContext request = requestWithParams();
+    final String expectedCapability =
+        "0x" + Integer.toHexString(EthProtocol.getLatestEthVersion().getVersion());
     final JsonRpcResponse expectedResponse =
-        new JsonRpcSuccessResponse(request.getRequest().getId(), "0x3f");
+        new JsonRpcSuccessResponse(request.getRequest().getId(), expectedCapability);
     final JsonRpcResponse actualResponse = method.response(request);
     assertThat(actualResponse).usingRecursiveComparison().isEqualTo(expectedResponse);
   }
@@ -67,15 +67,16 @@ public class EthProtocolVersionTest {
   }
 
   @Test
-  public void shouldReturn63WhenMixedProtocolsSupported() {
+  public void shouldReturnLatestVersionWhenMixedProtocolsSupported() {
 
     setupSupportedEthProtocols();
     supportedCapabilities.add(Capability.create("istanbul", 64));
     method = new EthProtocolVersion(supportedCapabilities);
-
+    final String expectedCapability =
+        "0x" + Integer.toHexString(EthProtocol.getLatestEthVersion().getVersion());
     final JsonRpcRequestContext request = requestWithParams();
     final JsonRpcResponse expectedResponse =
-        new JsonRpcSuccessResponse(request.getRequest().getId(), "0x3f");
+        new JsonRpcSuccessResponse(request.getRequest().getId(), expectedCapability);
     final JsonRpcResponse actualResponse = method.response(request);
     assertThat(actualResponse).usingRecursiveComparison().isEqualTo(expectedResponse);
   }
@@ -86,7 +87,7 @@ public class EthProtocolVersionTest {
 
   private void setupSupportedEthProtocols() {
     supportedCapabilities = new HashSet<>();
-    supportedCapabilities.add(EthProtocol.ETH63);
+    supportedCapabilities.add(EthProtocol.getLatestEthVersion());
     method = new EthProtocolVersion(supportedCapabilities);
   }
 }

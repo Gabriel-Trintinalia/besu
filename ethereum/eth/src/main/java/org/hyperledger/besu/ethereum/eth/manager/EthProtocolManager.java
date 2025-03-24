@@ -179,7 +179,6 @@ public class EthProtocolManager implements ProtocolManager, MinedBlockObserver {
       final EthProtocolConfiguration ethProtocolConfiguration) {
     final List<Capability> capabilities = new ArrayList<>();
 
-    capabilities.add(EthProtocol.ETH63);
     capabilities.add(EthProtocol.ETH64);
     capabilities.add(EthProtocol.ETH65);
     capabilities.add(EthProtocol.ETH66);

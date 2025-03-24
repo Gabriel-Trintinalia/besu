@@ -158,7 +158,7 @@ public class WebSocketServiceLoginTest {
     synchronizer = mock(Synchronizer.class);
 
     final Set<Capability> supportedCapabilities = new HashSet<>();
-    supportedCapabilities.add(EthProtocol.ETH63);
+    supportedCapabilities.add(EthProtocol.getLatestEthVersion());
     final StubGenesisConfigOptions genesisConfigOptions =
         new StubGenesisConfigOptions().constantinopleBlock(0).chainId(CHAIN_ID);
 

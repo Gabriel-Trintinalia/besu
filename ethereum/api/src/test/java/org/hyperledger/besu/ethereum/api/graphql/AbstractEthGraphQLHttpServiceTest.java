@@ -128,7 +128,7 @@ public abstract class AbstractEthGraphQLHttpServiceTest {
             MiningConfiguration.newDefault().setMinTransactionGasPrice(Wei.ZERO));
 
     final Set<Capability> supportedCapabilities = new HashSet<>();
-    supportedCapabilities.add(EthProtocol.ETH63);
+    supportedCapabilities.add(EthProtocol.getLatestEthVersion());
 
     final GraphQLConfiguration config = GraphQLConfiguration.createDefault();
 

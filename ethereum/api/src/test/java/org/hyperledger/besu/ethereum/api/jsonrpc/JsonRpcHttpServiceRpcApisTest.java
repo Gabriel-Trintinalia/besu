@@ -201,7 +201,7 @@ public class JsonRpcHttpServiceRpcApisTest {
   private JsonRpcHttpService createJsonRpcHttpServiceWithRpcApis(final JsonRpcConfiguration config)
       throws Exception {
     final Set<Capability> supportedCapabilities = new HashSet<>();
-    supportedCapabilities.add(EthProtocol.ETH63);
+    supportedCapabilities.add(EthProtocol.getLatestEthVersion());
 
     final Map<String, JsonRpcMethod> rpcMethods =
         new JsonRpcMethodsFactory()
@@ -311,7 +311,7 @@ public class JsonRpcHttpServiceRpcApisTest {
       final MetricsConfiguration metricsConfiguration,
       final NatService natService) {
     final Set<Capability> supportedCapabilities = new HashSet<>();
-    supportedCapabilities.add(EthProtocol.ETH63);
+    supportedCapabilities.add(EthProtocol.ETH68);
     jsonRpcConfiguration.setPort(0);
     webSocketConfiguration.setPort(0);
 

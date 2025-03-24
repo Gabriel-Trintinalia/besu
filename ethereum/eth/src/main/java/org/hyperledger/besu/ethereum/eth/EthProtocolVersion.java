@@ -25,8 +25,6 @@ import java.util.List;
  * (ETH)</a>}
  */
 public class EthProtocolVersion {
-  public static final int V62 = 62;
-  public static final int V63 = 63;
   public static final int V64 = 64;
   public static final int V65 = 65;
   public static final int V66 = 66;
@@ -39,7 +37,7 @@ public class EthProtocolVersion {
    * <p>Version 63 added the GetNodeData, NodeData, GetReceipts and Receipts messages which allow
    * synchronizing transaction execution results.
    */
-  private static final List<Integer> eth63Messages =
+  private static final List<Integer> eth64Messages =
       List.of(
           EthProtocolMessages.STATUS,
           EthProtocolMessages.NEW_BLOCK_HASHES,
@@ -106,18 +104,11 @@ public class EthProtocolVersion {
    * @return a list containing the codes of supported messages
    */
   public static List<Integer> getSupportedMessages(final int protocolVersion) {
-    switch (protocolVersion) {
-      case EthProtocolVersion.V63:
-      case EthProtocolVersion.V64:
-        return eth63Messages;
-      case EthProtocolVersion.V65:
-      case EthProtocolVersion.V66:
-        return eth65Messages;
-      case EthProtocolVersion.V67:
-      case EthProtocolVersion.V68:
-        return eth67Messages;
-      default:
-        return Collections.emptyList();
-    }
+    return switch (protocolVersion) {
+      case EthProtocolVersion.V64 -> eth64Messages;
+      case EthProtocolVersion.V65, EthProtocolVersion.V66 -> eth65Messages;
+      case EthProtocolVersion.V67, EthProtocolVersion.V68 -> eth67Messages;
+      default -> Collections.emptyList();
+    };
   }
 }
