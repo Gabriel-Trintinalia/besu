@@ -45,7 +45,7 @@ public class EthProtocolVersionTest {
     setupSupportedEthProtocols();
     final JsonRpcRequestContext request = requestWithParams();
     final String expectedCapability =
-        "0x" + Integer.toHexString(EthProtocol.getLatestEthVersion().getVersion());
+        "0x" + Integer.toHexString(EthProtocol.getLatestVersion().getVersion());
     final JsonRpcResponse expectedResponse =
         new JsonRpcSuccessResponse(request.getRequest().getId(), expectedCapability);
     final JsonRpcResponse actualResponse = method.response(request);
@@ -73,7 +73,7 @@ public class EthProtocolVersionTest {
     supportedCapabilities.add(Capability.create("istanbul", 64));
     method = new EthProtocolVersion(supportedCapabilities);
     final String expectedCapability =
-        "0x" + Integer.toHexString(EthProtocol.getLatestEthVersion().getVersion());
+        "0x" + Integer.toHexString(EthProtocol.getLatestVersion().getVersion());
     final JsonRpcRequestContext request = requestWithParams();
     final JsonRpcResponse expectedResponse =
         new JsonRpcSuccessResponse(request.getRequest().getId(), expectedCapability);
@@ -87,7 +87,7 @@ public class EthProtocolVersionTest {
 
   private void setupSupportedEthProtocols() {
     supportedCapabilities = new HashSet<>();
-    supportedCapabilities.add(EthProtocol.getLatestEthVersion());
+    supportedCapabilities.add(EthProtocol.getLatestVersion());
     method = new EthProtocolVersion(supportedCapabilities);
   }
 }

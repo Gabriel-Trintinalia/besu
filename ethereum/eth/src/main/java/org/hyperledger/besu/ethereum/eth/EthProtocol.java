@@ -121,7 +121,7 @@ public class EthProtocol implements SubProtocol {
     return NAME.equals(capability.getName()) && capability.getVersion() >= ETH66.getVersion();
   }
 
-  public static Capability getLatestEthVersion() {
+  public static Capability getLatestVersion() {
     return ETH68;
   }
 }

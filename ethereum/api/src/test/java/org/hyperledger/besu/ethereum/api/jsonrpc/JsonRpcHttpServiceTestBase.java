@@ -107,7 +107,7 @@ public class JsonRpcHttpServiceTestBase {
     synchronizer = mock(Synchronizer.class);
 
     final Set<Capability> supportedCapabilities = new HashSet<>();
-    supportedCapabilities.add(EthProtocol.getLatestEthVersion());
+    supportedCapabilities.add(EthProtocol.getLatestVersion());
 
     rpcMethods =
         new JsonRpcMethodsFactory()

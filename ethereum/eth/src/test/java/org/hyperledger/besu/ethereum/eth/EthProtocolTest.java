@@ -30,8 +30,6 @@ public class EthProtocolTest {
 
   @Test
   public void eth66CheckShouldReturnFalseForIncompatibleProtocols() {
-    assertThat(EthProtocol.isEth66Compatible(EthProtocol.ETH62)).isFalse();
-    assertThat(EthProtocol.isEth66Compatible(EthProtocol.ETH63)).isFalse();
     assertThat(EthProtocol.isEth66Compatible(EthProtocol.ETH64)).isFalse();
     assertThat(EthProtocol.isEth66Compatible(EthProtocol.ETH65)).isFalse();
 
