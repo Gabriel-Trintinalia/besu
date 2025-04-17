@@ -17,6 +17,7 @@ package org.hyperledger.besu.ethereum.eth.manager.peertask.task;
 import org.hyperledger.besu.datatypes.Hash;
 import org.hyperledger.besu.ethereum.core.Transaction;
 import org.hyperledger.besu.ethereum.eth.EthProtocol;
+import org.hyperledger.besu.ethereum.eth.PeerPredicate;
 import org.hyperledger.besu.ethereum.eth.manager.EthPeer;
 import org.hyperledger.besu.ethereum.eth.manager.peertask.InvalidPeerTaskResponseException;
 import org.hyperledger.besu.ethereum.eth.manager.peertask.PeerTask;
@@ -62,7 +63,7 @@ public class GetPooledTransactionsFromPeerTask implements PeerTask<List<Transact
 
   @Override
   public Predicate<EthPeer> getPeerRequirementFilter() {
-    return (peer) -> true;
+    return PeerPredicate.ANY_PEER;
   }
 
   @Override

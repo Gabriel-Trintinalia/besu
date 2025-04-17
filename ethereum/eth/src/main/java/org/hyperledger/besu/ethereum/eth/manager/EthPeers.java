@@ -16,6 +16,7 @@ package org.hyperledger.besu.ethereum.eth.manager;
 
 import org.hyperledger.besu.ethereum.core.BlockHeader;
 import org.hyperledger.besu.ethereum.eth.EthProtocol;
+import org.hyperledger.besu.ethereum.eth.PeerPredicate;
 import org.hyperledger.besu.ethereum.eth.SnapProtocol;
 import org.hyperledger.besu.ethereum.eth.manager.EthPeer.DisconnectCallback;
 import org.hyperledger.besu.ethereum.eth.manager.peertask.PeerSelector;
@@ -498,13 +499,14 @@ public class EthPeers implements PeerSelector {
 
   // Part of the PeerSelector interface, to be split apart later
   @Override
-  public CompletableFuture<EthPeer> waitForPeer(final Predicate<EthPeer> filter) {
+  public CompletableFuture<EthPeer> waitForPeer(final PeerPredicate filter) {
     final CompletableFuture<EthPeer> future = new CompletableFuture<>();
-    LOG.debug("Waiting for peer matching filter. {} peers currently connected.", peerCount());
+    LOG.debug(
+        "Waiting for peer matching filter {}. {} peers currently connected.", filter, peerCount());
     // check for an existing peer matching the filter and use that if one is found
     Optional<EthPeer> maybePeer = getPeer(filter);
     if (maybePeer.isPresent()) {
-      LOG.debug("Found peer matching filter already connected!");
+      LOG.debug("Found peer {} matching filter {} already connected", maybePeer.get(), filter);
       future.complete(maybePeer.get());
     } else {
       // no existing peer matches our filter. Subscribe to new connections until we find one
@@ -513,10 +515,10 @@ public class EthPeers implements PeerSelector {
           subscribeConnect(
               (peer) -> {
                 if (!future.isDone() && filter.test(peer)) {
-                  LOG.debug("Found new peer matching filter!");
+                  LOG.debug("Found new peer {} matching filter {}", peer.getLoggableId(), filter);
                   future.complete(peer);
                 } else {
-                  LOG.debug("New peer does not match filter");
+                  LOG.debug("New peer {} does not match filter {}", peer.getLoggableId(), filter);
                 }
               });
       future.handle(

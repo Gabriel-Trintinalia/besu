@@ -17,6 +17,7 @@ package org.hyperledger.besu.ethereum.eth.sync;
 import static java.util.concurrent.CompletableFuture.completedFuture;
 
 import org.hyperledger.besu.ethereum.ProtocolContext;
+import org.hyperledger.besu.ethereum.eth.PeerPredicate;
 import org.hyperledger.besu.ethereum.eth.manager.EthContext;
 import org.hyperledger.besu.ethereum.eth.manager.EthPeer;
 import org.hyperledger.besu.ethereum.eth.sync.state.SyncTarget;
@@ -122,7 +123,7 @@ public abstract class AbstractSyncTargetManager {
             () ->
                 ethContext
                     .getEthPeers()
-                    .waitForPeer((peer) -> true)
+                    .waitForPeer(PeerPredicate.ANY_PEER)
                     .handle((ignored, ignored2) -> null)
                     .thenCompose((r) -> findSyncTarget()),
             Duration.ofSeconds(5));

@@ -19,6 +19,7 @@ import org.hyperledger.besu.consensus.merge.ForkchoiceEvent;
 import org.hyperledger.besu.datatypes.Hash;
 import org.hyperledger.besu.ethereum.ProtocolContext;
 import org.hyperledger.besu.ethereum.core.BlockHeader;
+import org.hyperledger.besu.ethereum.eth.PeerPredicate;
 import org.hyperledger.besu.ethereum.eth.manager.EthContext;
 import org.hyperledger.besu.ethereum.eth.manager.peertask.PeerTaskExecutorResponseCode;
 import org.hyperledger.besu.ethereum.eth.manager.peertask.PeerTaskExecutorResult;
@@ -173,7 +174,7 @@ public class PivotSelectorFromSafeBlock implements PivotBlockSelector {
                               try {
                                 return ethContext
                                     .getEthPeers()
-                                    .waitForPeer((peer) -> true)
+                                    .waitForPeer(PeerPredicate.ANY_PEER)
                                     .thenCompose(unused -> downloadBlockHeader(headBlockHash))
                                     .thenApply(
                                         blockHeader -> {

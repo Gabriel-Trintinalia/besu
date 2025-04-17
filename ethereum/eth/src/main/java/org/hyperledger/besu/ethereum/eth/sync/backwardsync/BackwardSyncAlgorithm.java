@@ -20,6 +20,7 @@ import org.hyperledger.besu.datatypes.Hash;
 import org.hyperledger.besu.ethereum.chain.MutableBlockchain;
 import org.hyperledger.besu.ethereum.core.Block;
 import org.hyperledger.besu.ethereum.core.BlockHeader;
+import org.hyperledger.besu.ethereum.eth.PeerPredicate;
 import org.hyperledger.besu.ethereum.eth.manager.exceptions.MaxRetriesReachedException;
 import org.hyperledger.besu.plugin.services.BesuEvents;
 
@@ -191,7 +192,7 @@ public class BackwardSyncAlgorithm implements BesuEvents.InitialSyncCompletionLi
           context
               .getEthContext()
               .getEthPeers()
-              .waitForPeer((peer) -> true)
+              .waitForPeer(PeerPredicate.ANY_PEER)
               .orTimeout(5, TimeUnit.SECONDS)
               .get();
         }

@@ -14,6 +14,7 @@
  */
 package org.hyperledger.besu.ethereum.eth.manager.task;
 
+import org.hyperledger.besu.ethereum.eth.PeerPredicate;
 import org.hyperledger.besu.ethereum.eth.manager.EthContext;
 import org.hyperledger.besu.ethereum.eth.manager.EthPeer;
 import org.hyperledger.besu.ethereum.eth.manager.exceptions.MaxRetriesReachedException;
@@ -134,7 +135,7 @@ public abstract class AbstractRetryingPeerTask<T> extends AbstractEthTask<T> {
           () ->
               ethContext
                   .getEthPeers()
-                  .waitForPeer(this::isSuitablePeer)
+                  .waitForPeer(getPeerFilter())
                   .orTimeout(5, TimeUnit.SECONDS)
                   // execute the task again
                   .whenComplete((r, t) -> executeTaskTimed()));
@@ -180,7 +181,11 @@ public abstract class AbstractRetryingPeerTask<T> extends AbstractEthTask<T> {
     return maxRetries;
   }
 
+  protected PeerPredicate getPeerFilter() {
+    return PeerPredicate.ANY_PEER;
+  }
+
   protected boolean isSuitablePeer(final EthPeer peer) {
-    return true;
+    return getPeerFilter().test(peer);
   }
 }
