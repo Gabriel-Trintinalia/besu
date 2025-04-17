@@ -21,6 +21,11 @@ import java.util.function.Predicate;
 
 import org.apache.tuweni.bytes.Bytes;
 
+/**
+ * A predicate that can be used to filter peers.
+ *
+ * <p>It is used to filter peers in the Eth protocol.
+ */
 public class PeerPredicate implements Predicate<EthPeer> {
 
   public static final PeerPredicate ANY_PEER = new PeerPredicate(peer -> true, "ANY_PEER");
@@ -28,13 +33,13 @@ public class PeerPredicate implements Predicate<EthPeer> {
   private final String description;
   private final Predicate<EthPeer> predicate;
 
-  public PeerPredicate(Predicate<EthPeer> predicate, String description) {
+  public PeerPredicate(final Predicate<EthPeer> predicate, final String description) {
     this.predicate = predicate;
     this.description = description;
   }
 
   @Override
-  public boolean test(EthPeer t) {
+  public boolean test(final EthPeer t) {
     return predicate.test(t);
   }
 
@@ -48,14 +53,14 @@ public class PeerPredicate implements Predicate<EthPeer> {
     return new PeerPredicate(EthPeer::isServingSnap, "IS_SERVING_SNAP");
   }
 
-  public static PeerPredicate hasEstimatedHeight(long requiredHeight) {
+  public static PeerPredicate hasEstimatedHeight(final long requiredHeight) {
     String description = String.format("HAS_ESTIMATED_HEIGHT (%s)", requiredHeight);
     return new PeerPredicate(
         peer -> peer.chainState().getEstimatedHeight() >= requiredHeight, description);
   }
 
   // Create a predicate that returns true if the peer has not been seen
-  public static PeerPredicate hasNotBeenSeen(Set<Bytes> seenPeers) {
+  public static PeerPredicate hasNotBeenSeen(final Set<Bytes> seenPeers) {
     return new PeerPredicate(peer -> !seenPeers.contains(peer.nodeId()), "HAS_NOT_BEEN_SEEN");
   }
 }
