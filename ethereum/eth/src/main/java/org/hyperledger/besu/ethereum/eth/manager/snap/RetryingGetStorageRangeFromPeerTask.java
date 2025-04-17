@@ -15,6 +15,7 @@
 package org.hyperledger.besu.ethereum.eth.manager.snap;
 
 import org.hyperledger.besu.ethereum.core.BlockHeader;
+import org.hyperledger.besu.ethereum.eth.PeerPredicate;
 import org.hyperledger.besu.ethereum.eth.manager.EthContext;
 import org.hyperledger.besu.ethereum.eth.manager.EthPeer;
 import org.hyperledger.besu.ethereum.eth.manager.task.AbstractRetryingSwitchingPeerTask;
@@ -86,7 +87,7 @@ public class RetryingGetStorageRangeFromPeerTask
   }
 
   @Override
-  protected boolean isSuitablePeer(final EthPeer peer) {
-    return peer.isServingSnap();
+  protected PeerPredicate getPeerFilter() {
+    return PeerPredicate.isServingSnap();
   }
 }

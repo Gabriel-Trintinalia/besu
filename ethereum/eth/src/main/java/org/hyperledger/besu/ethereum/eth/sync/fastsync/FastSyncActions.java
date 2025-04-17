@@ -19,6 +19,7 @@ import static java.util.concurrent.CompletableFuture.completedFuture;
 import org.hyperledger.besu.datatypes.Hash;
 import org.hyperledger.besu.ethereum.ProtocolContext;
 import org.hyperledger.besu.ethereum.core.BlockHeader;
+import org.hyperledger.besu.ethereum.eth.PeerPredicate;
 import org.hyperledger.besu.ethereum.eth.manager.EthContext;
 import org.hyperledger.besu.ethereum.eth.manager.exceptions.NoAvailablePeersException;
 import org.hyperledger.besu.ethereum.eth.manager.peertask.PeerTaskExecutorResponseCode;
@@ -136,7 +137,7 @@ public class FastSyncActions {
 
     return ethContext
         .getEthPeers()
-        .waitForPeer((peer) -> true)
+        .waitForPeer(PeerPredicate.ANY_PEER)
         .thenCompose(
             unused ->
                 currentState

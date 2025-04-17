@@ -14,6 +14,7 @@
  */
 package org.hyperledger.besu.ethereum.eth.manager.peertask;
 
+import org.hyperledger.besu.ethereum.eth.PeerPredicate;
 import org.hyperledger.besu.ethereum.eth.manager.EthPeer;
 import org.hyperledger.besu.ethereum.p2p.peers.PeerId;
 
@@ -38,7 +39,7 @@ public interface PeerSelector {
    * @param filter a Predicate\<EthPeer\> matching desirable peers
    * @return a CompletableFuture into which a peer will be placed
    */
-  CompletableFuture<EthPeer> waitForPeer(final Predicate<EthPeer> filter);
+  CompletableFuture<EthPeer> waitForPeer(final PeerPredicate filter);
 
   /**
    * Attempts to get the EthPeer identified by peerId
