@@ -43,8 +43,8 @@
       ]
     },
     "checkpoint": {
-      "hash": "0x36fb89fba5b7857cf0ca78b5a9625b4043ff4555dfce9b7bcdcdd758a11eb946",
-      "number":  1735371,
+      "hash": "0x764cb359432b3aff6ac2a88729e6ebf28e736f7e0f26bd4a9cee53c8aab7baf7",
+      "number":  8000000,
       "totalDifficulty": "0x3c656d23029ab0"
     }
   },
