@@ -355,7 +355,8 @@ public class T8nExecutor {
             .map(
                 __ -> calculateExcessBlobGasForParent(protocolSpec, blockHeader)) // blockchain-test
             .orElse(blockHeader.getExcessBlobGas().orElse(BlobGas.ZERO)); // state-test
-    final Wei blobGasPrice = protocolSpec.getFeeMarket().blobGasPricePerGas(excessBlobGas);
+    final Wei blobGasPrice =
+        protocolSpec.getFeeMarket().blobGasPricePerGas(excessBlobGas, blockHeader.getTimestamp());
     long blobGasLimit = protocolSpec.getGasLimitCalculator().currentBlobGasLimit();
     BlockProcessingContext blockProcessingContext =
         new BlockProcessingContext(

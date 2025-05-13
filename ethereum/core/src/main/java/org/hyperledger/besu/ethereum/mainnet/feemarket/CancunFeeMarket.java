@@ -14,12 +14,13 @@
  */
 package org.hyperledger.besu.ethereum.mainnet.feemarket;
 
-import org.hyperledger.besu.config.BlobScheduleOptions;
+import org.hyperledger.besu.config.BlobFork;
 import org.hyperledger.besu.datatypes.BlobGas;
 import org.hyperledger.besu.datatypes.Wei;
 
 import java.math.BigInteger;
 import java.util.Optional;
+import java.util.function.Function;
 
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
@@ -28,22 +29,22 @@ public class CancunFeeMarket extends LondonFeeMarket {
   private static final Logger LOG = LoggerFactory.getLogger(CancunFeeMarket.class);
   protected static final BigInteger BLOB_GAS_PRICE = BigInteger.ONE;
 
-  private final BigInteger baseFeeUpdateFraction;
+  private final Function<Long, Long> baseFeeUpdateFractionSupplier;
 
   CancunFeeMarket(
       final long londonForkBlockNumber,
       final Optional<Wei> baseFeePerGasOverride,
-      final long baseFeeUpdateFraction) {
+      final Function<Long, Long> baseFeeUpdateFractionSupplier) {
     super(londonForkBlockNumber, baseFeePerGasOverride);
 
-    this.baseFeeUpdateFraction = BigInteger.valueOf(baseFeeUpdateFraction);
+    this.baseFeeUpdateFractionSupplier = baseFeeUpdateFractionSupplier;
   }
 
   CancunFeeMarket(final long londonForkBlockNumber, final Optional<Wei> baseFeePerGasOverride) {
     this(
         londonForkBlockNumber,
         baseFeePerGasOverride,
-        BlobScheduleOptions.BlobSchedule.CANCUN_DEFAULT.getBaseFeeUpdateFraction());
+        (__) -> BlobFork.CANCUN_DEFAULT.getBaseFeeUpdateFraction());
   }
 
   @Override
@@ -52,10 +53,11 @@ public class CancunFeeMarket extends LondonFeeMarket {
   }
 
   @Override
-  public Wei blobGasPricePerGas(final BlobGas excessBlobGas) {
+  public Wei blobGasPricePerGas(final BlobGas excessBlobGas, final long timestamp) {
     final var blobGasPrice =
         Wei.of(
-            fakeExponential(BLOB_GAS_PRICE, excessBlobGas.toBigInteger(), baseFeeUpdateFraction));
+            fakeExponential(
+                BLOB_GAS_PRICE, excessBlobGas.toBigInteger(), getBaseFeeUpdateFraction(timestamp)));
     LOG.atTrace()
         .setMessage("parentExcessBlobGas: {} blobGasPrice: {}")
         .addArgument(excessBlobGas::toShortHexString)
@@ -80,7 +82,7 @@ public class CancunFeeMarket extends LondonFeeMarket {
     return output.divide(denominator);
   }
 
-  protected BigInteger getBaseFeeUpdateFraction() {
-    return baseFeeUpdateFraction;
+  protected BigInteger getBaseFeeUpdateFraction(final long timestamp) {
+    return BigInteger.valueOf(baseFeeUpdateFractionSupplier.apply(timestamp));
   }
 }

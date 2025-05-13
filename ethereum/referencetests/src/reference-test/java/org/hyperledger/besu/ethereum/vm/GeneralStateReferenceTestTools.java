@@ -164,7 +164,7 @@ public class GeneralStateReferenceTestTools {
     final Wei blobGasPrice =
         protocolSpec
             .getFeeMarket()
-            .blobGasPricePerGas(blockHeader.getExcessBlobGas().orElse(BlobGas.ZERO));
+            .blobGasPricePerGas(blockHeader.getExcessBlobGas().orElse(BlobGas.ZERO), blockHeader.getTimestamp());
     final TransactionProcessingResult result =
         processor.processTransaction(
             worldStateUpdater,

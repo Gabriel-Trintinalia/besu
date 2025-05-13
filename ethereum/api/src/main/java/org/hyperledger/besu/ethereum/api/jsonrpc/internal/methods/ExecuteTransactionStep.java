@@ -93,7 +93,8 @@ public class ExecuteTransactionStep implements Function<TransactionTrace, Transa
               .blobGasPricePerGas(
                   maybeParentHeader
                       .map(parent -> calculateExcessBlobGasForParent(protocolSpec, parent))
-                      .orElse(BlobGas.ZERO));
+                      .orElse(BlobGas.ZERO),
+                  header.getTimestamp());
       final BlockHashLookup blockHashLookup =
           protocolSpec.getBlockHashProcessor().createBlockHashLookup(blockchain, header);
       result =

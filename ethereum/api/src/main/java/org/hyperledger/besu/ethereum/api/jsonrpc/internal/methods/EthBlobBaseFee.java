@@ -52,6 +52,7 @@ public class EthBlobBaseFee implements JsonRpcMethod {
   private Wei computeNextBlobBaseFee() {
     final BlockHeader header = blockchain.getChainHeadHeader();
     ProtocolSpec spec = protocolSchedule.getForNextBlockHeader(header, header.getTimestamp());
-    return spec.getFeeMarket().blobGasPricePerGas(calculateExcessBlobGasForParent(spec, header));
+    return spec.getFeeMarket()
+        .blobGasPricePerGas(calculateExcessBlobGasForParent(spec, header), header.getTimestamp());
   }
 }

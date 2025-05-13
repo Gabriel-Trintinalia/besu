@@ -27,8 +27,6 @@ public class BlobScheduleOptions {
 
   private static final String CANCUN_KEY = "cancun";
   private static final String PRAGUE_KEY = "prague";
-  private static final String OSAKA_KEY = "osaka";
-  private static final String FUTURE_EIPS_KEY = "future_eips";
 
   /**
    * Instantiates a new Blob Schedule config options.
@@ -44,8 +42,8 @@ public class BlobScheduleOptions {
    *
    * @return the cancun blob schedule
    */
-  public Optional<BlobSchedule> getCancun() {
-    return JsonUtil.getObjectNode(blobScheduleOptionsConfigRoot, CANCUN_KEY).map(BlobSchedule::new);
+  public Optional<BlobFork> getCancun() {
+    return JsonUtil.getObjectNode(blobScheduleOptionsConfigRoot, CANCUN_KEY).map(BlobFork::new);
   }
 
   /**
@@ -53,27 +51,12 @@ public class BlobScheduleOptions {
    *
    * @return the prague blob schedule
    */
-  public Optional<BlobSchedule> getPrague() {
-    return JsonUtil.getObjectNode(blobScheduleOptionsConfigRoot, PRAGUE_KEY).map(BlobSchedule::new);
+  public Optional<BlobFork> getPrague() {
+    return JsonUtil.getObjectNode(blobScheduleOptionsConfigRoot, PRAGUE_KEY).map(BlobFork::new);
   }
 
-  /**
-   * Gets osaka blob schedule.
-   *
-   * @return the osaka blob schedule
-   */
-  public Optional<BlobSchedule> getOsaka() {
-    return JsonUtil.getObjectNode(blobScheduleOptionsConfigRoot, OSAKA_KEY).map(BlobSchedule::new);
-  }
-
-  /**
-   * Gets future eips blob schedule.
-   *
-   * @return the future eips blob schedule
-   */
-  public Optional<BlobSchedule> getFutureEips() {
-    return JsonUtil.getObjectNode(blobScheduleOptionsConfigRoot, FUTURE_EIPS_KEY)
-        .map(BlobSchedule::new);
+  public BlobForkSchedule toBlobForkSchedule() {
+    return new BlobForkSchedule();
   }
 
   /**
@@ -83,83 +66,12 @@ public class BlobScheduleOptions {
    */
   public Map<String, Object> asMap() {
     final ImmutableMap.Builder<String, Object> builder = ImmutableMap.builder();
-    getCancun().ifPresent(bs -> builder.put(CANCUN_KEY, bs.asMap()));
+
+    //  todo build schedule
+    /*    getCancun().ifPresent(bs -> builder.put(CANCUN_KEY, bs.asMap()));
     getPrague().ifPresent(bs -> builder.put(PRAGUE_KEY, bs.asMap()));
     getOsaka().ifPresent(bs -> builder.put(OSAKA_KEY, bs.asMap()));
-    getFutureEips().ifPresent(bs -> builder.put(FUTURE_EIPS_KEY, bs.asMap()));
+    getFutureEips().ifPresent(bs -> builder.put(FUTURE_EIPS_KEY, bs.asMap()));*/
     return builder.build();
-  }
-
-  /** The Blob schedule for a particular fork. */
-  public static class BlobSchedule {
-    private final int target;
-    private final int max;
-    private final int baseFeeUpdateFraction;
-
-    /** The constant CANCUN_DEFAULT. */
-    public static final BlobSchedule CANCUN_DEFAULT = new BlobSchedule(3, 6, 3338477);
-
-    /** The constant PRAGUE_DEFAULT. */
-    public static final BlobSchedule PRAGUE_DEFAULT = new BlobSchedule(6, 9, 5007716);
-
-    /** The constant OSAKA_DEFAULT. */
-    public static final BlobSchedule OSAKA_DEFAULT = new BlobSchedule(9, 12, 5007716);
-
-    /** The constant FUTURE_EIPS_DEFAULT. */
-    public static final BlobSchedule FUTURE_EIPS_DEFAULT = OSAKA_DEFAULT;
-
-    /**
-     * Instantiates a new Blob schedule.
-     *
-     * @param blobScheduleConfigRoot the blob schedule config root
-     */
-    public BlobSchedule(final ObjectNode blobScheduleConfigRoot) {
-      this.target = JsonUtil.getInt(blobScheduleConfigRoot, "target").orElseThrow();
-      this.max = JsonUtil.getInt(blobScheduleConfigRoot, "max").orElseThrow();
-      this.baseFeeUpdateFraction =
-          JsonUtil.getInt(blobScheduleConfigRoot, "basefeeupdatefraction").orElseThrow();
-    }
-
-    private BlobSchedule(final int target, final int max, final int baseFeeUpdateFraction) {
-      this.target = target;
-      this.max = max;
-      this.baseFeeUpdateFraction = baseFeeUpdateFraction;
-    }
-
-    /**
-     * Gets target.
-     *
-     * @return the target
-     */
-    public int getTarget() {
-      return target;
-    }
-
-    /**
-     * Gets max.
-     *
-     * @return the max
-     */
-    public int getMax() {
-      return max;
-    }
-
-    /**
-     * Gets base fee update fraction.
-     *
-     * @return the base fee update fraction
-     */
-    public int getBaseFeeUpdateFraction() {
-      return baseFeeUpdateFraction;
-    }
-
-    /**
-     * As map.
-     *
-     * @return the map
-     */
-    Map<String, Object> asMap() {
-      return Map.of("target", target, "max", max, "baseFeeUpdateFraction", baseFeeUpdateFraction);
-    }
   }
 }

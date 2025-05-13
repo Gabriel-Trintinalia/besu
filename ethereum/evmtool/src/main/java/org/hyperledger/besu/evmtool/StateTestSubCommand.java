@@ -264,7 +264,10 @@ public class StateTestSubCommand implements Runnable {
         final WorldUpdater worldStateUpdater = worldState.updater();
         final Stopwatch timer = Stopwatch.createStarted();
         // Todo: EIP-4844 use the excessBlobGas of the parent instead of BlobGas.ZERO
-        final Wei blobGasPrice = protocolSpec.getFeeMarket().blobGasPricePerGas(BlobGas.ZERO);
+        final Wei blobGasPrice =
+            protocolSpec
+                .getFeeMarket()
+                .blobGasPricePerGas(BlobGas.ZERO, blockHeader.getTimestamp());
         final TransactionProcessingResult result =
             processor.processTransaction(
                 worldStateUpdater,

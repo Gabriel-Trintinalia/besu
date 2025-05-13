@@ -16,6 +16,7 @@ package org.hyperledger.besu.ethereum.mainnet;
 
 import static org.hyperledger.besu.ethereum.mainnet.requests.MainnetRequestsProcessor.pragueRequestsProcessors;
 
+import org.hyperledger.besu.config.BlobFork;
 import org.hyperledger.besu.config.BlobScheduleOptions;
 import org.hyperledger.besu.config.GenesisConfigOptions;
 import org.hyperledger.besu.config.PowAlgorithm;
@@ -690,7 +691,7 @@ public abstract class MainnetProtocolSpecs {
         genesisConfigOptions
             .getBlobScheduleOptions()
             .flatMap(BlobScheduleOptions::getCancun)
-            .orElse(BlobScheduleOptions.BlobSchedule.CANCUN_DEFAULT);
+            .orElse(BlobFork.CANCUN_DEFAULT);
 
     final BaseFeeMarket cancunFeeMarket;
     if (genesisConfigOptions.isZeroBaseFee()) {
@@ -789,7 +790,7 @@ public abstract class MainnetProtocolSpecs {
         genesisConfigOptions
             .getBlobScheduleOptions()
             .flatMap(BlobScheduleOptions::getCancun)
-            .orElse(BlobScheduleOptions.BlobSchedule.CANCUN_DEFAULT);
+            .orElse(BlobFork.CANCUN_DEFAULT);
 
     ProtocolSpecBuilder protocolSpecBuilder =
         cancunDefinition(
@@ -824,7 +825,7 @@ public abstract class MainnetProtocolSpecs {
         genesisConfigOptions
             .getBlobScheduleOptions()
             .flatMap(BlobScheduleOptions::getPrague)
-            .orElse(BlobScheduleOptions.BlobSchedule.PRAGUE_DEFAULT);
+            .orElse(BlobFork.PRAGUE_DEFAULT);
 
     // EIP-3074 AUTH and AUTHCALL gas | EIP-7840 Blob schedule | EIP-7691 6/9 blob increase
     final java.util.function.Supplier<GasCalculator> pragueGasCalcSupplier =
@@ -951,14 +952,27 @@ public abstract class MainnetProtocolSpecs {
       final MetricsSystem metricsSystem) {
     final long londonForkBlockNumber = genesisConfigOptions.getLondonBlockNumber().orElse(0L);
 
-    final var osakaBlobSchedule =
+    final var blobForkSchedule =
         genesisConfigOptions
             .getBlobScheduleOptions()
-            .flatMap(BlobScheduleOptions::getOsaka)
-            .orElse(BlobScheduleOptions.BlobSchedule.OSAKA_DEFAULT);
+            .map(BlobScheduleOptions::toBlobForkSchedule)
+            .orElseThrow();
 
     final java.util.function.Supplier<GasCalculator> osakaGasCalculator =
-        () -> new OsakaGasCalculator(osakaBlobSchedule.getTarget());
+        () -> new OsakaGasCalculator(blobForkSchedule.getTarget());
+
+    final BaseFeeMarket osakaFeeMarket;
+    if (genesisConfigOptions.isZeroBaseFee()) {
+      osakaFeeMarket = FeeMarket.zeroBaseFee(londonForkBlockNumber);
+    } else if (genesisConfigOptions.isFixedBaseFee()) {
+      osakaFeeMarket =
+          FeeMarket.fixedBaseFee(
+              londonForkBlockNumber, miningConfiguration.getMinTransactionGasPrice());
+    } else {
+      osakaFeeMarket =
+          FeeMarket.osaka(
+              londonForkBlockNumber, genesisConfigOptions.getBaseFeePerGas(), blobForkSchedule);
+    }
 
     return pragueDefinition(
             chainId,
@@ -968,6 +982,7 @@ public abstract class MainnetProtocolSpecs {
             miningConfiguration,
             isParallelTxProcessingEnabled,
             metricsSystem)
+        .feeMarket(osakaFeeMarket)
         .gasCalculator(osakaGasCalculator)
         .gasLimitCalculatorBuilder(
             feeMarket ->
@@ -1033,7 +1048,7 @@ public abstract class MainnetProtocolSpecs {
         genesisConfigOptions
             .getBlobScheduleOptions()
             .flatMap(BlobScheduleOptions::getFutureEips)
-            .orElse(BlobScheduleOptions.BlobSchedule.FUTURE_EIPS_DEFAULT);
+            .orElse(BlobFork.FUTURE_EIPS_DEFAULT);
     ProtocolSpecBuilder protocolSpecBuilder =
         osakaDefinition(
                 chainId,

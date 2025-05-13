@@ -35,6 +35,7 @@ import org.hyperledger.besu.ethereum.core.Difficulty;
 import org.hyperledger.besu.ethereum.core.MiningConfiguration;
 import org.hyperledger.besu.ethereum.core.MutableWorldState;
 import org.hyperledger.besu.ethereum.core.ParsedExtraData;
+import org.hyperledger.besu.ethereum.core.ProcessableBlockHeader;
 import org.hyperledger.besu.ethereum.core.Request;
 import org.hyperledger.besu.ethereum.core.Transaction;
 import org.hyperledger.besu.ethereum.core.TransactionReceipt;
@@ -433,7 +434,10 @@ public class BlockSimulator {
           .blobGasPricePerGas(
               maybeParentHeader
                   .map(parent -> calculateExcessBlobGasForParent(protocolSpec, parent))
-                  .orElse(BlobGas.ZERO));
+                  .orElse(BlobGas.ZERO),
+              blockOverrides
+                  .getTimestamp()
+                  .orElse(maybeParentHeader.map(ProcessableBlockHeader::getTimestamp).orElse(0L)));
     };
   }
 

@@ -786,7 +786,8 @@ public class BlockchainQueries {
                   protocolSpec
                       .getFeeMarket()
                       .blobGasPricePerGas(
-                          calculateExcessBlobGasForParent(protocolSpec, parentHeader)));
+                          calculateExcessBlobGasForParent(protocolSpec, parentHeader),
+                          header.getTimestamp()));
     }
     return Optional.empty();
   }

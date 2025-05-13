@@ -206,7 +206,8 @@ public class TraceServiceImpl implements TraceService {
                       .blobGasPricePerGas(
                           maybeParentHeader
                               .map(parent -> calculateExcessBlobGasForParent(protocolSpec, parent))
-                              .orElse(BlobGas.ZERO));
+                              .orElse(BlobGas.ZERO),
+                          block.getHeader().getTimestamp());
 
               final WorldUpdater worldUpdater = chainUpdater.getNextUpdater();
               final TransactionProcessingResult result =

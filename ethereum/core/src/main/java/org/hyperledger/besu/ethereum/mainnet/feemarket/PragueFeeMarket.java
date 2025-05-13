@@ -14,11 +14,12 @@
  */
 package org.hyperledger.besu.ethereum.mainnet.feemarket;
 
-import org.hyperledger.besu.config.BlobScheduleOptions;
+import org.hyperledger.besu.config.BlobFork;
 import org.hyperledger.besu.datatypes.BlobGas;
 import org.hyperledger.besu.datatypes.Wei;
 
 import java.util.Optional;
+import java.util.function.Function;
 
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
@@ -29,23 +30,23 @@ public class PragueFeeMarket extends CancunFeeMarket {
   PragueFeeMarket(
       final long londonForkBlockNumber,
       final Optional<Wei> baseFeePerGasOverride,
-      final long baseFeeUpdateFraction) {
-    super(londonForkBlockNumber, baseFeePerGasOverride, baseFeeUpdateFraction);
+      final Function<Long, Long> baseFeeUpdateFractionSupplier) {
+    super(londonForkBlockNumber, baseFeePerGasOverride, baseFeeUpdateFractionSupplier);
   }
 
   PragueFeeMarket(final long londonForkBlockNumber, final Optional<Wei> baseFeePerGasOverride) {
     this(
         londonForkBlockNumber,
         baseFeePerGasOverride,
-        BlobScheduleOptions.BlobSchedule.PRAGUE_DEFAULT.getBaseFeeUpdateFraction());
+        (__) -> BlobFork.PRAGUE_DEFAULT.getBaseFeeUpdateFraction());
   }
 
   @Override
-  public Wei blobGasPricePerGas(final BlobGas excessBlobGas) {
+  public Wei blobGasPricePerGas(final BlobGas excessBlobGas, final long ignored) {
     final var blobGasPrice =
         Wei.of(
             fakeExponential(
-                BLOB_GAS_PRICE, excessBlobGas.toBigInteger(), getBaseFeeUpdateFraction()));
+                BLOB_GAS_PRICE, excessBlobGas.toBigInteger(), getBaseFeeUpdateFraction(ignored)));
     LOG.atTrace()
         .setMessage("parentExcessBlobGas: {} blobGasPrice: {}")
         .addArgument(excessBlobGas::toShortHexString)

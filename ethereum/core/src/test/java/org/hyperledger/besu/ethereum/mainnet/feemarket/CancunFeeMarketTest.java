@@ -32,7 +32,8 @@ class CancunFeeMarketTest {
   void dataPricePerGas() {
     final BaseFeeMarket cancunFeeMarket = FeeMarket.cancun(0, Optional.empty());
     // when no excess blob gas, data price per gas is 1
-    assertEquals(1, cancunFeeMarket.blobGasPricePerGas(BlobGas.ZERO).getAsBigInteger().intValue());
+    assertEquals(
+        1, cancunFeeMarket.blobGasPricePerGas(BlobGas.ZERO, 0L).getAsBigInteger().intValue());
 
     record BlobGasPricing(long excess, long price) {}
     List<BlobGasPricing> testVector = new ArrayList<>();
@@ -52,7 +53,7 @@ class CancunFeeMarketTest {
               assertEquals(
                   blobGasPricing.price,
                   cancunFeeMarket
-                      .blobGasPricePerGas(BlobGas.of(blobGasPricing.excess))
+                      .blobGasPricePerGas(BlobGas.of(blobGasPricing.excess), 0L)
                       .getAsBigInteger()
                       .intValue());
             });

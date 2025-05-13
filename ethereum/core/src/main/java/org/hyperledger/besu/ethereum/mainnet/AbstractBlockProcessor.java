@@ -180,7 +180,8 @@ public abstract class AbstractBlockProcessor implements BlockProcessor {
                     protocolSpec
                         .getFeeMarket()
                         .blobGasPricePerGas(
-                            calculateExcessBlobGasForParent(protocolSpec, parentHeader)))
+                            calculateExcessBlobGasForParent(protocolSpec, parentHeader),
+                            blockHeader.getTimestamp()))
             .orElse(Wei.ZERO);
 
     final Optional<PreprocessingContext> preProcessingContext =

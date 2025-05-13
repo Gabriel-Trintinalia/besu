@@ -373,7 +373,8 @@ public class TransactionSimulator {
               .blobGasPricePerGas(
                   maybeParentHeader
                       .map(parent -> calculateExcessBlobGasForParent(protocolSpec, parent))
-                      .orElse(BlobGas.ZERO));
+                      .orElse(BlobGas.ZERO),
+                  processableHeader.getTimestamp());
         };
 
     final ProtocolSpec protocolSpec = protocolSchedule.getByBlockHeader(processableHeader);

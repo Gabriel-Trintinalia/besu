@@ -14,6 +14,7 @@
  */
 package org.hyperledger.besu.ethereum.mainnet.feemarket;
 
+import org.hyperledger.besu.config.BlobForkSchedule;
 import org.hyperledger.besu.datatypes.BlobGas;
 import org.hyperledger.besu.datatypes.Wei;
 import org.hyperledger.besu.ethereum.core.Transaction;
@@ -53,7 +54,8 @@ public interface FeeMarket {
       final long londonForkBlockNumber,
       final Optional<Wei> baseFeePerGasOverride,
       final long baseFeeUpdateFraction) {
-    return new CancunFeeMarket(londonForkBlockNumber, baseFeePerGasOverride, baseFeeUpdateFraction);
+    return new CancunFeeMarket(
+        londonForkBlockNumber, baseFeePerGasOverride, (__) -> baseFeeUpdateFraction);
   }
 
   static BaseFeeMarket prague(
@@ -65,7 +67,15 @@ public interface FeeMarket {
       final long londonForkBlockNumber,
       final Optional<Wei> baseFeePerGasOverride,
       final long baseFeeUpdateFraction) {
-    return new PragueFeeMarket(londonForkBlockNumber, baseFeePerGasOverride, baseFeeUpdateFraction);
+    return new PragueFeeMarket(
+        londonForkBlockNumber, baseFeePerGasOverride, (__) -> baseFeeUpdateFraction);
+  }
+
+  static BaseFeeMarket osaka(
+      final long londonForkBlockNumber,
+      final Optional<Wei> baseFeePerGasOverride,
+      final BlobForkSchedule blobForkSchedule) {
+    return new OsakaFeeMarket(londonForkBlockNumber, baseFeePerGasOverride, blobForkSchedule);
   }
 
   static BaseFeeMarket zeroBaseFee(final long londonForkBlockNumber) {
@@ -80,7 +90,7 @@ public interface FeeMarket {
     return new LegacyFeeMarket();
   }
 
-  default Wei blobGasPricePerGas(final BlobGas excessBlobGas) {
+  default Wei blobGasPricePerGas(final BlobGas excessBlobGas, final long timestamp) {
     return Wei.ZERO;
   }
 }

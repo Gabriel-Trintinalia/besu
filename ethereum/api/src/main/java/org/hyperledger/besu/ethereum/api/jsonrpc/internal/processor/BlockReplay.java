@@ -63,7 +63,8 @@ public class BlockReplay {
                       blockchain
                           .getBlockHeader(header.getParentHash())
                           .map(parent -> calculateExcessBlobGasForParent(protocolSpec, parent))
-                          .orElse(BlobGas.ZERO));
+                          .orElse(BlobGas.ZERO),
+                      block.getHeader().getTimestamp());
 
           final List<TransactionTrace> transactionTraces =
               body.getTransactions().stream()
@@ -98,7 +99,8 @@ public class BlockReplay {
                       blockchain
                           .getBlockHeader(header.getParentHash())
                           .map(parent -> calculateExcessBlobGasForParent(protocolSpec, parent))
-                          .orElse(BlobGas.ZERO));
+                          .orElse(BlobGas.ZERO),
+                      header.getTimestamp());
 
           for (final Transaction transaction : body.getTransactions()) {
             if (transaction.getHash().equals(transactionHash)) {

@@ -119,7 +119,8 @@ public class TransactionTracer {
                           blockchain
                               .getBlockHeader(header.getParentHash())
                               .map(parent -> calculateExcessBlobGasForParent(protocolSpec, parent))
-                              .orElse(BlobGas.ZERO));
+                              .orElse(BlobGas.ZERO),
+                          header.getTimestamp());
               for (int i = 0; i < body.getTransactions().size(); i++) {
                 stackedUpdater.markTransactionBoundary();
                 final Transaction transaction = body.getTransactions().get(i);

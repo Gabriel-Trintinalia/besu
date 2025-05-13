@@ -36,14 +36,5 @@ public class BlobScheduleOptionsTest {
     assertThat(blobScheduleOptions.getPrague().get().getTarget()).isEqualTo(7);
     assertThat(blobScheduleOptions.getPrague().get().getMax()).isEqualTo(10);
     assertThat(blobScheduleOptions.getPrague().get().getBaseFeeUpdateFraction()).isEqualTo(5007716);
-    assertThat(blobScheduleOptions.getOsaka()).isNotEmpty();
-    assertThat(blobScheduleOptions.getOsaka().get().getTarget()).isEqualTo(10);
-    assertThat(blobScheduleOptions.getOsaka().get().getMax()).isEqualTo(13);
-    assertThat(blobScheduleOptions.getOsaka().get().getBaseFeeUpdateFraction()).isEqualTo(5007716);
-    assertThat(blobScheduleOptions.getFutureEips()).isNotEmpty();
-    assertThat(blobScheduleOptions.getFutureEips().get().getTarget()).isEqualTo(12);
-    assertThat(blobScheduleOptions.getFutureEips().get().getMax()).isEqualTo(16);
-    assertThat(blobScheduleOptions.getFutureEips().get().getBaseFeeUpdateFraction())
-        .isEqualTo(5007740);
   }
 }

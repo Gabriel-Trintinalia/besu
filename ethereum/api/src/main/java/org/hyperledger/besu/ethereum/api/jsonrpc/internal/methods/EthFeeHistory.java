@@ -394,12 +394,17 @@ public class EthFeeHistory implements JsonRpcMethod {
   private Wei getBlobGasFee(final BlockHeader header) {
     return blockchain
         .getBlockHeader(header.getParentHash())
-        .map(parent -> getBlobGasFee(protocolSchedule.getByBlockHeader(header), parent))
+        .map(
+            parent ->
+                getBlobGasFee(
+                    protocolSchedule.getByBlockHeader(header), parent, header.getTimestamp()))
         .orElse(Wei.ZERO);
   }
 
-  private Wei getBlobGasFee(final ProtocolSpec spec, final BlockHeader parent) {
-    return spec.getFeeMarket().blobGasPricePerGas(calculateExcessBlobGasForParent(spec, parent));
+  private Wei getBlobGasFee(
+      final ProtocolSpec spec, final BlockHeader parent, final long timestamp) {
+    return spec.getFeeMarket()
+        .blobGasPricePerGas(calculateExcessBlobGasForParent(spec, parent), timestamp);
   }
 
   private Wei getNextBlobFee(final BlockHeader header) {
@@ -407,13 +412,17 @@ public class EthFeeHistory implements JsonRpcMethod {
     long nextBlockNumber = header.getNumber() + 1;
     return blockchain
         .getBlockHeader(nextBlockNumber)
-        .map(nextHeader -> getBlobGasFee(protocolSchedule.getByBlockHeader(nextHeader), header))
+        .map(
+            nextHeader ->
+                getBlobGasFee(
+                    protocolSchedule.getByBlockHeader(nextHeader), header, header.getTimestamp()))
         // If the next header is not present, calculate the fee using the current time.
         .orElseGet(
             () ->
                 getBlobGasFee(
                     protocolSchedule.getForNextBlockHeader(header, System.currentTimeMillis()),
-                    header));
+                    header,
+                    header.getTimestamp()));
   }
 
   private List<Double> getGasUsedRatios(final List<BlockHeader> blockHeaders) {
