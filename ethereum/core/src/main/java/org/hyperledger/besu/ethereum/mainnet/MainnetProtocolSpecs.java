@@ -743,27 +743,6 @@ public abstract class MainnetProtocolSpecs {
         .name("Cancun");
   }
 
-  static ProtocolSpecBuilder cancunEOFDefinition(
-      final Optional<BigInteger> chainId,
-      final boolean enableRevertReason,
-      final GenesisConfigOptions genesisConfigOptions,
-      final EvmConfiguration evmConfiguration,
-      final MiningConfiguration miningConfiguration,
-      final boolean isParallelTxProcessingEnabled,
-      final MetricsSystem metricsSystem) {
-
-    ProtocolSpecBuilder protocolSpecBuilder =
-        cancunDefinition(
-            chainId,
-            enableRevertReason,
-            genesisConfigOptions,
-            evmConfiguration,
-            miningConfiguration,
-            isParallelTxProcessingEnabled,
-            metricsSystem);
-    return addEOF(chainId, evmConfiguration, protocolSpecBuilder).name("CancunEOF");
-  }
-
   static ProtocolSpecBuilder pragueDefinition(
       final Optional<BigInteger> chainId,
       final boolean enableRevertReason,

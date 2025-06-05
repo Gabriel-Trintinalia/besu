@@ -145,7 +145,7 @@ public abstract class BenchmarkExecutor {
       case CANCUN -> new CancunGasCalculator();
       case PRAGUE -> new PragueGasCalculator();
       case OSAKA, AMSTERDAM, BOGOTA, POLIS, BANGKOK, EXPERIMENTAL_EIPS -> new OsakaGasCalculator();
-      case CANCUN_EOF, FUTURE_EIPS -> new EOFGasCalculator();
+      case FUTURE_EIPS -> new EOFGasCalculator();
     };
   }
 

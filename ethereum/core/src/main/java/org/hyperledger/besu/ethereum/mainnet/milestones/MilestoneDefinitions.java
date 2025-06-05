@@ -193,10 +193,6 @@ public class MilestoneDefinitions {
             config.getCancunTime(),
             () -> specFactory.cancunDefinition(config)),
         createTimestampMilestone(
-            MainnetHardforkId.CANCUN_EOF,
-            config.getCancunEOFTime(),
-            () -> specFactory.cancunEOFDefinition(config)),
-        createTimestampMilestone(
             MainnetHardforkId.PRAGUE,
             config.getPragueTime(),
             () -> specFactory.pragueDefinition(config)),

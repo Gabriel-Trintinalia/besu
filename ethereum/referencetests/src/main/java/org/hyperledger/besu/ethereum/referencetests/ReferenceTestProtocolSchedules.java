@@ -101,7 +101,6 @@ public class ReferenceTestProtocolSchedules {
                     "ShanghaiToCancunAtTime15k",
                     createSchedule(genesisStub.clone().shanghaiTime(0).cancunTime(15000))),
                 Map.entry("Cancun", createSchedule(genesisStub.clone().cancunTime(0))),
-                Map.entry("CancunEOF", createSchedule(genesisStub.clone().cancunEOFTime(0))),
                 Map.entry(
                     "CancunToPragueAtTime15k",
                     createSchedule(genesisStub.clone().cancunTime(0).pragueTime(15000))),
