@@ -15,19 +15,28 @@
 package org.hyperledger.besu.ethereum.api.jsonrpc.internal.results.tracing.diff;
 
 import java.io.IOException;
+import java.util.List;
 import java.util.Map;
+import java.util.Optional;
+import java.util.function.Function;
 
 import com.fasterxml.jackson.core.JsonGenerator;
 import com.fasterxml.jackson.databind.SerializerProvider;
 import com.fasterxml.jackson.databind.annotation.JsonSerialize;
 import com.fasterxml.jackson.databind.ser.std.StdSerializer;
+import org.checkerframework.checker.units.qual.A;
+import org.hyperledger.besu.ethereum.debug.TraceOptions;
 
 @JsonSerialize(using = StateDiffPrestateResult.Serializer.class)
 public class StateDiffPrestateResult {
   final StateDiffTrace stateDiffTrace;
+  final boolean diffMode;
 
-  public StateDiffPrestateResult(final StateDiffTrace stateDiffTrace) {
+  public StateDiffPrestateResult(final StateDiffTrace stateDiffTrace, final TraceOptions traceOptions) {
     this.stateDiffTrace = stateDiffTrace;
+    diffMode = Boolean.parseBoolean(
+      traceOptions.tracerConfig().getOrDefault("diffMode", "false").toString()
+    );
   }
 
   /**
@@ -50,106 +59,206 @@ public class StateDiffPrestateResult {
      */
     @Override
     public void serialize(
-        final StateDiffPrestateResult result,
-        final JsonGenerator gen,
-        final SerializerProvider provider)
-        throws IOException {
+      final StateDiffPrestateResult result,
+      final JsonGenerator gen,
+      final SerializerProvider provider)
+      throws IOException {
       StateDiffTrace trace = result.stateDiffTrace;
 
       gen.writeStartObject();
 
-      // Serialize "pre" section: all 'from' values
-      gen.writeObjectFieldStart("pre");
-      for (var entry : trace.entrySet()) {
-        writeNode(gen, entry.getKey(), entry.getValue(), true);
-      }
-      gen.writeEndObject();
+      if (result.diffMode) {
+        // diffMode = true → same as before: "pre" + "post"
+        gen.writeObjectFieldStart("post");
+        for (var entry : trace.entrySet()) {
+          writePostNode(gen, entry.getKey(), entry.getValue());
+        }
+        gen.writeEndObject();
 
-      // Serialize "post" section: only 'to' values that differ
-      gen.writeObjectFieldStart("post");
-      for (var entry : trace.entrySet()) {
-        writeNode(gen, entry.getKey(), entry.getValue(), false);
+        gen.writeObjectFieldStart("pre");
+        for (var entry : trace.entrySet()) {
+          writePreNode(gen, entry.getKey(), entry.getValue());
+        }
+        gen.writeEndObject();
+
+      } else {
+        // diffMode = false → just the content of "pre", no wrapper
+        for (var entry : trace.entrySet()) {
+          writePreNode(gen, entry.getKey(), entry.getValue());
+        }
       }
-      gen.writeEndObject();
 
       gen.writeEndObject();
     }
 
-    /**
-     * Write a single account node for pre/post sections.
-     *
-     * @param gen JsonGenerator
-     * @param addr account address
-     * @param accountDiff the account diff
-     * @param pre if true, write 'from' values; if false, write 'to' values that changed
-     */
-    private void writeNode(
-        final JsonGenerator gen,
-        final String addr,
-        final AccountDiff accountDiff,
-        final boolean pre)
-        throws IOException {
+    private void writePreNode(
+      final JsonGenerator gen,
+      final String addr,
+      final AccountDiff accountDiff)
+      throws IOException {
+
+      if(!accountDiff.hasDifference()) {
+        return;
+      }
+
+      if(!shouldWritePreNode(accountDiff) ) {
+        // No pre-state data to write, skip this node
+        return;
+      }
 
       gen.writeObjectFieldStart(addr);
 
-      if (shouldWriteNode(accountDiff.getBalance(), pre)) {
+      if(accountDiff.getBalance().getFrom().isPresent()) {
         gen.writeStringField(
-            "balance",
-            pre
-                ? accountDiff.getBalance().getFrom().get()
-                : accountDiff.getBalance().getTo().get());
-      }
-      if (shouldWriteNode(accountDiff.getCode(), pre)) {
-        gen.writeStringField(
-            "code",
-            pre ? accountDiff.getCode().getFrom().get() : accountDiff.getCode().getTo().get());
-      }
-      if (shouldWriteNode(accountDiff.getNonce(), pre)) {
-        gen.writeStringField(
-            "nonce",
-            pre ? accountDiff.getNonce().getFrom().get() : accountDiff.getNonce().getTo().get());
+          "balance",
+          accountDiff.getBalance().getFrom().get());
       }
 
-      // Serialize storage map for this account
-      writeStorage(gen, accountDiff.getStorage(), pre);
-
-      gen.writeEndObject();
-    }
-
-    /**
-     * Write the storage map for an account.
-     *
-     * @param gen JsonGenerator
-     * @param storage map of storage keys to DiffNodes
-     * @param pre if true, write 'from' values; if false, write 'to' values that changed
-     */
-    private void writeStorage(
-        final JsonGenerator gen, final Map<String, DiffNode> storage, final boolean pre)
-        throws IOException {
-
-      if (storage == null || storage.isEmpty()) return;
-
-      gen.writeObjectFieldStart("storage");
-      for (var se : storage.entrySet()) {
-        DiffNode node = se.getValue();
-        if (shouldWriteNode(node, pre)) {
-          gen.writeStringField(se.getKey(), pre ? node.getFrom().get() : node.getTo().get());
+      if(accountDiff.getCode().getFrom().isPresent()) {
+        String code = accountDiff.getCode().getFrom().get();
+        if (!"0x".equals(code)) {
+          gen.writeStringField("code", code);
         }
       }
+
+      if(accountDiff.getNonce().getFrom().isPresent()) {
+        String nonceStr = accountDiff.getNonce().getFrom().get();
+        try {
+          long nonce = Long.decode(nonceStr); // handles "0x..." or decimal
+          if (nonce != 0) {
+            gen.writeNumberField("nonce", nonce); // write as numeric value
+          }
+        } catch (NumberFormatException e) {
+          // fallback: write as-is as string if parse fails
+          gen.writeStringField("nonce", nonceStr);
+        }
+      }
+
+      var storageEntries =
+        accountDiff.getStorage()
+          .entrySet()
+          .stream()
+          .filter(se -> shouldWriteStorage(se.getValue(), DiffNode::getFrom))
+          .toList();
+
+      if(!storageEntries.isEmpty()) {
+        gen.writeObjectFieldStart("storage");
+        for (var se : storageEntries) {
+          DiffNode node = se.getValue();
+          gen.writeStringField(se.getKey(), node.getFrom().get());
+        }
+        gen.writeEndObject();
+      }
       gen.writeEndObject();
     }
 
-    /**
-     * Whether a DiffNode should be written.
-     *
-     * @param node the DiffNode
-     * @param pre true = writing 'pre' section; false = writing 'post' section
-     * @return true if the node should be serialized
-     */
-    private boolean shouldWriteNode(final DiffNode node, final boolean pre) {
+    private void writePostNode(
+      final JsonGenerator gen,
+      final String addr,
+      final AccountDiff accountDiff)
+      throws IOException {
+
+      if(!accountDiff.hasDifference()) {
+        return;
+      }
+
+      if(!shouldWritePostNode(accountDiff)) {
+        // No post-state data to write, skip this node
+        return;
+      }
+
+
+      gen.writeObjectFieldStart(addr);
+      if(accountDiff.getBalance().hasDifference()) {
+
+        String value = accountDiff.getBalance().getTo().get();
+        if(!(accountDiff.getBalance().getFrom().isEmpty() && "0x0".equals(value))) {
+          gen.writeStringField("balance", accountDiff.getBalance().getTo().get());
+        }
+      }
+
+      if ((accountDiff.getCode().hasDifference())) {
+        String code = accountDiff.getCode().getTo().get();
+        if (!"0x".equals(code)) {
+          gen.writeStringField("code", accountDiff.getCode().getTo().get());
+        }
+      }
+
+      if (accountDiff.getNonce().hasDifference()) {
+        String nonceStr = accountDiff.getNonce().getTo().get();
+        try {
+          long nonce = Long.decode(nonceStr); // handles "0x..." or decimal
+          if (nonce != 0) {
+            gen.writeNumberField("nonce", nonce); // write as numeric value
+          }
+        } catch (NumberFormatException e) {
+          // fallback: write as-is as string if parse fails
+          gen.writeStringField("nonce", nonceStr);
+        }
+      }
+
+      var storageEntries =
+      accountDiff.getStorage()
+        .entrySet()
+        .stream()
+        .filter(se -> shouldWriteStorage(se.getValue(), DiffNode::getTo))
+        .toList();
+
+      if(!storageEntries.isEmpty()) {
+        gen.writeObjectFieldStart("storage");
+        for (var se : storageEntries) {
+          DiffNode node = se.getValue();
+            gen.writeStringField(se.getKey(), node.getTo().get());
+        }
+        gen.writeEndObject();
+      }
+      gen.writeEndObject();
+    }
+
+    private boolean shouldWritePreNode(final AccountDiff accountDiff) {
+      // No pre-state data to write, skip this node
+      return accountDiff.getBalance().getFrom().isPresent()
+        || accountDiff.getCode().getFrom().isPresent()
+        || accountDiff.getNonce().getFrom().isPresent()
+        || hasStorageToWrite(accountDiff.getStorage());
+    }
+
+
+    private boolean shouldWritePostNode(final AccountDiff accountDiff) {
+      // No post-state data to write, skip this node
+      return (accountDiff.getBalance().getTo().isPresent() && !accountDiff.getBalance().getTo().get().equals("0x0"))
+        || accountDiff.getCode().getTo().isPresent()
+        || accountDiff.getNonce().getTo().isPresent()
+        || hasStorageToWritePost(accountDiff.getStorage());
+    }
+
+
+    private boolean hasStorageToWrite(final Map<String, DiffNode> storage) {
+      if (storage == null || storage.isEmpty()) return false;
+      for (var node : storage.values()) {
+        if (shouldWriteStorage(node, DiffNode::getFrom)) {
+          return true;
+        }
+      }
+      return false;
+    }
+
+    private boolean hasStorageToWritePost(final Map<String, DiffNode> storage) {
+      if (storage == null || storage.isEmpty()) return false;
+      for (var node : storage.values()) {
+        if (shouldWriteStorage(node, DiffNode::getTo)) {
+          return true;
+        }
+      }
+      return false;
+    }
+
+    private boolean shouldWriteStorage(
+      final DiffNode node, final Function<DiffNode, Optional<String>> extractor) {
       if (node == null) return false;
-      if (pre) return node.getFrom().isPresent();
-      return node.hasDifference() && node.getTo().isPresent();
+      return extractor.apply(node)
+        .filter(v -> !v.equals("0x0000000000000000000000000000000000000000000000000000000000000000"))
+        .isPresent();
     }
   }
 }

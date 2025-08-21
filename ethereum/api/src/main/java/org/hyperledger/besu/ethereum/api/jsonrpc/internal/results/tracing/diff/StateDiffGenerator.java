@@ -33,6 +33,14 @@ import java.util.stream.Stream;
 import org.apache.tuweni.units.bigints.UInt256;
 
 public class StateDiffGenerator {
+  final boolean includeUnchangedAccounts;
+  public StateDiffGenerator() {
+    includeUnchangedAccounts = false;
+  }
+
+  public StateDiffGenerator(final boolean includeUnchangedAccounts) {
+    this.includeUnchangedAccounts = includeUnchangedAccounts;
+  }
 
   public Stream<StateDiffTrace> generateStateDiff(final TransactionTrace transactionTrace) {
     final List<TraceFrame> traceFrames = transactionTrace.getTraceFrames();
@@ -43,7 +51,7 @@ public class StateDiffGenerator {
     // This corresponds to the world state after the TX executed
     // It is two deep because of the way we addressed Spurious Dragon.
     final WorldUpdater transactionUpdater =
-        traceFrames.get(0).getWorldUpdater().parentUpdater().get().parentUpdater().get();
+        traceFrames.getFirst().getWorldUpdater().parentUpdater().get().parentUpdater().get();
     // This corresponds to the world state prior to the TX execution,
     // Either the initial block state or the state of the prior TX
     final WorldUpdater previousUpdater = transactionUpdater.parentUpdater().get();
@@ -82,7 +90,7 @@ public class StateDiffGenerator {
               createDiffNode(rootAccount, updatedAccount, StateDiffGenerator::nonceAsHex),
               storageDiff);
 
-      if (accountDiff.hasDifference()) {
+      if (includeUnchangedAccounts || accountDiff.hasDifference()) {
         stateDiffResult.put(accountAddress.toHexString(), accountDiff);
       }
     }

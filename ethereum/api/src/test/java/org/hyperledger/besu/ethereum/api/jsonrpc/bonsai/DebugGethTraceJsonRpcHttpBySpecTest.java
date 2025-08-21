@@ -1,5 +1,5 @@
 /*
- * Copyright ConsenSys AG.
+ * Copyright contributors to Hyperledger Besu.
  *
  * Licensed under the Apache License, Version 2.0 (the "License"); you may not use this file except in compliance with
  * the License. You may obtain a copy of the License at
@@ -17,40 +17,38 @@ package org.hyperledger.besu.ethereum.api.jsonrpc.bonsai;
 import static org.assertj.core.api.Assertions.assertThat;
 
 import org.hyperledger.besu.ethereum.api.jsonrpc.AbstractJsonRpcHttpBySpecTest;
+import org.hyperledger.besu.ethereum.api.jsonrpc.internal.methods.DebugTraceTransactionStepFactory;
 import org.hyperledger.besu.ethereum.core.BlockchainSetupUtil;
 import org.hyperledger.besu.plugin.services.storage.DataStorageFormat;
-
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 
-public class TraceJsonRpcHttpBySpecTest extends AbstractJsonRpcHttpBySpecTest {
-
+public class DebugGethTraceJsonRpcHttpBySpecTest extends AbstractJsonRpcHttpBySpecTest {
   @Override
   @BeforeEach
   public void setup() throws Exception {
     setupBonsaiBlockchain();
     startService();
+
+    // Enable extra tracers for this test
+    DebugTraceTransactionStepFactory.enableExtraTracers = true;
   }
 
   @Override
   protected BlockchainSetupUtil getBlockchainSetupUtil(final DataStorageFormat storageFormat) {
     return createBlockchainSetupUtil(
-        "trace/chain-data/genesis.json", "trace/chain-data/blocks.bin", storageFormat);
+      "debug-geth/chain-data/genesis.json", "debug-geth/chain-data/blocks.bin", storageFormat);
   }
 
   public static Object[][] specs() {
     return AbstractJsonRpcHttpBySpecTest.findSpecFiles(
-        new String[] {
-
-          "trace/specs/replay-trace-transaction/statediff",
-
-        });
+      new String[] {"debug-geth/specs/prestate-tracer/diff-mode-true"});
   }
 
   @Test
   void dryRunDetector() {
     assertThat(true)
-        .withFailMessage("This test is here so gradle --dry-run executes this class")
-        .isTrue();
+      .withFailMessage("This test is here so gradle --dry-run executes this class")
+      .isTrue();
   }
 }
