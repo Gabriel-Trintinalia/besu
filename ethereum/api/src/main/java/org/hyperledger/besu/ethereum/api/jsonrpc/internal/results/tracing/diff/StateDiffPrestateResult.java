@@ -25,6 +25,7 @@ import com.fasterxml.jackson.databind.SerializerProvider;
 import com.fasterxml.jackson.databind.annotation.JsonSerialize;
 import com.fasterxml.jackson.databind.ser.std.StdSerializer;
 import org.checkerframework.checker.units.qual.A;
+import org.hyperledger.besu.datatypes.Hash;
 import org.hyperledger.besu.ethereum.debug.TraceOptions;
 
 @JsonSerialize(using = StateDiffPrestateResult.Serializer.class)
@@ -84,24 +85,20 @@ public class StateDiffPrestateResult {
       } else {
         // diffMode = false → just the content of "pre", no wrapper
         for (var entry : trace.entrySet()) {
-          writePreNode(gen, entry.getKey(), entry.getValue());
+          writeNode(gen, entry.getKey(), entry.getValue());
         }
       }
 
       gen.writeEndObject();
     }
 
-    private void writePreNode(
+    private void writeNode(
       final JsonGenerator gen,
       final String addr,
       final AccountDiff accountDiff)
       throws IOException {
 
-      if(!accountDiff.hasDifference()) {
-        return;
-      }
-
-      if(!shouldWritePreNode(accountDiff) ) {
+      if(!shouldWritePreNode(accountDiff)) {
         // No pre-state data to write, skip this node
         return;
       }
@@ -118,6 +115,81 @@ public class StateDiffPrestateResult {
         String code = accountDiff.getCode().getFrom().get();
         if (!"0x".equals(code)) {
           gen.writeStringField("code", code);
+        }
+      }
+
+      if(accountDiff.getCodeHash().getFrom().isPresent()) {
+        String codeHash = accountDiff.getCodeHash().getFrom().get();
+        if (!Hash.EMPTY.toHexString().equals(codeHash)) {
+          gen.writeStringField("codeHash", codeHash);
+        }
+      }
+
+      if(accountDiff.getNonce().getFrom().isPresent()) {
+        String nonceStr = accountDiff.getNonce().getFrom().get();
+        try {
+          long nonce = Long.decode(nonceStr); // handles "0x..." or decimal
+          if (nonce != 0) {
+            gen.writeNumberField("nonce", nonce); // write as numeric value
+          }
+        } catch (NumberFormatException e) {
+          // fallback: write as-is as string if parse fails
+          gen.writeStringField("nonce", nonceStr);
+        }
+      }
+
+      var storageEntries =
+        accountDiff.getStorage()
+          .entrySet()
+          .stream()
+          .toList();
+
+      if(!storageEntries.isEmpty()) {
+        gen.writeObjectFieldStart("storage");
+        for (var se : storageEntries) {
+          DiffNode node = se.getValue();
+          gen.writeStringField(se.getKey(), node.getFrom().get());
+        }
+        gen.writeEndObject();
+      }
+      gen.writeEndObject();
+    }
+
+
+      private void writePreNode(
+      final JsonGenerator gen,
+      final String addr,
+      final AccountDiff accountDiff)
+      throws IOException {
+
+      if(!accountDiff.hasDifference()) {
+        return;
+      }
+
+      if(!shouldWritePreNode(accountDiff)) {
+        // No pre-state data to write, skip this node
+        return;
+      }
+
+      gen.writeObjectFieldStart(addr);
+
+      if(accountDiff.getBalance().getFrom().isPresent()) {
+        gen.writeStringField(
+          "balance",
+          accountDiff.getBalance().getFrom().get());
+      }
+
+      if(accountDiff.getCode().getFrom().isPresent()) {
+        String code = accountDiff.getCode().getFrom().get();
+        if (!"0x".equals(code)) {
+          gen.writeStringField("code", code);
+        }
+      }
+
+      if(accountDiff.getCodeHash().getFrom().isPresent()) {
+        String codeHash = accountDiff.getCodeHash().getFrom().get();
+        if (!Hash.EMPTY.toHexString().equals(codeHash)) {
+          gen.writeStringField("codeHash", codeHash);
         }
       }
 
@@ -181,6 +253,13 @@ public class StateDiffPrestateResult {
         String code = accountDiff.getCode().getTo().get();
         if (!"0x".equals(code)) {
           gen.writeStringField("code", accountDiff.getCode().getTo().get());
+        }
+      }
+
+      if ((accountDiff.getCodeHash().hasDifference())) {
+        String codeHash = accountDiff.getCodeHash().getTo().get();
+        if (!Hash.EMPTY.toHexString().equals(codeHash)) {
+          gen.writeStringField("codeHash", accountDiff.getCodeHash().getTo().get());
         }
       }
 

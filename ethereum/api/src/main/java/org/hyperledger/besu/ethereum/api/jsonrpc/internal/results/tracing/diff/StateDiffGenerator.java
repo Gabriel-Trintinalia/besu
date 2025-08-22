@@ -87,6 +87,7 @@ public class StateDiffGenerator {
           new AccountDiff(
               createDiffNode(rootAccount, updatedAccount, StateDiffGenerator::balanceAsHex),
               createDiffNode(rootAccount, updatedAccount, StateDiffGenerator::codeAsHex),
+              createDiffNode(rootAccount, updatedAccount, StateDiffGenerator::codeHashAsHex),
               createDiffNode(rootAccount, updatedAccount, StateDiffGenerator::nonceAsHex),
               storageDiff);
 
@@ -105,6 +106,7 @@ public class StateDiffGenerator {
           new AccountDiff(
               createDiffNode(deletedAccount, null, StateDiffGenerator::balanceAsHex),
               createDiffNode(deletedAccount, null, StateDiffGenerator::codeAsHex),
+              createDiffNode(deletedAccount, null, StateDiffGenerator::codeHashAsHex),
               createDiffNode(deletedAccount, null, StateDiffGenerator::nonceAsHex),
               Collections.emptyMap());
       stateDiffResult.put(accountAddress.toHexString(), accountDiff);
@@ -113,6 +115,107 @@ public class StateDiffGenerator {
     return Stream.of(stateDiffResult);
   }
 
+  public Stream<StateDiffTrace> generatePreState(final TransactionTrace transactionTrace) {
+    final List<TraceFrame> traceFrames = transactionTrace.getTraceFrames();
+    if (traceFrames.isEmpty()) {
+      return Stream.empty();
+    }
+
+    // This corresponds to the world state after the TX executed
+    // It is two deep because of the way we addressed Spurious Dragon.
+    final WorldUpdater transactionUpdater =
+      traceFrames.getFirst().getWorldUpdater().parentUpdater().get().parentUpdater().get();
+    // This corresponds to the world state prior to the TX execution,
+    // Either the initial block state or the state of the prior TX
+    final WorldUpdater previousUpdater = transactionUpdater.parentUpdater().get();
+
+    final StateDiffTrace stateDiffResult = new StateDiffTrace();
+
+    for (final Account updatedAccount : transactionUpdater.getTouchedAccounts()) {
+      final Address accountAddress = updatedAccount.getAddress();
+      final Account rootAccount = previousUpdater.get(accountAddress);
+
+      // calculate storage diff
+      final Map<String, DiffNode> storageDiff = new TreeMap<>();
+      for (final Map.Entry<UInt256, UInt256> entry :
+        ((MutableAccount) updatedAccount).getUpdatedStorage().entrySet()) {
+        final UInt256 newValue = entry.getValue();
+        if (rootAccount == null) {
+            storageDiff.put(
+              entry.getKey().toHexString(), new DiffNode(null, newValue.toHexString()));
+        } else {
+          final UInt256 originalValue = rootAccount.getStorageValue(entry.getKey());
+            storageDiff.put(
+              entry.getKey().toHexString(),
+              new DiffNode(originalValue.toHexString(), newValue.toHexString()));
+        }
+      }
+
+      // populate the diff object
+      final AccountDiff accountDiff =
+        new AccountDiff(
+          createDiffNode(rootAccount, updatedAccount, StateDiffGenerator::balanceAsHex),
+          createDiffNode(rootAccount, updatedAccount, StateDiffGenerator::codeAsHex),
+          createDiffNode(rootAccount, updatedAccount, StateDiffGenerator::codeHashAsHex),
+          createDiffNode(rootAccount, updatedAccount, StateDiffGenerator::nonceAsHex),
+          storageDiff);
+
+      stateDiffResult.put(accountAddress.toHexString(), accountDiff);
+    }
+
+    // Add deleted accounts
+    for (final Address accountAddress : transactionUpdater.getDeletedAccountAddresses()) {
+      final Account deletedAccount = previousUpdater.get(accountAddress);
+      if (deletedAccount == null) {
+        continue;
+      }
+      final AccountDiff accountDiff =
+        new AccountDiff(
+          createDiffNode(deletedAccount, null, StateDiffGenerator::balanceAsHex),
+          createDiffNode(deletedAccount, null, StateDiffGenerator::codeAsHex),
+          createDiffNode(deletedAccount, null, StateDiffGenerator::codeHashAsHex),
+          createDiffNode(deletedAccount, null, StateDiffGenerator::nonceAsHex),
+          Collections.emptyMap());
+      stateDiffResult.put(accountAddress.toHexString(), accountDiff);
+    }
+
+    // add from and to accounts
+    final Address fromAccount = transactionTrace.getTransaction().getSender();
+    // Create a diff node for the from account and to account if they are not yet included
+    if (!stateDiffResult.containsKey(fromAccount.toHexString())) {
+      final Account fromAccountState = previousUpdater.get(fromAccount);
+      final Account toAccountState =  transactionUpdater.get(fromAccount);
+      stateDiffResult.put(
+          fromAccount.toHexString(),
+          new AccountDiff(
+              createDiffNode(fromAccountState, toAccountState, StateDiffGenerator::balanceAsHex),
+              createDiffNode(fromAccountState, toAccountState, StateDiffGenerator::codeAsHex),
+              createDiffNode(fromAccountState, toAccountState, StateDiffGenerator::codeHashAsHex),
+              createDiffNode(fromAccountState, toAccountState, StateDiffGenerator::nonceAsHex),
+              Collections.emptyMap()));
+    }
+
+    if (transactionTrace.getTransaction().getTo().isPresent()) {
+      final Address toAccount = transactionTrace.getTransaction().getTo().get();
+      // Create a diff node for the to account if it is not yet included
+      if (!stateDiffResult.containsKey(toAccount.toHexString())) {
+        final Account fromAccountState = previousUpdater.get(toAccount);
+        final Account toAccountState = transactionUpdater.get(toAccount);
+        stateDiffResult.put(
+            toAccount.toHexString(),
+            new AccountDiff(
+                createDiffNode(fromAccountState, toAccountState, StateDiffGenerator::balanceAsHex),
+                createDiffNode(fromAccountState, toAccountState, StateDiffGenerator::codeAsHex),
+                createDiffNode(fromAccountState, toAccountState, StateDiffGenerator::codeHashAsHex),
+                createDiffNode(fromAccountState, toAccountState, StateDiffGenerator::nonceAsHex),
+                Collections.emptyMap()));
+      }
+    }
+
+    return Stream.of(stateDiffResult);
+  }
+
+
   private DiffNode createDiffNode(
       final Account from, final Account to, final Function<Account, String> func) {
     return new DiffNode(Optional.ofNullable(from).map(func), Optional.ofNullable(to).map(func));
@@ -120,6 +223,10 @@ public class StateDiffGenerator {
 
   private static String balanceAsHex(final Account account) {
     return TracingUtils.weiAsHex(account.getBalance());
+  }
+
+  private static String codeHashAsHex(final Account account) {
+    return account.getCodeHash().toHexString();
   }
 
   private static String codeAsHex(final Account account) {

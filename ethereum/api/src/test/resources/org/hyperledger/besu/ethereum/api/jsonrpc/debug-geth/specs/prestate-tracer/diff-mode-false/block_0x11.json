@@ -5,7 +5,10 @@
     "params": [
       "0x11",
       {
-        "tracer": "prestateTracer"
+        "tracer": "prestateTracer",
+        "tracerConfig": {
+          "diffMode": false
+        }
       }
     ],
     "id": 1
@@ -22,7 +25,8 @@
           },
           "0x00f0000000000000000000000000000000000000": {
             "balance": "0x0",
-            "code": "0x6001600260039190"
+            "code": "0x6001600260039190",
+            "codeHash": "0xf3e1e1151513eb928f8d47dfd1e858c414f91d8982e3a343eaad72afc4cb63db"
           },
           "0xfe3b557e8fb62b89f4916b721be55ceb828dbd73": {
             "balance": "0xffffffffffffffffffffffffffffffffd2cb27bd8",

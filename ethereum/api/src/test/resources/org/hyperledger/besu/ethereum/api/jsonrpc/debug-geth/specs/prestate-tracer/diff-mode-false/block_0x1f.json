@@ -5,7 +5,10 @@
     "params": [
       "0x1f",
       {
-        "tracer": "prestateTracer"
+        "tracer": "prestateTracer",
+        "tracerConfig": {
+          "diffMode": false
+        }
       }
     ],
     "id": 1

@@ -27,6 +27,9 @@
             "0x0000000000000999000000000000000000000000": {
               "balance": "0x300"
             },
+            "0x0020000000000000000000000000000000000000": {
+              "balance": "0x0"
+            },
             "0xfe3b557e8fb62b89f4916b721be55ceb828dbd73": {
               "balance": "0xffffffffffffffffffffffffffffffffffdf4d83d",
               "nonce": 3
@@ -38,7 +41,8 @@
             },
             "0x0020000000000000000000000000000000000000": {
               "balance": "0x300",
-              "code": "0x600035ff"
+              "code": "0x600035ff",
+              "codeHash": "0x6683da45ab3091784059d05578df094f721c512a6f4cc870bc73beaf9ef51ed4"
             },
             "0xfe3b557e8fb62b89f4916b721be55ceb828dbd73": {
               "balance": "0xffffffffffffffffffffffffffffffffffeb8b78f",

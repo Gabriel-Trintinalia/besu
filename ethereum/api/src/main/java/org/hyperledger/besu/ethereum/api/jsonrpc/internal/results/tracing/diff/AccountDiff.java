@@ -21,15 +21,18 @@ public final class AccountDiff {
   private final DiffNode balance;
   private final DiffNode code;
   private final DiffNode nonce;
+  private final DiffNode codeHash;
   private final Map<String, DiffNode> storage;
 
   AccountDiff(
       final DiffNode balance,
       final DiffNode code,
+      final DiffNode codeHash,
       final DiffNode nonce,
       final Map<String, DiffNode> storage) {
     this.balance = balance;
     this.code = code;
+    this.codeHash = codeHash;
     this.nonce = nonce;
     this.storage = storage;
   }
@@ -42,7 +45,15 @@ public final class AccountDiff {
     return code;
   }
 
+  public DiffNode getCodeHash() {
+      return codeHash;
+  }
+
   public DiffNode getNonce() {
+    return nonce;
+  }
+
+  public DiffNode get() {
     return nonce;
   }
 
@@ -53,6 +64,7 @@ public final class AccountDiff {
   boolean hasDifference() {
     return balance.hasDifference()
         || code.hasDifference()
+        || codeHash.hasDifference()
         || nonce.hasDifference()
         || !storage.isEmpty();
   }

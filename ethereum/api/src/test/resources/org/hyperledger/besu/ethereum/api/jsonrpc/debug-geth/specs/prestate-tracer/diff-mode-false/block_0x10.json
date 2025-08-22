@@ -5,7 +5,10 @@
     "params": [
       "0x10",
       {
-        "tracer": "prestateTracer"
+        "tracer": "prestateTracer",
+        "tracerConfig": {
+          "diffMode": false
+        }
       }
     ],
     "id": 1
@@ -22,7 +25,8 @@
           },
           "0x00c0000000000000000000000000000000000000": {
             "balance": "0x0",
-            "code": "0x60011f"
+            "code": "0x60011f",
+            "codeHash": "0xc38e235964f5ed1581c599e5aa4c82771e13d499e28732c6c9569629e78b09f8"
           },
           "0xfe3b557e8fb62b89f4916b721be55ceb828dbd73": {
             "balance": "0xffffffffffffffffffffffffffffffffff9b254a2",
@@ -38,7 +42,8 @@
           },
           "0x00d0000000000000000000000000000000000000": {
             "balance": "0x0",
-            "code": "0x600120"
+            "code": "0x600120",
+            "codeHash": "0xd587a9016e83b41a2723bb150ebf7ba126adfd7390052aba2116afafee18087e"
           },
           "0xfe3b557e8fb62b89f4916b721be55ceb828dbd73": {
             "balance": "0xfffffffffffffffffffffffffffffffff0ab261b4",
@@ -54,7 +59,8 @@
           },
           "0x00e0000000000000000000000000000000000000": {
             "balance": "0x0",
-            "code": "0x60ff5660016002"
+            "code": "0x60ff5660016002",
+            "codeHash": "0x62446b14bf8fc3c0f4e3d22827cb446ddaf6e4457ef95a3231291f60eb15e576"
           },
           "0xfe3b557e8fb62b89f4916b721be55ceb828dbd73": {
             "balance": "0xffffffffffffffffffffffffffffffffe1bb26ec6",

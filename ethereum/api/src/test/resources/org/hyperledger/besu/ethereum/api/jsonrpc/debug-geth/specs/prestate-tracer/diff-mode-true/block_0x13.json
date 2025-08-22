@@ -30,6 +30,7 @@
             },
             "0x8f0483125fcb9aaaefa9209d8e9d7b9c8b9fb90f": {
               "code": "0x600035ff",
+              "codeHash": "0x6683da45ab3091784059d05578df094f721c512a6f4cc870bc73beaf9ef51ed4",
               "nonce": 1
             }
           },
@@ -66,11 +67,6 @@
             "0x627306090abab3a6e1400e9345bc60c78a8bef57": {
               "balance": "0xefffffffffffffffffd647565",
               "nonce": 5
-            },
-            "0x8f0483125fcb9aaaefa9209d8e9d7b9c8b9fb90f": {
-              "balance": "0x0",
-              "code": "0x600035ff",
-              "nonce": 1
             }
           }
         }
@@ -84,6 +80,7 @@
             },
             "0x2c2b9c9a4a25e24b174f26114e8926a9f2128fe4": {
               "code": "0x600035ff",
+              "codeHash": "0x6683da45ab3091784059d05578df094f721c512a6f4cc870bc73beaf9ef51ed4",
               "nonce": 1
             },
             "0x627306090abab3a6e1400e9345bc60c78a8bef57": {
@@ -138,6 +135,7 @@
             },
             "0xfb88de099e13c3ed21f80a7a1e49f8caecf10df6": {
               "code": "0x600035ff",
+              "codeHash": "0x6683da45ab3091784059d05578df094f721c512a6f4cc870bc73beaf9ef51ed4",
               "nonce": 1
             }
           },
