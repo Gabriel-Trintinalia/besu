@@ -20,6 +20,7 @@ import org.hyperledger.besu.ethereum.api.jsonrpc.AbstractJsonRpcHttpBySpecTest;
 import org.hyperledger.besu.ethereum.api.jsonrpc.internal.methods.DebugTraceTransactionStepFactory;
 import org.hyperledger.besu.ethereum.core.BlockchainSetupUtil;
 import org.hyperledger.besu.plugin.services.storage.DataStorageFormat;
+
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 
@@ -37,18 +38,21 @@ public class DebugGethTraceJsonRpcHttpBySpecTest extends AbstractJsonRpcHttpBySp
   @Override
   protected BlockchainSetupUtil getBlockchainSetupUtil(final DataStorageFormat storageFormat) {
     return createBlockchainSetupUtil(
-      "debug-geth/chain-data/genesis.json", "debug-geth/chain-data/blocks.bin", storageFormat);
+        "debug-geth/chain-data/genesis.json", "debug-geth/chain-data/blocks.bin", storageFormat);
   }
 
   public static Object[][] specs() {
     return AbstractJsonRpcHttpBySpecTest.findSpecFiles(
-      new String[] {"debug-geth/specs/prestate-tracer/diff-mode-true", "debug-geth/specs/prestate-tracer/diff-mode-false"});
+        new String[] {
+          "debug-geth/specs/prestate-tracer/diff-mode-true",
+          "debug-geth/specs/prestate-tracer/diff-mode-false"
+        });
   }
 
   @Test
   void dryRunDetector() {
     assertThat(true)
-      .withFailMessage("This test is here so gradle --dry-run executes this class")
-      .isTrue();
+        .withFailMessage("This test is here so gradle --dry-run executes this class")
+        .isTrue();
   }
 }

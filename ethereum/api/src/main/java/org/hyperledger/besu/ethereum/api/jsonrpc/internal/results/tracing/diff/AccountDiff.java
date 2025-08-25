@@ -46,7 +46,7 @@ public final class AccountDiff {
   }
 
   public DiffNode getCodeHash() {
-      return codeHash;
+    return codeHash;
   }
 
   public DiffNode getNonce() {

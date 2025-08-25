@@ -146,7 +146,8 @@ class DebugTraceTransactionStepFactoryTest {
   void shouldCreateAsyncFunctionForOpcodeTracer() throws Exception {
     // Given
     Function<TransactionTrace, CompletableFuture<DebugTraceTransactionResult>> asyncFunction =
-        DebugTraceTransactionStepFactory.createAsync(new TraceOptions(TracerType.OPCODE_TRACER, null, null));
+        DebugTraceTransactionStepFactory.createAsync(
+            new TraceOptions(TracerType.OPCODE_TRACER, null, null));
 
     // When
     CompletableFuture<DebugTraceTransactionResult> future =

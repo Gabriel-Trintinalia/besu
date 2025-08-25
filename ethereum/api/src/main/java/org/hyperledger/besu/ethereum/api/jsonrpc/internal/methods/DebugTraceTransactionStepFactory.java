@@ -21,7 +21,6 @@ import org.hyperledger.besu.ethereum.api.jsonrpc.internal.results.OpCodeLoggerTr
 import org.hyperledger.besu.ethereum.api.jsonrpc.internal.results.tracing.diff.StateDiffGenerator;
 import org.hyperledger.besu.ethereum.api.jsonrpc.internal.results.tracing.diff.StateDiffPrestateResult;
 import org.hyperledger.besu.ethereum.api.jsonrpc.internal.results.tracing.diff.StateDiffTrace;
-import org.hyperledger.besu.ethereum.api.jsonrpc.internal.results.tracing.flat.FlatTraceGenerator;
 import org.hyperledger.besu.ethereum.debug.TraceOptions;
 import org.hyperledger.besu.ethereum.debug.TracerType;
 
@@ -78,18 +77,17 @@ public class DebugTraceTransactionStepFactory {
             return new DebugTraceTransactionResult(transactionTrace, result);
           };
       case PRESTATE_TRACER ->
-        transactionTrace -> {
-          List<StateDiffTrace> traces;
-          if(traceOptions.tracerConfig().getOrDefault("diffMode", false) == Boolean.FALSE) {
-            traces = new StateDiffGenerator(true).generateStateDiff(transactionTrace).toList();
-          }
-          else {
-            traces = new StateDiffGenerator(false).generatePreState(transactionTrace).toList();
-          }
-          StateDiffTrace trace = traces.isEmpty() ? new StateDiffTrace() : traces.getLast();
-          return new DebugTraceTransactionResult(
-            transactionTrace, new StateDiffPrestateResult(trace, traceOptions));
-        };
+          transactionTrace -> {
+            List<StateDiffTrace> traces;
+            if (traceOptions.tracerConfig().getOrDefault("diffMode", false) == Boolean.TRUE) {
+              traces = new StateDiffGenerator(true).generateStateDiff(transactionTrace).toList();
+            } else {
+              traces = new StateDiffGenerator(false).generatePreState(transactionTrace).toList();
+            }
+            StateDiffTrace trace = traces.isEmpty() ? new StateDiffTrace() : traces.getLast();
+            return new DebugTraceTransactionResult(
+                transactionTrace, new StateDiffPrestateResult(trace, traceOptions));
+          };
     };
   }
 
