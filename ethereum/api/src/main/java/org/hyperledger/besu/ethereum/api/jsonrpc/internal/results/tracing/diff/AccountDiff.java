@@ -53,10 +53,6 @@ public final class AccountDiff {
     return nonce;
   }
 
-  public DiffNode get() {
-    return nonce;
-  }
-
   public Map<String, DiffNode> getStorage() {
     return storage;
   }

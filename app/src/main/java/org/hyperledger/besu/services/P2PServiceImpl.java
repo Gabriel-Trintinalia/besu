@@ -15,10 +15,7 @@
 package org.hyperledger.besu.services;
 
 import org.hyperledger.besu.ethereum.p2p.network.P2PNetwork;
-import org.hyperledger.besu.ethereum.p2p.peers.DefaultPeer;
 import org.hyperledger.besu.ethereum.p2p.rlpx.wire.Capability;
-import org.hyperledger.besu.ethereum.p2p.rlpx.wire.messages.DisconnectMessage;
-import org.hyperledger.besu.plugin.data.EnodeURL;
 import org.hyperledger.besu.plugin.data.p2p.Peer;
 import org.hyperledger.besu.plugin.data.p2p.PeerConnection;
 import org.hyperledger.besu.plugin.services.p2p.P2PService;
@@ -122,33 +119,5 @@ public class P2PServiceImpl implements P2PService {
       final MessageListener networkSubscriber) {
     final Capability wireCap = Capability.create(capability.getName(), capability.getVersion());
     p2PNetwork.subscribe(wireCap, networkSubscriber::onMessage);
-  }
-
-  /**
-   * Connects to a peer using its Enode URL.
-   *
-   * @param enode the Enode URL of the peer to connect to
-   */
-  public void connectPeer(final EnodeURL enode) {
-    if (p2PNetwork.getPeers().stream()
-        .anyMatch(p -> p.getPeer().getId().equals(DefaultPeer.fromEnodeURL(enode).getId()))) {
-      // Already connected
-      return;
-    }
-    p2PNetwork.connect(DefaultPeer.fromEnodeURL(enode));
-  }
-
-  /**
-   * Disconnects from a specified peer.
-   *
-   * @param peer the peer to disconnect from
-   */
-  public void disconnectPeer(final Peer peer) {
-    p2PNetwork.getPeers().stream()
-        .filter(p -> p.getPeer().getId().equals(peer.getId()))
-        .findFirst()
-        .ifPresent(
-            peerConnection ->
-                peerConnection.disconnect(DisconnectMessage.DisconnectReason.UNKNOWN));
   }
 }
