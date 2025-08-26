@@ -15,7 +15,6 @@
 package org.hyperledger.besu.ethereum.api.jsonrpc.internal.results.tracing.diff;
 
 import org.hyperledger.besu.datatypes.Hash;
-import org.hyperledger.besu.ethereum.debug.TraceOptions;
 
 import java.io.IOException;
 import java.util.Map;
@@ -27,17 +26,14 @@ import com.fasterxml.jackson.databind.SerializerProvider;
 import com.fasterxml.jackson.databind.annotation.JsonSerialize;
 import com.fasterxml.jackson.databind.ser.std.StdSerializer;
 
-@JsonSerialize(using = StateDiffPrestateResult.Serializer.class)
-public class StateDiffPrestateResult {
+@JsonSerialize(using = StateTraceResult.Serializer.class)
+public class StateTraceResult {
   final StateDiffTrace stateDiffTrace;
   final boolean diffMode;
 
-  public StateDiffPrestateResult(
-      final StateDiffTrace stateDiffTrace, final TraceOptions traceOptions) {
+  public StateTraceResult(final StateDiffTrace stateDiffTrace, final boolean diffMode) {
     this.stateDiffTrace = stateDiffTrace;
-    diffMode =
-        Boolean.parseBoolean(
-            traceOptions.tracerConfig().getOrDefault("diffMode", "false").toString());
+    this.diffMode = diffMode;
   }
 
   /**
@@ -45,10 +41,10 @@ public class StateDiffPrestateResult {
    * ... all "from" values of DiffNodes ... }, "post": { ... all "to" values of DiffNodes that have
    * changed ... } }
    */
-  public static class Serializer extends StdSerializer<StateDiffPrestateResult> {
+  public static class Serializer extends StdSerializer<StateTraceResult> {
 
     public Serializer() {
-      super(StateDiffPrestateResult.class);
+      super(StateTraceResult.class);
     }
 
     /**
@@ -60,9 +56,7 @@ public class StateDiffPrestateResult {
      */
     @Override
     public void serialize(
-        final StateDiffPrestateResult result,
-        final JsonGenerator gen,
-        final SerializerProvider provider)
+        final StateTraceResult result, final JsonGenerator gen, final SerializerProvider provider)
         throws IOException {
       StateDiffTrace trace = result.stateDiffTrace;
 

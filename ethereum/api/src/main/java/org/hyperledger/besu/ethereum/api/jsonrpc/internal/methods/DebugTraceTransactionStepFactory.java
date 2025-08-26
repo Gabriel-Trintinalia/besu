@@ -18,13 +18,12 @@ import org.hyperledger.besu.ethereum.api.jsonrpc.internal.processor.TransactionT
 import org.hyperledger.besu.ethereum.api.jsonrpc.internal.results.CallTracerResultConverter;
 import org.hyperledger.besu.ethereum.api.jsonrpc.internal.results.DebugTraceTransactionResult;
 import org.hyperledger.besu.ethereum.api.jsonrpc.internal.results.OpCodeLoggerTracerResult;
-import org.hyperledger.besu.ethereum.api.jsonrpc.internal.results.tracing.diff.StateDiffGenerator;
-import org.hyperledger.besu.ethereum.api.jsonrpc.internal.results.tracing.diff.StateDiffPrestateResult;
 import org.hyperledger.besu.ethereum.api.jsonrpc.internal.results.tracing.diff.StateDiffTrace;
+import org.hyperledger.besu.ethereum.api.jsonrpc.internal.results.tracing.diff.StateTraceGenerator;
+import org.hyperledger.besu.ethereum.api.jsonrpc.internal.results.tracing.diff.StateTraceResult;
 import org.hyperledger.besu.ethereum.debug.TraceOptions;
 import org.hyperledger.besu.ethereum.debug.TracerType;
 
-import java.util.List;
 import java.util.concurrent.CompletableFuture;
 import java.util.function.Function;
 
@@ -78,15 +77,17 @@ public class DebugTraceTransactionStepFactory {
           };
       case PRESTATE_TRACER ->
           transactionTrace -> {
-            List<StateDiffTrace> traces;
-            if (traceOptions.tracerConfig().getOrDefault("diffMode", false) == Boolean.TRUE) {
-              traces = new StateDiffGenerator(true).generateStateDiff(transactionTrace).toList();
-            } else {
-              traces = new StateDiffGenerator(false).generatePreState(transactionTrace).toList();
-            }
-            StateDiffTrace trace = traces.isEmpty() ? new StateDiffTrace() : traces.getLast();
+            final var generator = new StateTraceGenerator();
+            final boolean diffMode =
+                Boolean.TRUE.equals(traceOptions.tracerConfig().getOrDefault("diffMode", false));
+            final StateDiffTrace trace =
+                (diffMode
+                        ? generator.generateStateDiff(transactionTrace)
+                        : generator.generatePreState(transactionTrace))
+                    .findFirst()
+                    .orElseGet(StateDiffTrace::new);
             return new DebugTraceTransactionResult(
-                transactionTrace, new StateDiffPrestateResult(trace, traceOptions));
+                transactionTrace, new StateTraceResult(trace, diffMode));
           };
     };
   }
