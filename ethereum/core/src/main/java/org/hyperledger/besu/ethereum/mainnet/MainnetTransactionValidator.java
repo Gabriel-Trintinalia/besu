@@ -348,14 +348,6 @@ public class MainnetTransactionValidator implements TransactionValidator {
 
   private ValidationResult<TransactionInvalidReason> validateTransactionSignature(
       final Transaction transaction) {
-    if (chainId.isPresent()
-        && (transaction.getChainId().isPresent() && !transaction.getChainId().equals(chainId))) {
-      return ValidationResult.invalid(
-          TransactionInvalidReason.WRONG_CHAIN_ID,
-          String.format(
-              "transaction was meant for chain id %s and not this chain id %s",
-              transaction.getChainId().get(), chainId.get()));
-    }
 
     if (chainId.isEmpty() && transaction.getChainId().isPresent()) {
       return ValidationResult.invalid(

@@ -18,7 +18,10 @@ import static java.nio.charset.StandardCharsets.UTF_8;
 import static org.hyperledger.besu.evmtool.BlockchainTestSubCommand.COMMAND_NAME;
 
 import org.hyperledger.besu.crypto.SignatureAlgorithmFactory;
+import org.hyperledger.besu.datatypes.Address;
+import org.hyperledger.besu.datatypes.Transaction;
 import org.hyperledger.besu.ethereum.ProtocolContext;
+import org.hyperledger.besu.ethereum.api.query.BlockchainQueries;
 import org.hyperledger.besu.ethereum.chain.MutableBlockchain;
 import org.hyperledger.besu.ethereum.core.Block;
 import org.hyperledger.besu.ethereum.core.BlockHeader;
@@ -36,6 +39,11 @@ import org.hyperledger.besu.evm.EVM;
 import org.hyperledger.besu.evm.EvmSpecVersion;
 import org.hyperledger.besu.evm.account.AccountState;
 import org.hyperledger.besu.evm.internal.EvmConfiguration.WorldUpdaterMode;
+import org.hyperledger.besu.evm.log.Log;
+import org.hyperledger.besu.evm.worldstate.WorldUpdater;
+import org.hyperledger.besu.evm.worldstate.WorldView;
+import org.hyperledger.besu.plugin.services.tracer.BlockAwareOperationTracer;
+import org.hyperledger.besu.services.TraceServiceImpl;
 
 import java.io.BufferedReader;
 import java.io.File;
@@ -45,10 +53,12 @@ import java.nio.file.Path;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.Map;
+import java.util.Set;
 
 import com.fasterxml.jackson.core.JsonProcessingException;
 import com.fasterxml.jackson.databind.JavaType;
 import com.fasterxml.jackson.databind.ObjectMapper;
+import org.apache.tuweni.bytes.Bytes;
 import org.apache.tuweni.bytes.Bytes32;
 import picocli.CommandLine.Command;
 import picocli.CommandLine.Option;
@@ -194,12 +204,37 @@ public class BlockchainTestSubCommand implements Runnable {
 
         verifyJournaledEVMAccountCompatability(worldState, protocolSpec);
 
-        final HeaderValidationMode validationMode =
-            "NoProof".equalsIgnoreCase(spec.getSealEngine())
-                ? HeaderValidationMode.LIGHT
-                : HeaderValidationMode.FULL;
+        final HeaderValidationMode validationMode = HeaderValidationMode.NONE;
         final BlockImportResult importResult =
             blockImporter.importBlock(context, block, validationMode, validationMode);
+
+        TraceServiceImpl traceService =
+            new TraceServiceImpl(
+                new BlockchainQueries(
+                    schedule, context.getBlockchain(), context.getWorldStateArchive(), null),
+                schedule);
+
+        traceService.trace(
+            block.getHeader().getNumber(),
+            block.getHeader().getNumber(),
+            updater -> {},
+            WorldUpdater::commit,
+            new BlockAwareOperationTracer() {
+              @Override
+              public void traceEndTransaction(
+                  final WorldView worldView,
+                  final Transaction tx,
+                  final boolean status,
+                  final Bytes output,
+                  final List<Log> logs,
+                  final long gasUsed,
+                  final Set<Address> selfDestructs,
+                  final long timeNs) {
+                parentCommand.out.printf(
+                    "  Tx %s, status %s, gasUsed %d, output %s%n",
+                    tx.getHash(), status ? "success" : "failure", gasUsed, output);
+              }
+            });
 
         if (importResult.isImported() != candidateBlock.isValid()) {
           parentCommand.out.printf(

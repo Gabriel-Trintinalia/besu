@@ -66,6 +66,10 @@ public class EvmToolSpecTests {
     return findSpecFiles(new String[] {"pretty-print"});
   }
 
+  public static Object[][] lineaTests() {
+    return findSpecFiles(new String[] {"linea"});
+  }
+
   public static Object[][] stateTestTests() {
     return findSpecFiles(new String[] {"state-test"});
   }
@@ -120,12 +124,7 @@ public class EvmToolSpecTests {
 
   @ParameterizedTest(name = "{0}")
   @MethodSource({
-    "b11rTests",
-    "codeValidateTests",
-    "prettyPrintTests",
-    "stateTestTests",
-    "t8nTests",
-    "traceTests"
+    "lineaTests",
   })
   void testBySpec(
       final String file,
