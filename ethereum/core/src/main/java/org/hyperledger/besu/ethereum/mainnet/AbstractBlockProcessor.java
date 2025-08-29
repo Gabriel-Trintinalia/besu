@@ -121,7 +121,7 @@ public abstract class AbstractBlockProcessor implements BlockProcessor {
   }
 
   /**
-   * Processes the block with no privateMetadata and no preprocessor.
+   * Processes the block with no preprocessor.
    *
    * @param protocolContext the current context of the protocol
    * @param blockchain the blockchain to append the block to
@@ -138,6 +138,26 @@ public abstract class AbstractBlockProcessor implements BlockProcessor {
     return processBlock(protocolContext, blockchain, worldState, block, new NoPreprocessing());
   }
 
+  /**
+   * Processes the block with tracer and no preprocessor.
+   *
+   * @param protocolContext the current context of the protocol
+   * @param blockchain the blockchain to append the block to
+   * @param worldState the world state to apply changes to
+   * @param block the block to process
+   * @param tracer an instance of OperationTracer
+   * @return the block processing result
+   */
+  @Override
+  public BlockProcessingResult processBlock(
+      final ProtocolContext protocolContext,
+      final Blockchain blockchain,
+      final MutableWorldState worldState,
+      final Block block,
+      final BlockAwareOperationTracer tracer) {
+    return processBlock(protocolContext, blockchain, worldState, block, new NoPreprocessing());
+  }
+
   @Override
   public BlockProcessingResult processBlock(
       final ProtocolContext protocolContext,
@@ -145,6 +165,30 @@ public abstract class AbstractBlockProcessor implements BlockProcessor {
       final MutableWorldState worldState,
       final Block block,
       final PreprocessingFunction preprocessingBlockFunction) {
+    final BlockAwareOperationTracer blockTracer =
+        getBlockImportTracer(protocolContext, block.getHeader());
+    return processBlock(
+        protocolContext, blockchain, worldState, block, preprocessingBlockFunction, blockTracer);
+  }
+
+  /**
+   * Processes the block.
+   *
+   * @param protocolContext the current context of the protocol
+   * @param blockchain the blockchain to append the block to
+   * @param worldState the world state to apply changes to
+   * @param block the block to process
+   * @param preprocessingBlockFunction function to be applied to the block before processing
+   * @param blockTracer an instance of OperationTracer
+   * @return the block processing result
+   */
+  private BlockProcessingResult processBlock(
+      final ProtocolContext protocolContext,
+      final Blockchain blockchain,
+      final MutableWorldState worldState,
+      final Block block,
+      final PreprocessingFunction preprocessingBlockFunction,
+      final BlockAwareOperationTracer blockTracer) {
     final List<TransactionReceipt> receipts = new ArrayList<>();
     long currentGasUsed = 0;
     long currentBlobGasUsed = 0;
@@ -158,9 +202,6 @@ public abstract class AbstractBlockProcessor implements BlockProcessor {
     final ProtocolSpec protocolSpec = protocolSchedule.getByBlockHeader(blockHeader);
     final BlockHashLookup blockHashLookup =
         protocolSpec.getPreExecutionProcessor().createBlockHashLookup(blockchain, blockHeader);
-
-    final BlockAwareOperationTracer blockTracer =
-        getBlockImportTracer(protocolContext, blockHeader);
 
     final Address miningBeneficiary = miningBeneficiaryCalculator.calculateBeneficiary(blockHeader);
 

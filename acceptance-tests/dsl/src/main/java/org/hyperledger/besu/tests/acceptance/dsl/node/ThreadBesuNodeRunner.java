@@ -64,6 +64,7 @@ import org.hyperledger.besu.metrics.prometheus.MetricsConfiguration;
 import org.hyperledger.besu.plugin.data.EnodeURL;
 import org.hyperledger.besu.plugin.services.BesuConfiguration;
 import org.hyperledger.besu.plugin.services.BesuEvents;
+import org.hyperledger.besu.plugin.services.BlockReplayService;
 import org.hyperledger.besu.plugin.services.BlockchainService;
 import org.hyperledger.besu.plugin.services.MetricsSystem;
 import org.hyperledger.besu.plugin.services.PermissioningService;
@@ -85,6 +86,7 @@ import org.hyperledger.besu.plugin.services.transactionpool.TransactionPoolServi
 import org.hyperledger.besu.services.BesuConfigurationImpl;
 import org.hyperledger.besu.services.BesuEventsImpl;
 import org.hyperledger.besu.services.BesuPluginContextImpl;
+import org.hyperledger.besu.services.BlockReplayServiceImpl;
 import org.hyperledger.besu.services.BlockchainServiceImpl;
 import org.hyperledger.besu.services.MiningServiceImpl;
 import org.hyperledger.besu.services.PermissioningServiceImpl;
@@ -255,15 +257,21 @@ public class ThreadBesuNodeRunner implements BesuNodeRunner {
 
   private void loadAdditionalServices(
       final BesuController besuController, final BesuPluginContextImpl besuPluginContext) {
+    BlockchainQueries blockchainQueries =
+        new BlockchainQueries(
+            besuController.getProtocolSchedule(),
+            besuController.getProtocolContext().getBlockchain(),
+            besuController.getProtocolContext().getWorldStateArchive(),
+            besuController.getMiningParameters());
     final TraceServiceImpl traceService =
-        new TraceServiceImpl(
-            new BlockchainQueries(
-                besuController.getProtocolSchedule(),
-                besuController.getProtocolContext().getBlockchain(),
-                besuController.getProtocolContext().getWorldStateArchive(),
-                besuController.getMiningParameters()),
-            besuController.getProtocolSchedule());
+        new TraceServiceImpl(blockchainQueries, besuController.getProtocolSchedule());
     besuPluginContext.addService(TraceService.class, traceService);
+    final BlockReplayService blockReplayService =
+        new BlockReplayServiceImpl(
+            blockchainQueries,
+            besuController.getProtocolSchedule(),
+            besuController.getProtocolContext());
+    besuPluginContext.addService(BlockReplayService.class, blockReplayService);
     besuPluginContext.addService(
         BesuEvents.class,
         new BesuEventsImpl(
