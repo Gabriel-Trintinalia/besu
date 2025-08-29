@@ -117,17 +117,21 @@ public class BlockReplayServiceImpl implements BlockReplayService {
                         .orElseThrow(() -> new RuntimeException("Block not found " + number)))
             .toList();
 
-    // Process each block in the range
+    if (blocks.isEmpty()) {
+      LOG.info("No blocks to trace in range {}–{}", fromBlockNumber, toBlockNumber);
+      return;
+    }
+
+    final Block firstBlock = blocks.getFirst();
+    MutableWorldState worldState = getWorldState(firstBlock.getHeader());
+    beforeTracing.accept(worldState.updater());
     for (final Block block : blocks) {
-      LOG.trace("Tracing block {}", block.getHash());
-      MutableWorldState worldState = getWorldState(block.getHeader());
-      beforeTracing.accept(worldState.updater());
       protocolSchedule
           .getByBlockHeader(block.getHeader())
           .getBlockProcessor()
           .processBlock(protocolContext, blockchain, worldState, block, tracer);
-      afterTracing.accept(worldState.updater());
     }
+    afterTracing.accept(worldState.updater());
   }
 
   /**
