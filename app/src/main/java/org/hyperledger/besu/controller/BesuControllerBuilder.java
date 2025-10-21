@@ -16,6 +16,7 @@ package org.hyperledger.besu.controller;
 
 import static com.google.common.base.Preconditions.checkNotNull;
 
+import org.hyperledger.besu.chainimport.BlockHeadersCachePreload;
 import org.hyperledger.besu.components.BesuComponent;
 import org.hyperledger.besu.config.CheckpointConfigOptions;
 import org.hyperledger.besu.config.GenesisConfig;
@@ -208,9 +209,14 @@ public abstract class BesuControllerBuilder implements MiningParameterOverrides 
   protected Optional<BesuComponent> besuComponent = Optional.empty();
 
   private int numberOfBlocksToCache = 0;
+  private int numberOfBlockHeadersToCache = 0;
+  private boolean isCacheLastBlockHeadersPreloadEnabled;
 
   /** whether parallel transaction processing is enabled or not */
   protected boolean isParallelTxProcessingEnabled;
+
+  /** whether block access list functionality was enabled via CLI feature flag */
+  protected boolean isBlockAccessListEnabled;
 
   /** The API configuration */
   protected ApiConfiguration apiConfiguration;
@@ -500,6 +506,30 @@ public abstract class BesuControllerBuilder implements MiningParameterOverrides 
   }
 
   /**
+   * Sets the number of block headers to cache.
+   *
+   * @param numberOfBlockHeadersToCache the number of block headers to cache
+   * @return the besu controller builder
+   */
+  public BesuControllerBuilder cacheLastBlockHeaders(final Integer numberOfBlockHeadersToCache) {
+    this.numberOfBlockHeadersToCache = numberOfBlockHeadersToCache;
+    return this;
+  }
+
+  /**
+   * Sets whether the block header cache should be preloaded.
+   *
+   * @param isCacheLastBlockHeadersPreloadEnabled {@code true} to enable preloading of the block
+   *     header cache, {@code false} to disable it
+   * @return this builder instance
+   */
+  public BesuControllerBuilder isCacheLastBlockHeadersPreloadEnabled(
+      final Boolean isCacheLastBlockHeadersPreloadEnabled) {
+    this.isCacheLastBlockHeadersPreloadEnabled = isCacheLastBlockHeadersPreloadEnabled;
+    return this;
+  }
+
+  /**
    * sets the networkConfiguration in the builder
    *
    * @param networkingConfiguration the networking config
@@ -533,6 +563,19 @@ public abstract class BesuControllerBuilder implements MiningParameterOverrides 
   public BesuControllerBuilder isParallelTxProcessingEnabled(
       final boolean isParallelTxProcessingEnabled) {
     this.isParallelTxProcessingEnabled = isParallelTxProcessingEnabled;
+    return this;
+  }
+
+  /**
+   * Sets whether functionality related to testing block-level access list implementation should be
+   * enabled. This includes caching of block-level access lists produced during block processing and
+   * enabling an RPC endpoint serving those cached BALs.
+   *
+   * @param isBlockAccessListEnabled true to enable block-level access list testing functionality
+   * @return the besu controller
+   */
+  public BesuControllerBuilder isBlockAccessListEnabled(final boolean isBlockAccessListEnabled) {
+    this.isBlockAccessListEnabled = isBlockAccessListEnabled;
     return this;
   }
 
@@ -595,6 +638,13 @@ public abstract class BesuControllerBuilder implements MiningParameterOverrides 
             protocolSchedule,
             codeCache);
 
+    final EthScheduler scheduler =
+        new EthScheduler(
+            syncConfig.getDownloaderParallelism(),
+            syncConfig.getTransactionsParallelism(),
+            syncConfig.getComputationParallelism(),
+            metricsSystem);
+
     final MutableBlockchain blockchain =
         DefaultBlockchain.createMutable(
             genesisState.getBlock(),
@@ -602,7 +652,15 @@ public abstract class BesuControllerBuilder implements MiningParameterOverrides 
             metricsSystem,
             reorgLoggingThreshold,
             dataDirectory.toString(),
-            numberOfBlocksToCache);
+            numberOfBlocksToCache,
+            numberOfBlockHeadersToCache);
+
+    if (isCacheLastBlockHeadersPreloadEnabled && numberOfBlockHeadersToCache > 0) {
+      LOG.info(
+          "--cache-last-block-headers and --cache-last-block-headers-preload-enabled are enabled, start preloading block headers cache");
+      preloadBlockHeaderCache(blockchain, scheduler);
+    }
+
     final BonsaiCachedMerkleTrieLoader bonsaiCachedMerkleTrieLoader =
         besuComponent
             .map(BesuComponent::getCachedMerkleTrieLoader)
@@ -667,13 +725,6 @@ public abstract class BesuControllerBuilder implements MiningParameterOverrides 
     final EthMessages ethMessages = new EthMessages();
     final EthMessages snapMessages = new EthMessages();
 
-    final EthScheduler scheduler =
-        new EthScheduler(
-            syncConfig.getDownloaderParallelism(),
-            syncConfig.getTransactionsParallelism(),
-            syncConfig.getComputationParallelism(),
-            metricsSystem);
-
     Optional<Checkpoint> checkpoint = Optional.empty();
     if (genesisConfigOptions.getCheckpointOptions().isValid()) {
       checkpoint =
@@ -731,8 +782,7 @@ public abstract class BesuControllerBuilder implements MiningParameterOverrides 
             syncState,
             transactionPoolConfiguration,
             besuComponent.map(BesuComponent::getBlobCache).orElse(new BlobCache()),
-            miningConfiguration,
-            syncConfig.isPeerTaskSystemEnabled());
+            miningConfiguration);
 
     final List<PeerValidator> peerValidators =
         createPeerValidators(protocolSchedule, peerTaskExecutor);
@@ -851,6 +901,33 @@ public abstract class BesuControllerBuilder implements MiningParameterOverrides 
         storageProvider,
         dataStorageConfiguration,
         transactionSimulator);
+  }
+
+  private void preloadBlockHeaderCache(
+      final MutableBlockchain blockchain, final EthScheduler scheduler) {
+    final BlockHeadersCachePreload blockHeaderCachePreload =
+        new BlockHeadersCachePreload(blockchain, scheduler, numberOfBlockHeadersToCache);
+    long startTime = System.nanoTime();
+    blockHeaderCachePreload
+        .preloadCache()
+        .thenRun(
+            () -> {
+              long duration = System.nanoTime() - startTime;
+              LOG.info(
+                  "Preloading {} block headers to the cache finished in {} ms",
+                  numberOfBlockHeadersToCache,
+                  duration / 1_000_000);
+            })
+        .exceptionally(
+            throwable -> {
+              long duration = System.nanoTime() - startTime;
+              LOG.error(
+                  "Preloading {} block headers to the cache failed after {} ms",
+                  numberOfBlockHeadersToCache,
+                  duration / 1_000_000,
+                  throwable);
+              return null;
+            });
   }
 
   private GenesisState getGenesisState(

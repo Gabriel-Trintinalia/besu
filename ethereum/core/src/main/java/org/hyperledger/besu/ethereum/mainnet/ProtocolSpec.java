@@ -20,6 +20,7 @@ import org.hyperledger.besu.ethereum.BlockValidator;
 import org.hyperledger.besu.ethereum.GasLimitCalculator;
 import org.hyperledger.besu.ethereum.core.BlockHeaderFunctions;
 import org.hyperledger.besu.ethereum.core.BlockImporter;
+import org.hyperledger.besu.ethereum.mainnet.block.access.list.BlockAccessListFactory;
 import org.hyperledger.besu.ethereum.mainnet.blockhash.PreExecutionProcessor;
 import org.hyperledger.besu.ethereum.mainnet.feemarket.FeeMarket;
 import org.hyperledger.besu.ethereum.mainnet.requests.RequestProcessorCoordinator;
@@ -29,6 +30,7 @@ import org.hyperledger.besu.evm.EVM;
 import org.hyperledger.besu.evm.gascalculator.GasCalculator;
 import org.hyperledger.besu.evm.precompile.PrecompileContractRegistry;
 
+import java.time.Duration;
 import java.util.Optional;
 
 /** A protocol specification. */
@@ -82,8 +84,11 @@ public class ProtocolSpec {
   private final Optional<RequestProcessorCoordinator> requestProcessorCoordinator;
   private final PreExecutionProcessor preExecutionProcessor;
   private final boolean isPoS;
+  private final Duration slotDuration;
   private final boolean isReplayProtectionSupported;
   private final Optional<TransactionPoolPreProcessor> transactionPoolPreProcessor;
+
+  private final Optional<BlockAccessListFactory> blockAccessListFactory;
 
   /**
    * Creates a new protocol specification instance.
@@ -114,6 +119,7 @@ public class ProtocolSpec {
    * @param requestProcessorCoordinator the request processor to use
    * @param preExecutionProcessor the blockHash processor to use
    * @param isPoS indicates whether the current spec is PoS
+   * @param slotDuration the slot duration
    * @param isReplayProtectionSupported indicates whether the current spec supports replay
    *     protection
    */
@@ -145,8 +151,10 @@ public class ProtocolSpec {
       final Optional<RequestProcessorCoordinator> requestProcessorCoordinator,
       final PreExecutionProcessor preExecutionProcessor,
       final boolean isPoS,
+      final Duration slotDuration,
       final boolean isReplayProtectionSupported,
-      final Optional<TransactionPoolPreProcessor> transactionPoolPreProcessor) {
+      final Optional<TransactionPoolPreProcessor> transactionPoolPreProcessor,
+      final Optional<BlockAccessListFactory> blockAccessListFactory) {
     this.hardforkId = hardforkId;
     this.evm = evm;
     this.transactionValidatorFactory = transactionValidatorFactory;
@@ -174,8 +182,10 @@ public class ProtocolSpec {
     this.requestProcessorCoordinator = requestProcessorCoordinator;
     this.preExecutionProcessor = preExecutionProcessor;
     this.isPoS = isPoS;
+    this.slotDuration = slotDuration;
     this.isReplayProtectionSupported = isReplayProtectionSupported;
     this.transactionPoolPreProcessor = transactionPoolPreProcessor;
+    this.blockAccessListFactory = blockAccessListFactory;
   }
 
   /**
@@ -392,6 +402,10 @@ public class ProtocolSpec {
     return isPoS;
   }
 
+  public Duration getSlotDuration() {
+    return slotDuration;
+  }
+
   /**
    * A pre-processor for transactions in the transaction pool.
    *
@@ -399,5 +413,9 @@ public class ProtocolSpec {
    */
   public Optional<TransactionPoolPreProcessor> getTransactionPoolPreProcessor() {
     return transactionPoolPreProcessor;
+  }
+
+  public Optional<BlockAccessListFactory> getBlockAccessListFactory() {
+    return blockAccessListFactory;
   }
 }

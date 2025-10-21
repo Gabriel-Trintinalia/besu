@@ -51,6 +51,8 @@ public class BlockHeaderBuilder {
   private Hash withdrawalsRoot = null;
   private Hash requestsHash = null;
 
+  private Hash balHash = null;
+
   private Hash receiptsRoot;
 
   private LogsBloomFilter logsBloom;
@@ -64,6 +66,9 @@ public class BlockHeaderBuilder {
   private long gasUsed = -1L;
 
   private long timestamp = -1L;
+  // Some reference tests are setting a negative timestamp so we can't use the sign to decide
+  // whether a timestamp has been set
+  private boolean timestampSet = false;
 
   private Bytes extraData;
 
@@ -130,7 +135,8 @@ public class BlockHeaderBuilder {
         .blobGasUsed(header.getBlobGasUsed().orElse(null))
         .excessBlobGas(header.getExcessBlobGas().orElse(null))
         .parentBeaconBlockRoot(header.getParentBeaconBlockRoot().orElse(null))
-        .requestsHash(header.getRequestsHash().orElse(null));
+        .requestsHash(header.getRequestsHash().orElse(null))
+        .balHash(header.getBalHash().orElse(null));
   }
 
   public static BlockHeaderBuilder fromHeader(
@@ -157,7 +163,8 @@ public class BlockHeaderBuilder {
         .blobGasUsed(header.getBlobGasUsed().orElse(null))
         .excessBlobGas(header.getExcessBlobGas().map(BlobGas::fromQuantity).orElse(null))
         .parentBeaconBlockRoot(header.getParentBeaconBlockRoot().orElse(null))
-        .requestsHash(header.getRequestsHash().orElse(null));
+        .requestsHash(header.getRequestsHash().orElse(null))
+        .balHash(header.getBalHash().orElse(null));
   }
 
   public static BlockHeaderBuilder fromBuilder(final BlockHeaderBuilder fromBuilder) {
@@ -182,6 +189,7 @@ public class BlockHeaderBuilder {
             .excessBlobGas(fromBuilder.excessBlobGas)
             .parentBeaconBlockRoot(fromBuilder.parentBeaconBlockRoot)
             .requestsHash(fromBuilder.requestsHash)
+            .balHash(fromBuilder.balHash)
             .blockHeaderFunctions(fromBuilder.blockHeaderFunctions);
     toBuilder.nonce = fromBuilder.nonce;
     return toBuilder;
@@ -222,7 +230,7 @@ public class BlockHeaderBuilder {
     }
 
     final Bytes32 prevRandao = maybePrevRandao.orElse(null);
-    final Bytes32 parentBeaconBlockRoot = maybeParentBeaconBlockRoot.orElse(null);
+    final Bytes32 parentBeaconBlockRoot = maybeParentBeaconBlockRoot.orElse(Hash.ZERO);
 
     // For PoS, coinbase is always configured, but for PoA it is not configured,
     // rather generated for each block via MiningBeneficiaryCalculator.
@@ -255,7 +263,7 @@ public class BlockHeaderBuilder {
         number,
         gasLimit,
         gasUsed,
-        timestamp < 0 ? Instant.now().getEpochSecond() : timestamp,
+        timestampSet ? timestamp : Instant.now().getEpochSecond(),
         extraData,
         baseFee,
         mixHashOrPrevRandao,
@@ -265,6 +273,7 @@ public class BlockHeaderBuilder {
         excessBlobGas,
         parentBeaconBlockRoot,
         requestsHash,
+        balHash,
         blockHeaderFunctions);
   }
 
@@ -306,7 +315,8 @@ public class BlockHeaderBuilder {
         blobGasUsed,
         excessBlobGas,
         parentBeaconBlockRoot,
-        requestsHash);
+        requestsHash,
+        balHash);
   }
 
   private void validateBlockHeader() {
@@ -371,6 +381,7 @@ public class BlockHeaderBuilder {
     sealableBlockHeader.getExcessBlobGas().ifPresent(this::excessBlobGas);
     sealableBlockHeader.getParentBeaconBlockRoot().ifPresent(this::parentBeaconBlockRoot);
     requestsHash(sealableBlockHeader.getRequestsHash().orElse(null));
+    balHash(sealableBlockHeader.getBalHash().orElse(null));
     return this;
   }
 
@@ -442,6 +453,7 @@ public class BlockHeaderBuilder {
 
   public BlockHeaderBuilder timestamp(final long timestamp) {
     this.timestamp = timestamp;
+    this.timestampSet = true;
     return this;
   }
 
@@ -487,6 +499,11 @@ public class BlockHeaderBuilder {
 
   public BlockHeaderBuilder requestsHash(final Hash hash) {
     this.requestsHash = hash;
+    return this;
+  }
+
+  public BlockHeaderBuilder balHash(final Hash hash) {
+    this.balHash = hash;
     return this;
   }
 

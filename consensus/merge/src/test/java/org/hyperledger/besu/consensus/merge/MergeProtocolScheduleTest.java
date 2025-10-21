@@ -29,6 +29,7 @@ import org.hyperledger.besu.ethereum.core.MiningConfiguration;
 import org.hyperledger.besu.ethereum.mainnet.MainnetBlockProcessor;
 import org.hyperledger.besu.ethereum.mainnet.ProtocolSchedule;
 import org.hyperledger.besu.ethereum.mainnet.ProtocolSpec;
+import org.hyperledger.besu.evm.internal.EvmConfiguration;
 import org.hyperledger.besu.evm.operation.InvalidOperation;
 import org.hyperledger.besu.evm.operation.PrevRanDaoOperation;
 import org.hyperledger.besu.evm.operation.Push0Operation;
@@ -57,7 +58,9 @@ public class MergeProtocolScheduleTest {
             MiningConfiguration.MINING_DISABLED,
             new BadBlockManager(),
             false,
-            new NoOpMetricsSystem());
+            false,
+            new NoOpMetricsSystem(),
+            EvmConfiguration.DEFAULT);
 
     final ProtocolSpec homesteadSpec = protocolSchedule.getByBlockHeader(blockHeader(1));
     final ProtocolSpec londonSpec = protocolSchedule.getByBlockHeader(blockHeader(1559));
@@ -78,7 +81,9 @@ public class MergeProtocolScheduleTest {
             MiningConfiguration.MINING_DISABLED,
             new BadBlockManager(),
             false,
-            new NoOpMetricsSystem());
+            false,
+            new NoOpMetricsSystem(),
+            EvmConfiguration.DEFAULT);
 
     final long lastParisBlockNumber = 17034869L;
     final ProtocolSpec parisSpec =
@@ -119,7 +124,9 @@ public class MergeProtocolScheduleTest {
             MiningConfiguration.MINING_DISABLED,
             new BadBlockManager(),
             false,
-            new NoOpMetricsSystem());
+            false,
+            new NoOpMetricsSystem(),
+            EvmConfiguration.DEFAULT);
 
     final ProtocolSpec parisSpec =
         protocolSchedule.getByBlockHeader(
@@ -152,7 +159,9 @@ public class MergeProtocolScheduleTest {
             MiningConfiguration.MINING_DISABLED,
             new BadBlockManager(),
             false,
-            new NoOpMetricsSystem());
+            false,
+            new NoOpMetricsSystem(),
+            EvmConfiguration.DEFAULT);
 
     final long lastParisBlockNumber = 17034869L;
     final ProtocolSpec parisSpec =
@@ -186,7 +195,9 @@ public class MergeProtocolScheduleTest {
                 MiningConfiguration.MINING_DISABLED,
                 new BadBlockManager(),
                 false,
-                new NoOpMetricsSystem())
+                false,
+                new NoOpMetricsSystem(),
+                EvmConfiguration.DEFAULT)
             .getByBlockHeader(blockHeader(0));
 
     assertThat(london.getHardforkId()).isEqualTo(PARIS);

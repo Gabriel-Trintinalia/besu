@@ -14,6 +14,7 @@
  */
 package org.hyperledger.besu.ethereum.components;
 
+import org.hyperledger.besu.config.GenesisConfigOptions;
 import org.hyperledger.besu.ethereum.mainnet.MainnetProtocolSpecs;
 import org.hyperledger.besu.ethereum.mainnet.ProtocolSpecBuilder;
 import org.hyperledger.besu.evm.internal.EvmConfiguration;
@@ -34,18 +35,26 @@ public class ProtocolSpecModule {
   /**
    * Provides the protocol spec for the frontier network fork.
    *
+   * @param genesisConfigOptions the genesis config options
    * @param evmConfiguration the EVM configuration
-   * @param isParalleltxEnabled whether parallel tx processing is enabled
+   * @param isParallelTxEnabled whether parallel tx processing is enabled
    * @param metricsSystem the metrics system
+   * @param isBlockAccessListEnabled whether block-level access lists are enabled
    * @return the protocol spec for the frontier network fork
    */
   @Provides
   @Named("frontier")
   public ProtocolSpecBuilder frontierProtocolSpec(
+      final GenesisConfigOptions genesisConfigOptions,
       final EvmConfiguration evmConfiguration,
-      final boolean isParalleltxEnabled,
+      final boolean isParallelTxEnabled,
+      final boolean isBlockAccessListEnabled,
       final MetricsSystem metricsSystem) {
     return MainnetProtocolSpecs.frontierDefinition(
-        evmConfiguration, isParalleltxEnabled, metricsSystem);
+        genesisConfigOptions,
+        evmConfiguration,
+        isParallelTxEnabled,
+        isBlockAccessListEnabled,
+        metricsSystem);
   }
 }

@@ -15,6 +15,7 @@
 package org.hyperledger.besu.ethereum.api.jsonrpc.internal.methods.engine;
 
 import static org.assertj.core.api.Assertions.assertThat;
+import static org.mockito.Mockito.inOrder;
 import static org.mockito.Mockito.times;
 import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
@@ -50,6 +51,7 @@ import org.apache.tuweni.bytes.Bytes32;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
+import org.mockito.InOrder;
 import org.mockito.Mock;
 import org.mockito.Mockito;
 import org.mockito.junit.jupiter.MockitoExtension;
@@ -166,9 +168,104 @@ public abstract class AbstractEngineGetPayloadTest extends AbstractScheduledApiT
 
   abstract String getMethodName();
 
+  /**
+   * Returns a timestamp that is valid for the fork supported by the specific version being tested.
+   * Each concrete test class must override this to return a timestamp that passes fork validation.
+   */
+  protected abstract long getValidPayloadTimestamp();
+
   protected JsonRpcResponse resp(final String methodName, final PayloadIdentifier pid) {
     return method.response(
         new JsonRpcRequestContext(
             new JsonRpcRequest("2.0", methodName, new Object[] {pid.serialize()})));
+  }
+
+  protected PayloadIdentifier setupPayload(final long timestamp) {
+    PayloadIdentifier payloadIdentifier =
+        PayloadIdentifier.forPayloadParams(
+            Hash.ZERO,
+            timestamp,
+            Bytes32.random(),
+            Address.fromHexString("0x42"),
+            Optional.empty(),
+            Optional.empty());
+    final BlockHeader mockHeader = new BlockHeaderTestFixture().timestamp(timestamp).buildHeader();
+    final Block mockBlock =
+        new Block(mockHeader, new BlockBody(Collections.emptyList(), Collections.emptyList()));
+    BlockWithReceipts mockBlockWithReceipts =
+        new BlockWithReceipts(mockBlock, Collections.emptyList());
+    final PayloadWrapper mockPayload =
+        new PayloadWrapper(payloadIdentifier, mockBlockWithReceipts, Optional.empty());
+    when(mergeContext.retrievePayloadById(payloadIdentifier)).thenReturn(Optional.of(mockPayload));
+    return payloadIdentifier;
+  }
+
+  @Test
+  public void shouldWaitForNonEmptyBlockWhenOnlyEmptyBlockAvailable() {
+    // Setup: Create payloads with valid timestamp for the fork being tested
+    // We simulate the scenario where:
+    // 1. First retrieval returns empty block (payload without withdrawals)
+    // 2. After waiting, we get a block that's been updated
+    //    (payload with withdrawals - while both have 0 txs, this simulates the update)
+
+    final long validTimestamp = getValidPayloadTimestamp();
+    final PayloadIdentifier testPid =
+        PayloadIdentifier.forPayloadParams(
+            Hash.ZERO,
+            validTimestamp,
+            Bytes32.random(),
+            Address.fromHexString("0x42"),
+            Optional.empty(),
+            Optional.empty());
+
+    final BlockHeader testHeader =
+        new BlockHeaderTestFixture()
+            .prevRandao(Bytes32.random())
+            .timestamp(validTimestamp)
+            .buildHeader();
+    final Block testBlock =
+        new Block(testHeader, new BlockBody(Collections.emptyList(), Collections.emptyList()));
+    final BlockWithReceipts testBlockWithReceipts =
+        new BlockWithReceipts(testBlock, Collections.emptyList());
+    final PayloadWrapper testPayload =
+        new PayloadWrapper(testPid, testBlockWithReceipts, Optional.empty());
+
+    final Block testBlockWithWithdrawals =
+        new Block(
+            testHeader,
+            new BlockBody(
+                Collections.emptyList(),
+                Collections.emptyList(),
+                Optional.of(Collections.emptyList())));
+    final BlockWithReceipts testBlockWithReceiptsAndWithdrawals =
+        new BlockWithReceipts(testBlockWithWithdrawals, Collections.emptyList());
+    final PayloadWrapper testPayloadWithWithdrawals =
+        new PayloadWrapper(testPid, testBlockWithReceiptsAndWithdrawals, Optional.empty());
+
+    // Mock: First call returns the empty payload,
+    // second call returns a different payload (simulating block building completion)
+    when(mergeContext.retrievePayloadById(testPid))
+        .thenReturn(Optional.of(testPayload))
+        .thenReturn(Optional.of(testPayloadWithWithdrawals));
+
+    // Execute: Call getPayload
+    final JsonRpcResponse response = resp(getMethodName(), testPid);
+
+    // Verify: finalizeProposalById was called (to signal loop to exit)
+    verify(mergeMiningCoordinator, times(1)).finalizeProposalById(testPid);
+
+    // Verify: awaitCurrentBuildCompletion was called
+    verify(mergeMiningCoordinator, times(1)).awaitCurrentBuildCompletion(testPid);
+
+    // Verify: retrievePayloadById was called twice (initial check + after waiting)
+    verify(mergeContext, times(2)).retrievePayloadById(testPid);
+
+    // Verify call order: finalize BEFORE wait (critical - finalize signals loop to exit)
+    InOrder inOrder = inOrder(mergeMiningCoordinator);
+    inOrder.verify(mergeMiningCoordinator).finalizeProposalById(testPid);
+    inOrder.verify(mergeMiningCoordinator).awaitCurrentBuildCompletion(testPid);
+
+    // Verify: response is successful (not an error)
+    assertThat(response).isNotInstanceOf(JsonRpcErrorResponse.class);
   }
 }

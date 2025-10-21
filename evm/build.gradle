@@ -49,6 +49,7 @@ dependencies {
   implementation 'io.consensys.tuweni:tuweni-units'
   implementation 'org.hyperledger.besu:arithmetic'
   implementation 'org.hyperledger.besu:gnark'
+  implementation 'org.hyperledger.besu:secp256k1'
   implementation 'org.hyperledger.besu:boringssl'
   implementation 'io.consensys.protocols:jc-kzg-4844'
 
@@ -57,6 +58,7 @@ dependencies {
 
   testImplementation 'com.fasterxml.jackson.core:jackson-databind'
   testImplementation 'info.picocli:picocli'
+  testImplementation 'net.jqwik:jqwik:1.9.3'
   testImplementation 'org.assertj:assertj-core'
   testImplementation 'org.junit.jupiter:junit-jupiter'
   testImplementation 'org.mockito:mockito-core'
@@ -66,7 +68,7 @@ dependencies {
 publishing {
   publications {
     mavenJava(MavenPublication) {
-      groupId 'org.hyperledger.besu'
+      groupId = 'org.hyperledger.besu'
       pom {
         name = 'Besu EVM'
         description = 'EVM Engine component'

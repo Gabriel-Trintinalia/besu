@@ -181,7 +181,9 @@ public class MergeBesuControllerBuilder extends BesuControllerBuilder {
         miningConfiguration,
         badBlockManager,
         isParallelTxProcessingEnabled,
-        metricsSystem);
+        isBlockAccessListEnabled,
+        metricsSystem,
+        evmConfiguration);
   }
 
   @Override

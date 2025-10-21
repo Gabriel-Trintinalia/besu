@@ -27,6 +27,8 @@ import org.hyperledger.besu.datatypes.Wei;
 import org.hyperledger.besu.ethereum.core.ProcessableBlockHeader;
 import org.hyperledger.besu.ethereum.core.Transaction;
 import org.hyperledger.besu.ethereum.core.feemarket.CoinbaseFeePriceCalculator;
+import org.hyperledger.besu.ethereum.mainnet.block.access.list.AccessLocationTracker;
+import org.hyperledger.besu.ethereum.mainnet.block.access.list.PartialBlockAccessView;
 import org.hyperledger.besu.ethereum.mainnet.feemarket.FeeMarket;
 import org.hyperledger.besu.ethereum.processing.TransactionProcessingResult;
 import org.hyperledger.besu.ethereum.transaction.TransactionInvalidReason;
@@ -179,6 +181,28 @@ public class MainnetTransactionProcessor {
       final BlockHashLookup blockHashLookup,
       final TransactionValidationParams transactionValidationParams,
       final Wei blobGasPrice) {
+    return processTransaction(
+        worldState,
+        blockHeader,
+        transaction,
+        miningBeneficiary,
+        operationTracer,
+        blockHashLookup,
+        ImmutableTransactionValidationParams.builder().build(),
+        blobGasPrice,
+        Optional.empty());
+  }
+
+  public TransactionProcessingResult processTransaction(
+      final WorldUpdater worldState,
+      final ProcessableBlockHeader blockHeader,
+      final Transaction transaction,
+      final Address miningBeneficiary,
+      final OperationTracer operationTracer,
+      final BlockHashLookup blockHashLookup,
+      final TransactionValidationParams transactionValidationParams,
+      final Wei blobGasPrice,
+      final Optional<AccessLocationTracker> accessLocationTracker) {
     try {
       final var transactionValidator = transactionValidatorFactory.get();
       LOG.trace("Starting execution of {}", transaction);
@@ -198,6 +222,7 @@ public class MainnetTransactionProcessor {
 
       final Address senderAddress = transaction.getSender();
       final MutableAccount sender = worldState.getOrCreateSenderAccount(senderAddress);
+      accessLocationTracker.ifPresent(t -> t.addTouchedAccount(senderAddress));
 
       validationResult =
           transactionValidator.validateForSender(transaction, sender, transactionValidationParams);
@@ -208,7 +233,7 @@ public class MainnetTransactionProcessor {
 
       operationTracer.tracePrepareTransaction(worldState, transaction);
 
-      final Set<Address> warmAddressList = new BytesTrieSet<>(Address.SIZE);
+      final Set<Address> eip2930WarmAddressList = new BytesTrieSet<>(Address.SIZE);
 
       final long previousNonce = sender.incrementNonce();
       LOG.trace(
@@ -238,34 +263,37 @@ public class MainnetTransactionProcessor {
           throw new RuntimeException("Code delegation processor is required for 7702 transactions");
         }
 
+        final WorldUpdater delegationUpdater = worldState.updater();
         final CodeDelegationResult codeDelegationResult =
-            maybeCodeDelegationProcessor.get().process(worldState, transaction);
-        warmAddressList.addAll(codeDelegationResult.accessedDelegatorAddresses());
+            maybeCodeDelegationProcessor
+                .get()
+                .process(delegationUpdater, transaction, accessLocationTracker);
+        eip2930WarmAddressList.addAll(codeDelegationResult.accessedDelegatorAddresses());
         codeDelegationRefund =
             gasCalculator.calculateDelegateCodeGasRefund(
                 (codeDelegationResult.alreadyExistingDelegators()));
-
-        worldState.commit();
+        delegationUpdater.commit();
       }
 
-      final List<AccessListEntry> accessListEntries = transaction.getAccessList().orElse(List.of());
+      final List<AccessListEntry> eip2930AccessListEntries =
+          transaction.getAccessList().orElse(List.of());
       // we need to keep a separate hash set of addresses in case they specify no storage.
       // No-storage is a common pattern, especially for Externally Owned Accounts
-      final Multimap<Address, Bytes32> storageList = HashMultimap.create();
+      final Multimap<Address, Bytes32> eip2930StorageList = HashMultimap.create();
       int accessListStorageCount = 0;
-      for (final var entry : accessListEntries) {
+      for (final var entry : eip2930AccessListEntries) {
         final Address address = entry.address();
-        warmAddressList.add(address);
+        eip2930WarmAddressList.add(address);
         final List<Bytes32> storageKeys = entry.storageKeys();
-        storageList.putAll(address, storageKeys);
+        eip2930StorageList.putAll(address, storageKeys);
         accessListStorageCount += storageKeys.size();
       }
       if (warmCoinbase) {
-        warmAddressList.add(miningBeneficiary);
+        eip2930WarmAddressList.add(miningBeneficiary);
       }
 
       final long accessListGas =
-          gasCalculator.accessListGasCost(accessListEntries.size(), accessListStorageCount);
+          gasCalculator.accessListGasCost(eip2930AccessListEntries.size(), accessListStorageCount);
       final long codeDelegationGas =
           gasCalculator.delegateCodeGasCost(transaction.codeDelegationListSize());
       final long intrinsicGas =
@@ -298,7 +326,9 @@ public class MainnetTransactionProcessor {
               .completer(__ -> {})
               .miningBeneficiary(miningBeneficiary)
               .blockHashLookup(blockHashLookup)
-              .accessListWarmStorage(storageList);
+              .eip2930AccessListWarmStorage(eip2930StorageList);
+
+      accessLocationTracker.ifPresent(commonMessageFrameBuilder::eip7928AccessList);
 
       if (transaction.getVersionedHashes().isPresent()) {
         commonMessageFrameBuilder.versionedHashes(
@@ -311,6 +341,7 @@ public class MainnetTransactionProcessor {
       if (transaction.isContractCreation()) {
         final Address contractAddress =
             Address.contractAddress(senderAddress, sender.getNonce() - 1L);
+        accessLocationTracker.ifPresent(t -> t.addTouchedAccount(contractAddress));
 
         final Bytes initCodeBytes = transaction.getPayload();
         Code code = contractCreationProcessor.wrapCodeForCreation(initCodeBytes);
@@ -321,12 +352,15 @@ public class MainnetTransactionProcessor {
                 .contract(contractAddress)
                 .inputData(initCodeBytes.slice(code.getSize()))
                 .code(code)
-                .accessListWarmAddresses(warmAddressList)
+                .eip2930AccessListWarmAddresses(eip2930WarmAddressList)
                 .build();
       } else {
         @SuppressWarnings("OptionalGetWithoutIsPresent") // isContractCall tests isPresent
         final Address to = transaction.getTo().get();
-        final Code code = processCodeFromAccount(worldState, warmAddressList, worldState.get(to));
+        accessLocationTracker.ifPresent(t -> t.addTouchedAccount(to));
+        final Code code =
+            processCodeFromAccount(
+                worldState, eip2930WarmAddressList, worldState.get(to), accessLocationTracker);
 
         initialFrame =
             commonMessageFrameBuilder
@@ -335,7 +369,7 @@ public class MainnetTransactionProcessor {
                 .contract(to)
                 .inputData(transaction.getPayload())
                 .code(code)
-                .accessListWarmAddresses(warmAddressList)
+                .eip2930AccessListWarmAddresses(eip2930WarmAddressList)
                 .build();
       }
       Deque<MessageFrame> messageFrameStack = initialFrame.getMessageFrameStack();
@@ -400,6 +434,9 @@ public class MainnetTransactionProcessor {
               gasPriceBelowBaseFee ? (a, b, c) -> Wei.ZERO : coinbaseFeePriceCalculator;
         } else {
           if (gasPriceBelowBaseFee) {
+            final Optional<PartialBlockAccessView> partialBlockAccessView =
+                accessLocationTracker.map(
+                    tracker -> tracker.createPartialBlockAccessView(worldState));
             return TransactionProcessingResult.failed(
                 gasUsedByTransaction,
                 refundedGas,
@@ -407,7 +444,8 @@ public class MainnetTransactionProcessor {
                     TransactionInvalidReason.TRANSACTION_PRICE_TOO_LOW,
                     "transaction price must be greater than base fee"),
                 Optional.empty(),
-                Optional.empty());
+                Optional.empty(),
+                partialBlockAccessView);
           }
           coinbaseCalculator = coinbaseFeePriceCalculator;
         }
@@ -421,7 +459,11 @@ public class MainnetTransactionProcessor {
       operationTracer.traceBeforeRewardTransaction(worldUpdater, transaction, coinbaseWeiDelta);
       if (!coinbaseWeiDelta.isZero() || !clearEmptyAccounts) {
         final var coinbase = worldState.getOrCreate(miningBeneficiary);
+        initialFrame
+            .getEip7928AccessList()
+            .ifPresent(t -> t.addTouchedAccount(coinbase.getAddress()));
         coinbase.incrementBalance(coinbaseWeiDelta);
+        accessLocationTracker.ifPresent(t -> t.addTouchedAccount(miningBeneficiary));
       }
 
       operationTracer.traceEndTransaction(
@@ -440,12 +482,16 @@ public class MainnetTransactionProcessor {
         worldState.clearAccountsThatAreEmpty();
       }
 
+      final Optional<PartialBlockAccessView> partialBlockAccessView =
+          accessLocationTracker.map(tracker -> tracker.createPartialBlockAccessView(worldState));
+
       if (initialFrame.getState() == MessageFrame.State.COMPLETED_SUCCESS) {
         return TransactionProcessingResult.successful(
             initialFrame.getLogs(),
             gasUsedByTransaction,
             refundedGas,
             initialFrame.getOutputData(),
+            partialBlockAccessView,
             validationResult);
       } else {
         if (initialFrame.getExceptionalHaltReason().isPresent()) {
@@ -465,7 +511,8 @@ public class MainnetTransactionProcessor {
             refundedGas,
             validationResult,
             initialFrame.getRevertReason(),
-            initialFrame.getExceptionalHaltReason());
+            initialFrame.getExceptionalHaltReason(),
+            partialBlockAccessView);
       }
     } catch (final MerkleTrieException re) {
       operationTracer.traceEndTransaction(
@@ -493,6 +540,10 @@ public class MainnetTransactionProcessor {
 
       final var cause = re.getCause();
       if (cause != null && cause instanceof InterruptedException) {
+        LOG.atDebug()
+            .setMessage("Interrupted while processing the transaction with hash {}")
+            .addArgument(transaction::getHash)
+            .log();
         return TransactionProcessingResult.invalid(
             ValidationResult.invalid(TransactionInvalidReason.EXECUTION_INTERRUPTED));
       }
@@ -537,7 +588,10 @@ public class MainnetTransactionProcessor {
   }
 
   private Code processCodeFromAccount(
-      final WorldUpdater worldUpdater, final Set<Address> warmAddressList, final Account contract) {
+      final WorldUpdater worldUpdater,
+      final Set<Address> warmAddressList,
+      final Account contract,
+      final Optional<AccessLocationTracker> accessLocationTracker) {
     if (contract == null) {
       return CodeV0.EMPTY_CODE;
     }
@@ -548,7 +602,7 @@ public class MainnetTransactionProcessor {
     }
 
     if (hasCodeDelegation(contract.getCode())) {
-      return delegationTargetCode(worldUpdater, warmAddressList, contract);
+      return delegationTargetCode(worldUpdater, warmAddressList, contract, accessLocationTracker);
     }
 
     // Bonsai accounts may have a fully cached code, so we use that one
@@ -562,10 +616,13 @@ public class MainnetTransactionProcessor {
   }
 
   private Code delegationTargetCode(
-      final WorldUpdater worldUpdater, final Set<Address> warmAddressList, final Account contract) {
+      final WorldUpdater worldUpdater,
+      final Set<Address> warmAddressList,
+      final Account contract,
+      final Optional<AccessLocationTracker> accessLocationTracker) {
     // we need to look up the target account and its code, but do NOT charge gas for it
     final CodeDelegationHelper.Target target =
-        getTarget(worldUpdater, gasCalculator::isPrecompile, contract);
+        getTarget(worldUpdater, gasCalculator::isPrecompile, contract, accessLocationTracker);
     warmAddressList.add(target.address());
 
     return target.code();

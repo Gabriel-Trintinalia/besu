@@ -83,6 +83,7 @@ class MainnetGenesisFileModule extends GenesisFileModule {
         MiningConfiguration.newDefault(),
         new BadBlockManager(),
         false,
+        false,
         new NoOpMetricsSystem());
   }
 
@@ -187,6 +188,13 @@ class MainnetGenesisFileModule extends GenesisFileModule {
             createSchedule(
                 new StubGenesisConfigOptions().bpo5Time(0).baseFeePerGas(0x0a).chainId(chainId))),
         Map.entry(
+            "amsterdam",
+            createSchedule(
+                new StubGenesisConfigOptions()
+                    .amsterdamTime(0)
+                    .baseFeePerGas(0x0a)
+                    .chainId(chainId))),
+        Map.entry(
             "futureeips",
             createSchedule(
                 new StubGenesisConfigOptions()
@@ -212,6 +220,7 @@ class MainnetGenesisFileModule extends GenesisFileModule {
                 EvmConfiguration.DEFAULT,
                 MiningConfiguration.MINING_DISABLED,
                 new BadBlockManager(),
+                false,
                 false,
                 new NoOpMetricsSystem())
             .createProtocolSchedule();
