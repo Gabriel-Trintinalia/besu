@@ -123,6 +123,7 @@ import com.google.common.base.Supplier;
 import com.google.common.base.Suppliers;
 import com.google.common.io.Resources;
 import io.vertx.core.json.JsonArray;
+import org.hyperledger.besu.plugin.services.tracer.BlockAwareOperationTracer;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
@@ -1362,6 +1363,15 @@ public abstract class MainnetProtocolSpecs {
       updateWorldStateForDao(worldState);
       return wrapped.processBlock(
           protocolContext, blockchain, worldState, block, preprocessingBlockFunction);
+    }
+
+    @Override
+    public BlockProcessingResult processBlock(final ProtocolContext protocolContext,final  Blockchain blockchain,
+                                              final MutableWorldState worldState,final  Block block,
+                                              final  BlockAwareOperationTracer tracer) {
+
+        updateWorldStateForDao(worldState);
+        return wrapped.processBlock(protocolContext, blockchain, worldState, block, tracer);
     }
 
     private static final Address DAO_REFUND_CONTRACT_ADDRESS =

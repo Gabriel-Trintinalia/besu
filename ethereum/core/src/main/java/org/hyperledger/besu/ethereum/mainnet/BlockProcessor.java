@@ -27,31 +27,6 @@ import java.util.List;
 
 /** Processes a block. */
 public interface BlockProcessor {
-
-  /** A block processing result. */
-  interface Result {
-
-    /**
-     * The receipts generated for the transactions in a block
-     *
-     * <p>This is only valid when {@code BlockProcessor#isSuccessful} returns {@code true}.
-     *
-     * @return the receipts generated for the transactions in a block
-     */
-    List<TransactionReceipt> getReceipts();
-
-    /**
-     * Returns whether the block was successfully processed.
-     *
-     * @return {@code true} if the block was processed successfully; otherwise {@code false}
-     */
-    boolean isSuccessful();
-
-    default boolean isFailed() {
-      return !isSuccessful();
-    }
-  }
-
   /**
    * Processes the block.
    *

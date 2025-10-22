@@ -27,6 +27,7 @@ import org.hyperledger.besu.ethereum.mainnet.ProtocolSchedule;
 import org.hyperledger.besu.ethereum.mainnet.ProtocolSpec;
 import org.hyperledger.besu.ethereum.trie.pathbased.common.provider.WorldStateQueryParams;
 import org.hyperledger.besu.evm.worldstate.WorldUpdater;
+import org.hyperledger.besu.plugin.data.BlockProcessingResult;
 import org.hyperledger.besu.plugin.services.BlockReplayService;
 import org.hyperledger.besu.plugin.services.tracer.BlockAwareOperationTracer;
 
@@ -78,6 +79,28 @@ public class BlockReplayServiceImpl implements BlockReplayService {
   }
 
   /**
+   * Replays a single block and traces its execution.
+   *
+   * @param blockNumber the block number to replay
+   * @param beforeTracing a function executed on the {@link WorldUpdater} before tracing
+   * @param afterTracing a function executed on the {@link WorldUpdater} after tracing
+   * @param tracer an instance of {@link BlockAwareOperationTracer} used to trace execution
+   */
+  @Override
+  public BlockProcessingResult replay(
+      final long blockNumber,
+      final Consumer<WorldUpdater> beforeTracing,
+      final Consumer<WorldUpdater> afterTracing,
+      final BlockAwareOperationTracer tracer) {
+    List<BlockProcessingResult> results =
+        replay(blockNumber, blockNumber, beforeTracing, afterTracing, tracer);
+    if (results.isEmpty()) {
+      return null;
+    }
+    return replay(blockNumber, blockNumber, beforeTracing, afterTracing, tracer).getFirst();
+  }
+
+  /**
    * Replays a range of blocks and traces their execution.
    *
    * <p>For each block in the range:
@@ -99,7 +122,7 @@ public class BlockReplayServiceImpl implements BlockReplayService {
    * @throws IllegalArgumentException if the tracer is {@code null} or a block is missing
    */
   @Override
-  public void trace(
+  public List<BlockProcessingResult> replay(
       final long fromBlockNumber,
       final long toBlockNumber,
       final Consumer<WorldUpdater> beforeTracing,
@@ -119,19 +142,29 @@ public class BlockReplayServiceImpl implements BlockReplayService {
 
     if (blocks.isEmpty()) {
       LOG.info("No blocks to trace in range {}–{}", fromBlockNumber, toBlockNumber);
-      return;
+      return List.of();
     }
-
     final Block firstBlock = blocks.getFirst();
-    MutableWorldState worldState = getWorldState(firstBlock.getHeader());
+    var maybeParentBlock =
+        blockchain.getBlockByHash(firstBlock.getHeader().getParentHash());
+    if (maybeParentBlock.isEmpty()) {
+      throw new IllegalArgumentException(
+          "Parent block not found for block number (block hash): "
+              + firstBlock.getHeader().toLogString());
+    }
+    MutableWorldState worldState = getWorldState(maybeParentBlock.get().getHeader());
     beforeTracing.accept(worldState.updater());
+    List<BlockProcessingResult> results = new java.util.ArrayList<>(blocks.size());
     for (final Block block : blocks) {
-      protocolSchedule
-          .getByBlockHeader(block.getHeader())
-          .getBlockProcessor()
-          .processBlock(protocolContext, blockchain, worldState, block, tracer);
+      BlockProcessingResult processingResult =
+          protocolSchedule
+              .getByBlockHeader(block.getHeader())
+              .getBlockProcessor()
+              .processBlock(protocolContext, blockchain, worldState, block, tracer);
+      results.add(processingResult);
     }
     afterTracing.accept(worldState.updater());
+    return results;
   }
 
   /**
