@@ -162,7 +162,7 @@ public class BlockProcessingResult extends BlockValidationResult
    *
    * @return the transaction receipts of the result
    */
-    @Override
+  @Override
   public List<TransactionReceipt> getReceipts() {
     return yield.map(BlockProcessingOutputs::getReceipts).orElse(List.of());
   }
@@ -172,7 +172,7 @@ public class BlockProcessingResult extends BlockValidationResult
    *
    * @return the requests of the result
    */
-    @Override
+  @Override
   public Optional<List<Request>> getRequests() {
     return yield.flatMap(BlockProcessingOutputs::getRequests);
   }

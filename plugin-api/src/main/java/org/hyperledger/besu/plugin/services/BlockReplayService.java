@@ -47,7 +47,7 @@ public interface BlockReplayService extends BesuService {
    * @param beforeTracing Function which performs an operation on a MutableWorldState before tracing
    * @param afterTracing Function which performs an operation on a MutableWorldState after tracing
    * @param tracer an instance of OperationTracer
-   *               @return a BlockProcessingResult for the specified block
+   * @return a BlockProcessingResult for the specified block
    */
   BlockProcessingResult replay(
       final long blockNumber,
@@ -63,7 +63,7 @@ public interface BlockReplayService extends BesuService {
    * @param beforeTracing Function which performs an operation on a MutableWorldState before tracing
    * @param afterTracing Function which performs an operation on a MutableWorldState after tracing
    * @param tracer an instance of OperationTracer
-   *               @return a list of BlockProcessingResult, one per block in the range
+   * @return a list of BlockProcessingResult, one per block in the range
    */
   List<BlockProcessingResult> replay(
       final long fromBlockNumber,

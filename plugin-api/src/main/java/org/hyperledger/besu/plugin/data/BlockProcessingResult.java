@@ -20,10 +20,11 @@ import java.util.Optional;
 /** Contains the outputs of processing a block. */
 public interface BlockProcessingResult {
 
-  /** Indicates whether the block processing was successful.
+  /**
+   * Indicates whether the block processing was successful.
    *
    * @return true if the block processing was successful, false otherwise
-   * */
+   */
   boolean isSuccessful();
 
   /**
