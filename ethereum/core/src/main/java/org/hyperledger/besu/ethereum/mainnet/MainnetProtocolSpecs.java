@@ -574,6 +574,7 @@ public abstract class MainnetProtocolSpecs {
                 londonForkBlockNumber,
                 genesisConfigOptions.isZeroBaseFee(),
                 genesisConfigOptions.isFixedBaseFee(),
+                false,
                 miningConfiguration.getMinTransactionGasPrice(),
                 (blobSchedule) ->
                     FeeMarket.london(
@@ -800,6 +801,7 @@ public abstract class MainnetProtocolSpecs {
                 londonForkBlockNumber,
                 genesisConfigOptions.isZeroBaseFee(),
                 genesisConfigOptions.isFixedBaseFee(),
+                true,
                 miningConfiguration.getMinTransactionGasPrice(),
                 (blobSchedule) ->
                     FeeMarket.cancun(
@@ -1412,10 +1414,15 @@ public abstract class MainnetProtocolSpecs {
       final long londonForkBlockNumber,
       final boolean isZeroBaseFee,
       final boolean isFixedBaseFee,
+      final boolean supportsBlobs,
       final Wei minTransactionGasPrice,
       final ProtocolSpecBuilder.FeeMarketBuilder feeMarketBuilder) {
     if (isZeroBaseFee) {
-      return blobSchedule -> FeeMarket.zeroBaseFee(londonForkBlockNumber);
+      var baseFeeMarket =
+          supportsBlobs
+              ? FeeMarket.zeroBlobFee(londonForkBlockNumber)
+              : FeeMarket.zeroBaseFee(londonForkBlockNumber);
+      return blobSchedule -> baseFeeMarket;
     }
     if (isFixedBaseFee) {
       return blobSchedule -> FeeMarket.fixedBaseFee(londonForkBlockNumber, minTransactionGasPrice);
