@@ -24,7 +24,7 @@ import org.hyperledger.besu.chainimport.JsonBlockImporter;
 import org.hyperledger.besu.chainimport.RlpBlockImporter;
 import org.hyperledger.besu.cli.BesuCommand;
 import org.hyperledger.besu.cli.DefaultCommandValues;
-import org.hyperledger.besu.cli.config.NetworkName;
+import org.hyperledger.besu.config.NetworkName;
 import org.hyperledger.besu.cli.subcommands.blocks.BlocksSubCommand.ExportSubCommand;
 import org.hyperledger.besu.cli.subcommands.blocks.BlocksSubCommand.ImportSubCommand;
 import org.hyperledger.besu.cli.util.VersionProvider;

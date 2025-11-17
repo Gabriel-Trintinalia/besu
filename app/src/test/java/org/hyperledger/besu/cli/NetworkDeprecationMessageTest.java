@@ -17,7 +17,7 @@ package org.hyperledger.besu.cli;
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
 
-import org.hyperledger.besu.cli.config.NetworkName;
+import org.hyperledger.besu.config.NetworkName;
 
 import org.junit.jupiter.api.Disabled;
 import org.junit.jupiter.api.Test;

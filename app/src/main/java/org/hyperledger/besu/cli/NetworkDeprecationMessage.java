@@ -14,7 +14,7 @@
  */
 package org.hyperledger.besu.cli;
 
-import org.hyperledger.besu.cli.config.NetworkName;
+import org.hyperledger.besu.config.NetworkName;
 import org.hyperledger.besu.util.log.FramedLogMessage;
 
 import java.util.List;

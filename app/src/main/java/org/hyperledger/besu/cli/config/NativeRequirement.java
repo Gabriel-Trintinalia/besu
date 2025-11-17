@@ -14,6 +14,7 @@
  */
 package org.hyperledger.besu.cli.config;
 
+import org.hyperledger.besu.config.NetworkName;
 import org.hyperledger.besu.crypto.SECP256K1;
 import org.hyperledger.besu.crypto.SECP256R1;
 import org.hyperledger.besu.evm.precompile.AltBN128PairingPrecompiledContract;

@@ -43,6 +43,7 @@ dependencies {
   implementation "org.immutables:value-annotations"
   annotationProcessor "org.immutables:value"
   annotationProcessor 'com.google.dagger:dagger-compiler'
+  implementation 'org.apache.commons:commons-lang3'
 
   testImplementation project(':testutil')
 

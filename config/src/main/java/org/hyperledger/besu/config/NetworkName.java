@@ -12,7 +12,7 @@
  *
  * SPDX-License-Identifier: Apache-2.0
  */
-package org.hyperledger.besu.cli.config;
+package org.hyperledger.besu.config;
 
 import java.math.BigInteger;
 import java.util.Locale;

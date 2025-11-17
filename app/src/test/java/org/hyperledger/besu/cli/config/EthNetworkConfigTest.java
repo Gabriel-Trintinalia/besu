@@ -15,7 +15,7 @@
 package org.hyperledger.besu.cli.config;
 
 import static org.assertj.core.api.Assertions.assertThat;
-import static org.hyperledger.besu.cli.config.NetworkName.MAINNET;
+import static org.hyperledger.besu.config.NetworkName.MAINNET;
 import static org.hyperledger.besu.ethereum.p2p.config.DefaultDiscoveryConfiguration.HOODI_BOOTSTRAP_NODES;
 import static org.hyperledger.besu.ethereum.p2p.config.DefaultDiscoveryConfiguration.HOODI_DISCOVERY_URL;
 import static org.hyperledger.besu.ethereum.p2p.config.DefaultDiscoveryConfiguration.MAINNET_BOOTSTRAP_NODES;
@@ -27,6 +27,7 @@ import org.hyperledger.besu.config.GenesisConfig;
 
 import java.math.BigInteger;
 
+import org.hyperledger.besu.config.NetworkName;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
 import org.mockito.junit.jupiter.MockitoExtension;

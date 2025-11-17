@@ -17,7 +17,7 @@ package org.hyperledger.besu.tests.acceptance.dsl.node;
 import static java.util.Collections.unmodifiableList;
 import static org.apache.tuweni.io.file.Files.copyResource;
 
-import org.hyperledger.besu.cli.config.NetworkName;
+import org.hyperledger.besu.config.NetworkName;
 import org.hyperledger.besu.config.MergeConfiguration;
 import org.hyperledger.besu.crypto.KeyPair;
 import org.hyperledger.besu.crypto.KeyPairUtil;

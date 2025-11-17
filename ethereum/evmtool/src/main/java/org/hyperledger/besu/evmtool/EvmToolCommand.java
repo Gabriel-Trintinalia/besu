@@ -18,7 +18,7 @@ import static java.nio.charset.StandardCharsets.UTF_8;
 import static org.hyperledger.besu.evm.code.EOFLayout.EOFContainerMode.INITCODE;
 import static picocli.CommandLine.ScopeType.INHERIT;
 
-import org.hyperledger.besu.cli.config.NetworkName;
+import org.hyperledger.besu.config.NetworkName;
 import org.hyperledger.besu.collections.trie.BytesTrieSet;
 import org.hyperledger.besu.datatypes.Address;
 import org.hyperledger.besu.datatypes.Hash;
