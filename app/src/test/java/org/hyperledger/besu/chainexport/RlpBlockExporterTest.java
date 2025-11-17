@@ -20,7 +20,7 @@ import static org.mockito.Mockito.mock;
 
 import org.hyperledger.besu.chainimport.RlpBlockImporter;
 import org.hyperledger.besu.cli.config.EthNetworkConfig;
-import org.hyperledger.besu.config.NetworkName;
+import org.hyperledger.besu.config.NetworkDefinition;
 import org.hyperledger.besu.components.BesuComponent;
 import org.hyperledger.besu.controller.BesuController;
 import org.hyperledger.besu.cryptoservices.NodeKeyUtils;
@@ -88,7 +88,7 @@ public final class RlpBlockExporterTest {
 
   private static BesuController createController(final @TempDir Path dataDir) throws IOException {
     return new BesuController.Builder()
-        .fromEthNetworkConfig(EthNetworkConfig.getNetworkConfig(NetworkName.MAINNET), SyncMode.FAST)
+        .fromEthNetworkConfig(EthNetworkConfig.getNetworkConfig(NetworkDefinition.MAINNET), SyncMode.FAST)
         .synchronizerConfiguration(SynchronizerConfiguration.builder().build())
         .ethProtocolConfiguration(EthProtocolConfiguration.defaultConfig())
         .storageProvider(new InMemoryKeyValueStorageProvider())

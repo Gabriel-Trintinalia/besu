@@ -21,7 +21,7 @@ import java.util.Optional;
 import org.apache.commons.lang3.StringUtils;
 
 /** The enum Network name. */
-public enum NetworkName {
+public enum NetworkDefinition {
   /** Mainnet network name. */
   MAINNET("/mainnet.json", BigInteger.valueOf(1), true, true),
   /** Sepolia network name. */
@@ -54,15 +54,15 @@ public enum NetworkName {
   private final String deprecationDate;
   private final boolean requiresNative;
 
-  NetworkName(final String genesisFile, final BigInteger networkId) {
+  NetworkDefinition(final String genesisFile, final BigInteger networkId) {
     this(genesisFile, networkId, true);
   }
 
-  NetworkName(final String genesisFile, final BigInteger networkId, final boolean canSnapSync) {
+  NetworkDefinition(final String genesisFile, final BigInteger networkId, final boolean canSnapSync) {
     this(genesisFile, networkId, canSnapSync, false);
   }
 
-  NetworkName(
+  NetworkDefinition(
       final String genesisFile,
       final BigInteger networkId,
       final boolean canSnapSync,

@@ -18,17 +18,17 @@ import static java.nio.charset.StandardCharsets.UTF_8;
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatExceptionOfType;
 import static org.assertj.core.api.Assertions.assertThatNoException;
-import static org.hyperledger.besu.config.NetworkName.CLASSIC;
-import static org.hyperledger.besu.config.NetworkName.DEV;
-import static org.hyperledger.besu.config.NetworkName.EPHEMERY;
-import static org.hyperledger.besu.config.NetworkName.EXPERIMENTAL_EIPS;
-import static org.hyperledger.besu.config.NetworkName.FUTURE_EIPS;
-import static org.hyperledger.besu.config.NetworkName.HOLESKY;
-import static org.hyperledger.besu.config.NetworkName.HOODI;
-import static org.hyperledger.besu.config.NetworkName.LUKSO;
-import static org.hyperledger.besu.config.NetworkName.MAINNET;
-import static org.hyperledger.besu.config.NetworkName.MORDOR;
-import static org.hyperledger.besu.config.NetworkName.SEPOLIA;
+import static org.hyperledger.besu.config.NetworkDefinition.CLASSIC;
+import static org.hyperledger.besu.config.NetworkDefinition.DEV;
+import static org.hyperledger.besu.config.NetworkDefinition.EPHEMERY;
+import static org.hyperledger.besu.config.NetworkDefinition.EXPERIMENTAL_EIPS;
+import static org.hyperledger.besu.config.NetworkDefinition.FUTURE_EIPS;
+import static org.hyperledger.besu.config.NetworkDefinition.HOLESKY;
+import static org.hyperledger.besu.config.NetworkDefinition.HOODI;
+import static org.hyperledger.besu.config.NetworkDefinition.LUKSO;
+import static org.hyperledger.besu.config.NetworkDefinition.MAINNET;
+import static org.hyperledger.besu.config.NetworkDefinition.MORDOR;
+import static org.hyperledger.besu.config.NetworkDefinition.SEPOLIA;
 import static org.hyperledger.besu.ethereum.api.jsonrpc.RpcApis.ENGINE;
 import static org.hyperledger.besu.ethereum.p2p.config.DefaultDiscoveryConfiguration.HOODI_BOOTSTRAP_NODES;
 import static org.hyperledger.besu.ethereum.p2p.config.DefaultDiscoveryConfiguration.HOODI_DISCOVERY_URL;
@@ -53,7 +53,7 @@ import static org.mockito.Mockito.verifyNoInteractions;
 
 import org.hyperledger.besu.cli.config.EthNetworkConfig;
 import org.hyperledger.besu.cli.config.NativeRequirement;
-import org.hyperledger.besu.config.NetworkName;
+import org.hyperledger.besu.config.NetworkDefinition;
 import org.hyperledger.besu.config.GenesisConfig;
 import org.hyperledger.besu.config.MergeConfiguration;
 import org.hyperledger.besu.crypto.SignatureAlgorithmFactory;
@@ -1966,7 +1966,7 @@ public class BesuCommandTest extends CommandTestAbstract {
 
     verify(mockControllerBuilderFactory).fromEthNetworkConfig(networkArg.capture(), any());
     verify(mockControllerBuilder).build();
-    assertThat(NetworkName.valueOf(String.valueOf(EPHEMERY))).isEqualTo(EPHEMERY);
+    assertThat(NetworkDefinition.valueOf(String.valueOf(EPHEMERY))).isEqualTo(EPHEMERY);
     assertThat(commandOutput.toString(UTF_8)).isEmpty();
     assertThat(commandErrorOutput.toString(UTF_8)).isEmpty();
   }
@@ -2590,7 +2590,7 @@ public class BesuCommandTest extends CommandTestAbstract {
   @Test
   public void assertNativeRequirements_UnMet() throws IOException {
     BesuCommand mockCmd = parseCommand("--network=mainnet");
-    NetworkName mainnet = NetworkName.MAINNET;
+    NetworkDefinition mainnet = NetworkDefinition.MAINNET;
     List<NativeRequirement.NativeRequirementResult> mockNativeRequirements =
         List.of(
             new NativeRequirement.NativeRequirementResult(
@@ -2612,7 +2612,7 @@ public class BesuCommandTest extends CommandTestAbstract {
   public void assertNativeRequirements_UnMetForUnnamedNetwork() throws IOException {
     final Path fakeGenesisFile = createFakeGenesisFile(GENESIS_VALID_JSON);
     BesuCommand mockCmd = parseCommand("--genesis-file=" + fakeGenesisFile.toString());
-    NetworkName mainnet = NetworkName.MAINNET;
+    NetworkDefinition mainnet = NetworkDefinition.MAINNET;
     try (var mockStatic = mockStatic(NativeRequirement.class)) {
       mockStatic
           .when(() -> NativeRequirement.getNativeRequirements(mainnet))

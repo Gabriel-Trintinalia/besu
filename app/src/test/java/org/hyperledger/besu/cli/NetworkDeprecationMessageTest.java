@@ -17,7 +17,7 @@ package org.hyperledger.besu.cli;
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
 
-import org.hyperledger.besu.config.NetworkName;
+import org.hyperledger.besu.config.NetworkDefinition;
 
 import org.junit.jupiter.api.Disabled;
 import org.junit.jupiter.api.Test;
@@ -29,16 +29,16 @@ class NetworkDeprecationMessageTest {
   @Disabled("There are no deprecation planned at this time, but keeping for reference")
   @ParameterizedTest
   @EnumSource(
-      value = NetworkName.class,
+      value = NetworkDefinition.class,
       names = {"A_DEPRECATED_NETWORK_NAME"})
-  void shouldGenerateDeprecationMessageForDeprecatedNetworks(final NetworkName network) {
+  void shouldGenerateDeprecationMessageForDeprecatedNetworks(final NetworkDefinition network) {
     assertThat(NetworkDeprecationMessage.generate(network))
         .contains(network.normalize() + " is deprecated and will be shutdown");
   }
 
   @ParameterizedTest
   @EnumSource(
-      value = NetworkName.class,
+      value = NetworkDefinition.class,
       names = {
         "MAINNET",
         "SEPOLIA",
@@ -50,7 +50,7 @@ class NetworkDeprecationMessageTest {
         "EPHEMERY",
         "HOODI"
       })
-  void shouldThrowErrorForNonDeprecatedNetworks(final NetworkName network) {
+  void shouldThrowErrorForNonDeprecatedNetworks(final NetworkDefinition network) {
     assertThatThrownBy(() -> NetworkDeprecationMessage.generate(network))
         .isInstanceOf(AssertionError.class);
   }

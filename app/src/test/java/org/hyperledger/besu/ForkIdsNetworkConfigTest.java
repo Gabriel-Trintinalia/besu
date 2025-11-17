@@ -19,7 +19,7 @@ import static org.mockito.Mockito.lenient;
 import static org.mockito.Mockito.mock;
 import static org.mockito.Mockito.when;
 
-import org.hyperledger.besu.config.NetworkName;
+import org.hyperledger.besu.config.NetworkDefinition;
 import org.hyperledger.besu.config.GenesisConfig;
 import org.hyperledger.besu.config.GenesisConfigOptions;
 import org.hyperledger.besu.consensus.merge.MergeProtocolSchedule;
@@ -61,7 +61,7 @@ public class ForkIdsNetworkConfigTest {
   public static Collection<Object[]> parameters() {
     return List.of(
         new Object[] {
-          NetworkName.SEPOLIA,
+          NetworkDefinition.SEPOLIA,
           List.of(
               new ForkId(Bytes.ofUnsignedInt(0xfe3366e7L), 1735371L),
               new ForkId(Bytes.ofUnsignedInt(0xb96cbd13L), 1677557088L),
@@ -74,7 +74,7 @@ public class ForkIdsNetworkConfigTest {
               new ForkId(Bytes.ofUnsignedInt(0x268956b6L), 0L))
         },
         new Object[] {
-          NetworkName.HOODI,
+          NetworkDefinition.HOODI,
           List.of(
               new ForkId(Bytes.ofUnsignedInt(0xbef71d30L), 1742999832L),
               new ForkId(Bytes.ofUnsignedInt(0x0929e24eL), 1761677592L),
@@ -84,7 +84,7 @@ public class ForkIdsNetworkConfigTest {
               new ForkId(Bytes.ofUnsignedInt(0x23aa1351L), 0L))
         },
         new Object[] {
-          NetworkName.HOLESKY,
+          NetworkDefinition.HOLESKY,
           List.of(
               new ForkId(Bytes.ofUnsignedInt(0xc61a6098L), 1696000704L),
               new ForkId(Bytes.ofUnsignedInt(0xfd4f016bL), 1707305664L),
@@ -96,7 +96,7 @@ public class ForkIdsNetworkConfigTest {
               new ForkId(Bytes.ofUnsignedInt(0x9bc6cb31L), 0L))
         },
         new Object[] {
-          NetworkName.MAINNET,
+          NetworkDefinition.MAINNET,
           List.of(
               new ForkId(Bytes.ofUnsignedInt(0xfc64ec04L), 1150000L),
               new ForkId(Bytes.ofUnsignedInt(0x97c2c34cL), 1920000L),
@@ -122,7 +122,7 @@ public class ForkIdsNetworkConfigTest {
               new ForkId(Bytes.ofUnsignedInt(0x07c9462eL), 0))
         },
         new Object[] {
-          NetworkName.MORDOR,
+          NetworkDefinition.MORDOR,
           List.of(
               new ForkId(Bytes.ofUnsignedInt(0x175782aaL), 301243L),
               new ForkId(Bytes.ofUnsignedInt(0x604f6ee1L), 999983L),
@@ -134,7 +134,7 @@ public class ForkIdsNetworkConfigTest {
               new ForkId(Bytes.ofUnsignedInt(0x3a6b00d7L), 0L))
         },
         new Object[] {
-          NetworkName.CLASSIC,
+          NetworkDefinition.CLASSIC,
           List.of(
               new ForkId(Bytes.ofUnsignedInt(0xfc64ec04L), 1150000L),
               new ForkId(Bytes.ofUnsignedInt(0x97c2c34cL), 2500000L),
@@ -157,7 +157,7 @@ public class ForkIdsNetworkConfigTest {
 
   @ParameterizedTest
   @MethodSource("parameters")
-  public void testForkId(final NetworkName chainName, final List<ForkId> expectedForkIds) {
+  public void testForkId(final NetworkDefinition chainName, final List<ForkId> expectedForkIds) {
     final GenesisConfig genesisConfig = GenesisConfig.fromResource(chainName.getGenesisFile());
     final MilestoneStreamingTransitionProtocolSchedule schedule = createSchedule(genesisConfig);
     final GenesisState genesisState =

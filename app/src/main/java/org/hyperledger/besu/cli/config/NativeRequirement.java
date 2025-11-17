@@ -14,7 +14,7 @@
  */
 package org.hyperledger.besu.cli.config;
 
-import org.hyperledger.besu.config.NetworkName;
+import org.hyperledger.besu.config.NetworkDefinition;
 import org.hyperledger.besu.crypto.SECP256K1;
 import org.hyperledger.besu.crypto.SECP256R1;
 import org.hyperledger.besu.evm.precompile.AltBN128PairingPrecompiledContract;
@@ -82,10 +82,10 @@ public interface NativeRequirement {
   /**
    * Gets native requirements based on the given network name.
    *
-   * @param networkName The name of the network.
+   * @param networkDefinition The name of the network.
    * @return List of native library requirements for the network.
    */
-  static List<NativeRequirementResult> getNativeRequirements(final NetworkName networkName) {
-    return networkName.requiresNative() ? MAINNET.get() : Collections.emptyList();
+  static List<NativeRequirementResult> getNativeRequirements(final NetworkDefinition networkDefinition) {
+    return networkDefinition.requiresNative() ? MAINNET.get() : Collections.emptyList();
   }
 }

@@ -14,7 +14,7 @@
  */
 package org.hyperledger.besu.util;
 
-import static org.hyperledger.besu.config.NetworkName.EPHEMERY;
+import static org.hyperledger.besu.config.NetworkDefinition.EPHEMERY;
 
 import org.hyperledger.besu.config.GenesisConfig;
 
