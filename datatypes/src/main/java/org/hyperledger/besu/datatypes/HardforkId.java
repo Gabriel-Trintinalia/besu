@@ -41,79 +41,89 @@ public interface HardforkId {
    */
   String description();
 
+  /**
+   * Indicates whether the blob schedule is mutable for this hard fork.
+   *
+   * @return true if the blob schedule is mutable, false otherwise.
+   */
+  boolean isBlobScheduleMutable();
+
   /** List of all Ethereum Mainnet hardforks, including future and developmental forks. */
   enum MainnetHardforkId implements HardforkId {
     /** Frontier fork. */
-    FRONTIER(true, "Frontier"),
+    FRONTIER(true, "Frontier", false),
     /** Homestead fork. */
-    HOMESTEAD(true, "Homestead"),
+    HOMESTEAD(true, "Homestead", false),
     /** DAO Recovery Init fork. */
-    DAO_RECOVERY_INIT(true, "DAO Recovery Init"),
+    DAO_RECOVERY_INIT(true, "DAO Recovery Init", false),
     /** DAO Recovery Transition fork. */
-    DAO_RECOVERY_TRANSITION(true, "DAO Recovery Transition"),
+    DAO_RECOVERY_TRANSITION(true, "DAO Recovery Transition", false),
     /** Tangerine Whistle fork. */
-    TANGERINE_WHISTLE(true, "Tangerine Whistle"),
+    TANGERINE_WHISTLE(true, "Tangerine Whistle", false),
     /** Spurious Dragon fork. */
-    SPURIOUS_DRAGON(true, "Spurious Dragon"),
+    SPURIOUS_DRAGON(true, "Spurious Dragon", false),
     /** Byzantium fork. */
-    BYZANTIUM(true, "Byzantium"),
+    BYZANTIUM(true, "Byzantium", false),
     /** Constantinople fork. */
-    CONSTANTINOPLE(true, "Constantinople"),
+    CONSTANTINOPLE(true, "Constantinople", false),
     /** Petersburg fork. */
-    PETERSBURG(true, "Petersburg"),
+    PETERSBURG(true, "Petersburg", false),
     /** Istanbul fork. */
-    ISTANBUL(true, "Istanbul"),
+    ISTANBUL(true, "Istanbul", false),
     /** Muir Glacier fork. */
-    MUIR_GLACIER(true, "Muir Glacier"),
+    MUIR_GLACIER(true, "Muir Glacier", false),
     /** Berlin fork. */
-    BERLIN(true, "Berlin"),
+    BERLIN(true, "Berlin", false),
     /** London fork. */
-    LONDON(true, "London"),
+    LONDON(true, "London", false),
     /** Arrow Glacier fork. */
-    ARROW_GLACIER(true, "Arrow Glacier"),
+    ARROW_GLACIER(true, "Arrow Glacier", false),
     /** Gray Glacier fork. */
-    GRAY_GLACIER(true, "Gray Glacier"),
+    GRAY_GLACIER(true, "Gray Glacier", false),
     /** Paris fork. */
-    PARIS(true, "Paris"),
+    PARIS(true, "Paris", false),
     /** Shanghai fork. */
-    SHANGHAI(true, "Shanghai"),
+    SHANGHAI(true, "Shanghai", false),
     /** Cancun fork. */
-    CANCUN(true, "Cancun"),
+    CANCUN(true, "Cancun", true),
     /** Cancun + EOF fork. */
-    CANCUN_EOF(false, "Cancun + EOF"),
+    CANCUN_EOF(false, "Cancun + EOF", true),
     /** Prague fork. */
-    PRAGUE(true, "Prague"),
+    PRAGUE(true, "Prague", true),
     /** Osaka fork. */
-    OSAKA(true, "Osaka"),
+    OSAKA(true, "Osaka", false),
     /** BPO1 fork. */
-    BPO1(true, "BPO1"),
+    BPO1(true, "BPO1", true),
     /** BPO2 fork. */
-    BPO2(true, "BPO2"),
+    BPO2(true, "BPO2", true),
     /** BPO3 fork. */
-    BPO3(true, "BPO3"),
+    BPO3(true, "BPO3", true),
     /** BPO4 fork. */
-    BPO4(true, "BPO4"),
+    BPO4(true, "BPO4", true),
     /** BPO5 fork. */
-    BPO5(true, "BPO5"),
+    BPO5(true, "BPO5", true),
     /** Amsterdam fork. */
-    AMSTERDAM(false, "Amsterdam"),
+    AMSTERDAM(false, "Amsterdam", false),
     /** Bogota fork. */
-    BOGOTA(false, "Bogota"),
+    BOGOTA(false, "Bogota", false),
     /** Polis fork. (from the greek form of an earlier incarnation of the city of Istanbul. */
-    POLIS(false, "Polis"),
+    POLIS(false, "Polis", false),
     /** Bangkok fork. */
-    BANGKOK(false, "Bangkok"),
+    BANGKOK(false, "Bangkok", false),
     /** Development fork, for accepted and unscheduled EIPs. */
-    FUTURE_EIPS(false, "FutureEips"),
+    FUTURE_EIPS(false, "FutureEips", false),
     /** Developmental fork, for experimental EIPs. */
-    EXPERIMENTAL_EIPS(false, "ExperimentalEips");
+    EXPERIMENTAL_EIPS(false, "ExperimentalEips", false);
 
     final boolean finalized;
     final String description;
+    final boolean isBlobScheduleMutable;
 
-    MainnetHardforkId(final boolean finalized, final String description) {
+    MainnetHardforkId(
+        final boolean finalized, final String description, final boolean isBlobScheduleMutable) {
       this.finalized = finalized;
       this.description = description;
+      this.isBlobScheduleMutable = isBlobScheduleMutable;
     }
 
     @Override
@@ -124,6 +134,11 @@ public interface HardforkId {
     @Override
     public String description() {
       return description;
+    }
+
+    @Override
+    public boolean isBlobScheduleMutable() {
+      return isBlobScheduleMutable;
     }
 
     /**
@@ -187,6 +202,11 @@ public interface HardforkId {
     @Override
     public String description() {
       return description;
+    }
+
+    @Override
+    public boolean isBlobScheduleMutable() {
+      return false;
     }
   }
 }

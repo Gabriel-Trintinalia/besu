@@ -14,6 +14,7 @@
  */
 package org.hyperledger.besu.ethereum.mainnet;
 
+import static com.google.common.base.Preconditions.checkArgument;
 import static com.google.common.base.Preconditions.checkNotNull;
 
 import org.hyperledger.besu.config.BlobSchedule;
@@ -231,7 +232,11 @@ public class ProtocolSpecBuilder {
     return this;
   }
 
-  public ProtocolSpecBuilder blobSchedule(final BlobSchedule blobSchedule) {
+  public ProtocolSpecBuilder blobSchedule(
+      final BlobSchedule blobSchedule, final HardforkId hardforkId) {
+    checkArgument(
+        hardforkId.isBlobScheduleMutable(),
+        String.format("Blob schedule cannot be set for hardfork %s", hardforkId.name()));
     this.blobSchedule = blobSchedule;
     return this;
   }

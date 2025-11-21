@@ -16,6 +16,9 @@ package org.hyperledger.besu.ethereum.mainnet;
 
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatExceptionOfType;
+import static org.junit.jupiter.api.Assertions.assertDoesNotThrow;
+import static org.junit.jupiter.api.Assertions.assertThrows;
+import static org.mockito.Mockito.mock;
 import static org.mockito.Mockito.when;
 
 import org.hyperledger.besu.config.BlobSchedule;
@@ -25,6 +28,7 @@ import org.hyperledger.besu.config.ImmutableCliqueConfigOptions;
 import org.hyperledger.besu.config.JsonBftConfigOptions;
 import org.hyperledger.besu.config.JsonQbftConfigOptions;
 import org.hyperledger.besu.datatypes.Address;
+import org.hyperledger.besu.datatypes.HardforkId;
 import org.hyperledger.besu.ethereum.chain.BadBlockManager;
 import org.hyperledger.besu.ethereum.core.ImmutableMiningConfiguration;
 import org.hyperledger.besu.ethereum.core.MiningConfiguration;
@@ -300,5 +304,29 @@ public class MainnetProtocolSpecsTest {
 
     assertThat(protocolSpec.getSlotDuration())
         .hasSeconds(miningConfiguration.getUnstable().getPosSlotDuration());
+  }
+
+  @Test
+  public void blobScheduleCanBeSetWhenHardForkAllowsBPOMutability() {
+    HardforkId hardforkId = mock(HardforkId.class);
+    when(hardforkId.isBlobScheduleMutable()).thenReturn(true);
+    ProtocolSpecBuilder protocolSpecBuilder = new ProtocolSpecBuilder();
+    BlobSchedule mockBlobSchedule = mock(BlobSchedule.class);
+    assertDoesNotThrow(() -> protocolSpecBuilder.blobSchedule(mockBlobSchedule, hardforkId));
+  }
+
+  @Test
+  public void blobScheduleCannotBeSetWhenHardForkDisablesBPOMutability() {
+    HardforkId hardforkId = mock(HardforkId.class);
+    when(hardforkId.isBlobScheduleMutable()).thenReturn(false);
+    when(hardforkId.name()).thenReturn("TestHardfork");
+    ProtocolSpecBuilder protocolSpecBuilder = new ProtocolSpecBuilder();
+    BlobSchedule mockBlobSchedule = mock(BlobSchedule.class);
+    IllegalArgumentException exception =
+        assertThrows(
+            IllegalArgumentException.class,
+            () -> protocolSpecBuilder.blobSchedule(mockBlobSchedule, hardforkId));
+    assertThat(exception.getMessage())
+        .contains("Blob schedule cannot be set for hardfork TestHardfork");
   }
 }

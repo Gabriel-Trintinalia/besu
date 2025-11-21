@@ -816,7 +816,8 @@ public abstract class MainnetProtocolSpecs {
             genesisConfigOptions
                 .getBlobScheduleOptions()
                 .flatMap(BlobScheduleOptions::getCancun)
-                .orElse(BlobSchedule.CANCUN_DEFAULT))
+                .orElse(BlobSchedule.CANCUN_DEFAULT),
+            CANCUN)
         // gas calculator for EIP-4844 blob gas
         .gasCalculator(CancunGasCalculator::new)
         // gas limit with EIP-4844 max blob gas per block
@@ -919,7 +920,8 @@ public abstract class MainnetProtocolSpecs {
                 genesisConfigOptions
                     .getBlobScheduleOptions()
                     .flatMap(BlobScheduleOptions::getPrague)
-                    .orElse(BlobSchedule.PRAGUE_DEFAULT))
+                    .orElse(BlobSchedule.PRAGUE_DEFAULT),
+                PRAGUE)
             .gasCalculator(PragueGasCalculator::new)
             .evmBuilder(
                 (gasCalculator, jdCacheConfig) ->
@@ -1186,7 +1188,7 @@ public abstract class MainnetProtocolSpecs {
     genesisConfigOptions
         .getBlobScheduleOptions()
         .flatMap(blobGetter)
-        .ifPresent(builder::blobSchedule);
+        .ifPresent(b -> builder.blobSchedule(b, hardforkId));
     return builder.hardforkId(hardforkId);
   }
 
