@@ -67,7 +67,7 @@ import org.slf4j.LoggerFactory;
  * The peer discovery agent is the network component that sends and receives peer discovery messages
  * via UDP.
  */
-public abstract class PeerDiscoveryAgent implements PeerLookup {
+public abstract class PeerDiscoveryAgent implements PeerLookup, DiscoveryService {
   private static final Logger LOG = LoggerFactory.getLogger(PeerDiscoveryAgent.class);
   private static final com.google.common.base.Supplier<SignatureAlgorithm> SIGNATURE_ALGORITHM =
       Suppliers.memoize(SignatureAlgorithmFactory::getInstance);
@@ -148,8 +148,7 @@ public abstract class PeerDiscoveryAgent implements PeerLookup {
   protected abstract CompletableFuture<Void> sendOutgoingPacket(
       final DiscoveryPeer peer, final Packet packet);
 
-  public abstract CompletableFuture<?> stop();
-
+  @Override
   public CompletableFuture<Integer> start(final int tcpPort) {
     if (config.isEnabled()) {
       final String host = config.getBindHost();
@@ -189,6 +188,7 @@ public abstract class PeerDiscoveryAgent implements PeerLookup {
     }
   }
 
+  @Override
   public void updateNodeRecord() {
     if (!config.isEnabled()) {
       return;
@@ -253,6 +253,7 @@ public abstract class PeerDiscoveryAgent implements PeerLookup {
     this.peerRequirements.add(peerRequirement);
   }
 
+  @Override
   public boolean checkForkId(final DiscoveryPeer peer) {
     return peer.getForkId().map(forkIdManager::peerCheck).orElse(true);
   }
@@ -375,10 +376,12 @@ public abstract class PeerDiscoveryAgent implements PeerLookup {
   protected abstract void handleOutgoingPacketError(
       final Throwable err, final DiscoveryPeer peer, final Packet packet);
 
+  @Override
   public Stream<DiscoveryPeer> streamDiscoveredPeers() {
     return controller.map(PeerDiscoveryController::streamDiscoveredPeers).orElse(Stream.empty());
   }
 
+  @Override
   public void dropPeer(final PeerId peer) {
     controller.ifPresent(c -> c.dropPeer(peer));
   }
@@ -414,6 +417,7 @@ public abstract class PeerDiscoveryAgent implements PeerLookup {
    *
    * @return true, if the {@link PeerDiscoveryAgent} is active on this node, false, otherwise.
    */
+  @Override
   public boolean isEnabled() {
     return isEnabled;
   }
@@ -426,10 +430,12 @@ public abstract class PeerDiscoveryAgent implements PeerLookup {
    *
    * @return true, if the {@link PeerDiscoveryAgent} is active on this node, false, otherwise.
    */
+  @Override
   public boolean isStopped() {
     return isStopped;
   }
 
+  @Override
   public void bond(final Peer peer) {
     controller.ifPresent(
         c -> {

@@ -24,6 +24,7 @@ import org.hyperledger.besu.ethereum.core.Util;
 import org.hyperledger.besu.ethereum.forkid.ForkIdManager;
 import org.hyperledger.besu.ethereum.p2p.config.NetworkingConfiguration;
 import org.hyperledger.besu.ethereum.p2p.discovery.DiscoveryPeer;
+import org.hyperledger.besu.ethereum.p2p.discovery.DiscoveryService;
 import org.hyperledger.besu.ethereum.p2p.discovery.PeerDiscoveryAgent;
 import org.hyperledger.besu.ethereum.p2p.discovery.PeerDiscoveryStatus;
 import org.hyperledger.besu.ethereum.p2p.discovery.VertxPeerDiscoveryAgent;
@@ -132,7 +133,7 @@ public class DefaultP2PNetwork implements P2PNetwork {
 
   private final ScheduledExecutorService peerConnectionScheduler =
       Executors.newSingleThreadScheduledExecutor();
-  private final PeerDiscoveryAgent peerDiscoveryAgent;
+  private final DiscoveryService discoveryService;
   private final RlpxAgent rlpxAgent;
 
   private final NetworkingConfiguration config;
@@ -161,7 +162,7 @@ public class DefaultP2PNetwork implements P2PNetwork {
    * agent, respectively.
    *
    * @param localNode A representation of the local node
-   * @param peerDiscoveryAgent The agent responsible for discovering peers on the network.
+   * @param discoveryService The service responsible for discovering peers on the network.
    * @param nodeKey The node key through which cryptographic operations can be performed
    * @param config The network configuration to use.
    * @param peerPermissions An object that determines whether peers are allowed to connect
@@ -173,7 +174,7 @@ public class DefaultP2PNetwork implements P2PNetwork {
    */
   DefaultP2PNetwork(
       final MutableLocalNode localNode,
-      final PeerDiscoveryAgent peerDiscoveryAgent,
+      final DiscoveryService discoveryService,
       final RlpxAgent rlpxAgent,
       final NodeKey nodeKey,
       final NetworkingConfiguration config,
@@ -183,7 +184,7 @@ public class DefaultP2PNetwork implements P2PNetwork {
       final PeerDenylistManager reputationManager,
       final Vertx vertx) {
     this.localNode = localNode;
-    this.peerDiscoveryAgent = peerDiscoveryAgent;
+    this.discoveryService = discoveryService;
     this.rlpxAgent = rlpxAgent;
     this.config = config;
     this.natService = natService;
@@ -195,7 +196,6 @@ public class DefaultP2PNetwork implements P2PNetwork {
 
     final int maxPeers = rlpxAgent.getMaxPeers();
     LOG.debug("setting maxPeers {}", maxPeers);
-    peerDiscoveryAgent.addPeerRequirement(() -> rlpxAgent.getConnectionCount() >= maxPeers);
     subscribeDisconnect(reputationManager);
   }
 
@@ -254,7 +254,7 @@ public class DefaultP2PNetwork implements P2PNetwork {
 
     final int listeningPort = rlpxAgent.start().join();
     final int discoveryPort =
-        peerDiscoveryAgent
+        discoveryService
             .start(
                 (configuredDiscoveryPort == 0 && configuredRlpxPort == 0)
                     ? listeningPort
@@ -301,7 +301,7 @@ public class DefaultP2PNetwork implements P2PNetwork {
     dnsDaemonRef.get().ifPresent(DNSDaemon::stop);
 
     peerConnectionScheduler.shutdownNow();
-    peerDiscoveryAgent.stop().whenComplete((res, err) -> shutdownLatch.countDown());
+    discoveryService.stop().whenComplete((res, err) -> shutdownLatch.countDown());
     rlpxAgent.stop().whenComplete((res, err) -> shutdownLatch.countDown());
     peerPermissions.close();
   }
@@ -339,7 +339,7 @@ public class DefaultP2PNetwork implements P2PNetwork {
       return false;
     }
     final boolean wasAdded = maintainedPeers.add(peer);
-    peerDiscoveryAgent.bond(peer);
+    discoveryService.bond(peer);
     rlpxAgent.connect(peer);
     return wasAdded;
   }
@@ -347,7 +347,7 @@ public class DefaultP2PNetwork implements P2PNetwork {
   @Override
   public boolean removeMaintainedConnectionPeer(final Peer peer) {
     final boolean wasRemoved = maintainedPeers.remove(peer);
-    peerDiscoveryAgent.dropPeer(peer);
+    discoveryService.dropPeer(peer);
     LOG.debug("Disconnect requested for peer {}.", peer);
     rlpxAgent.disconnect(peer.getId(), DisconnectReason.REQUESTED);
     return wasRemoved;
@@ -379,7 +379,7 @@ public class DefaultP2PNetwork implements P2PNetwork {
         peers.add(peer);
       }
       if (!peers.isEmpty()) {
-        peers.stream().forEach(peerDiscoveryAgent::bond);
+        peers.stream().forEach(discoveryService::bond);
       }
     };
   }
@@ -407,7 +407,7 @@ public class DefaultP2PNetwork implements P2PNetwork {
     final Stream<DiscoveryPeer> toTry =
         streamDiscoveredPeers()
             .filter(peer -> peer.getStatus() == PeerDiscoveryStatus.BONDED)
-            .filter(peerDiscoveryAgent::checkForkId)
+            .filter(discoveryService::checkForkId)
             .sorted(Comparator.comparing(DiscoveryPeer::getLastAttemptedConnection));
     toTry.forEach(rlpxAgent::connect);
   }
@@ -424,7 +424,7 @@ public class DefaultP2PNetwork implements P2PNetwork {
 
   @Override
   public Stream<DiscoveryPeer> streamDiscoveredPeers() {
-    return peerDiscoveryAgent.streamDiscoveredPeers();
+    return discoveryService.streamDiscoveredPeers();
   }
 
   @Override
@@ -469,12 +469,12 @@ public class DefaultP2PNetwork implements P2PNetwork {
 
   @Override
   public boolean isDiscoveryEnabled() {
-    return peerDiscoveryAgent.isEnabled();
+    return discoveryService.isEnabled();
   }
 
   @Override
   public boolean isStopped() {
-    return peerDiscoveryAgent.isStopped();
+    return discoveryService.isStopped();
   }
 
   @Override
@@ -510,7 +510,7 @@ public class DefaultP2PNetwork implements P2PNetwork {
 
   @Override
   public void updateNodeRecord() {
-    peerDiscoveryAgent.updateNodeRecord();
+    discoveryService.updateNodeRecord();
   }
 
   public static class Builder {
@@ -557,7 +557,7 @@ public class DefaultP2PNetwork implements P2PNetwork {
           rlpxAgent == null
               ? createRlpxAgent(localNode, peerPrivileges, peerDiscoveryAgent)
               : rlpxAgent;
-
+      peerDiscoveryAgent.addPeerRequirement(() -> rlpxAgent.getConnectionCount() >= maxPeers);
       return new DefaultP2PNetwork(
           localNode,
           peerDiscoveryAgent,
