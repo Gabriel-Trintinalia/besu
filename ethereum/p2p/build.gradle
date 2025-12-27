@@ -58,6 +58,8 @@ dependencies {
   implementation 'org.xerial.snappy:snappy-java'
   implementation 'commons-net:commons-net'
 
+  implementation 'tech.pegasys.discovery:discovery'
+
   annotationProcessor "org.immutables:value"
   implementation "org.immutables:value-annotations"
   implementation 'tech.pegasys.discovery:discovery'
