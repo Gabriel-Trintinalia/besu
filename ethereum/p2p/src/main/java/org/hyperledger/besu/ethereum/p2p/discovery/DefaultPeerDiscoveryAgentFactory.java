@@ -1,3 +1,17 @@
+/*
+ * Copyright contributors to Besu.
+ *
+ * Licensed under the Apache License, Version 2.0 (the "License"); you may not use this file except in compliance with
+ * the License. You may obtain a copy of the License at
+ *
+ * http://www.apache.org/licenses/LICENSE-2.0
+ *
+ * Unless required by applicable law or agreed to in writing, software distributed under the License is distributed on
+ * an "AS IS" BASIS, WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied. See the License for the
+ * specific language governing permissions and limitations under the License.
+ *
+ * SPDX-License-Identifier: Apache-2.0
+ */
 package org.hyperledger.besu.ethereum.p2p.discovery;
 
 import org.hyperledger.besu.cryptoservices.NodeKey;
@@ -20,37 +34,32 @@ public class DefaultPeerDiscoveryAgentFactory implements PeerDiscoveryAgentFacto
   private final PeerDiscoveryAgentFactory delegate;
 
   public DefaultPeerDiscoveryAgentFactory(
-    final Vertx vertx,
-    final NodeKey nodeKey,
-    final NetworkingConfiguration config,
-    final PeerPermissions peerPermissions,
-    final NatService natService,
-    final MetricsSystem metricsSystem,
-    final StorageProvider storageProvider,
-    final Blockchain blockchain,
-    final List<Long> blockNumberForks,
-    final List<Long> timestampForks) {
+      final Vertx vertx,
+      final NodeKey nodeKey,
+      final NetworkingConfiguration config,
+      final PeerPermissions peerPermissions,
+      final NatService natService,
+      final MetricsSystem metricsSystem,
+      final StorageProvider storageProvider,
+      final Blockchain blockchain,
+      final List<Long> blockNumberForks,
+      final List<Long> timestampForks) {
 
     if (config.getDiscovery().isDiscoveryV5Enabled()) {
-      this.delegate =
-        new PeerDiscoveryAgentFactoryDiscv5(
-          vertx,
-          nodeKey,
-          config,
-          metricsSystem);
+      this.delegate = new PeerDiscoveryAgentFactoryDiscv5(vertx, nodeKey, config, metricsSystem);
     } else {
       this.delegate =
-        new PeerDiscoveryAgentFactoryDiscv4(
-          vertx,
-          nodeKey,
-          config,
-          peerPermissions,
-          natService,
-          metricsSystem,
-          storageProvider,
-          blockchain,
-          blockNumberForks,
-          timestampForks);
+          new PeerDiscoveryAgentFactoryDiscv4(
+              vertx,
+              nodeKey,
+              config,
+              peerPermissions,
+              natService,
+              metricsSystem,
+              storageProvider,
+              blockchain,
+              blockNumberForks,
+              timestampForks);
     }
   }
 

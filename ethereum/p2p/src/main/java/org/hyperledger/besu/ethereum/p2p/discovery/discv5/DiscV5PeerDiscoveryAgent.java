@@ -1,73 +1,72 @@
+/*
+ * Copyright contributors to Besu.
+ *
+ * Licensed under the Apache License, Version 2.0 (the "License"); you may not use this file except in compliance with
+ * the License. You may obtain a copy of the License at
+ *
+ * http://www.apache.org/licenses/LICENSE-2.0
+ *
+ * Unless required by applicable law or agreed to in writing, software distributed under the License is distributed on
+ * an "AS IS" BASIS, WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied. See the License for the
+ * specific language governing permissions and limitations under the License.
+ *
+ * SPDX-License-Identifier: Apache-2.0
+ */
 package org.hyperledger.besu.ethereum.p2p.discovery.discv5;
 
+import org.hyperledger.besu.ethereum.p2p.config.NetworkingConfiguration;
 import org.hyperledger.besu.ethereum.p2p.discovery.DiscoveryPeer;
 import org.hyperledger.besu.ethereum.p2p.discovery.PeerDiscoveryAgent;
 import org.hyperledger.besu.ethereum.p2p.peers.Peer;
 import org.hyperledger.besu.ethereum.p2p.peers.PeerId;
 
-
-
-import java.util.Map;
 import java.util.Optional;
 import java.util.concurrent.CompletableFuture;
-import java.util.concurrent.ConcurrentHashMap;
 import java.util.stream.Stream;
 
-/**
- * Minimal Discovery v5 based implementation of {@link PeerDiscoveryAgent}.
- *
- * This implementation:
- * - delegates lifecycle to DiscoverySystem
- * - treats discovery as signal-only
- * - does not own connection or bonding semantics
- */
+import org.ethereum.beacon.discovery.DiscoverySystem;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
+
 public final class DiscV5PeerDiscoveryAgent implements PeerDiscoveryAgent {
+  private static final Logger LOG = LoggerFactory.getLogger(DiscV5PeerDiscoveryAgent.class);
 
   private final DiscoverySystem discoverySystem;
-  private final DiscoveryService discoveryService;
 
-  /**
-   * Local cache of discovered peers.
-   * DiscV5 itself is session-based and does not expose a peer table.
-   */
-  private final Map<PeerId, Peer> discoveredPeers = new ConcurrentHashMap<>();
+  private boolean stopped = false;
 
-  private volatile boolean stopped = true;
+  private NetworkingConfiguration config;
 
-  public DiscV5PeerDiscoveryAgent(
-    final DiscoverySystem discoverySystem,
-    final DiscoveryService discoveryService) {
+  public DiscV5PeerDiscoveryAgent(final DiscoverySystem discoverySystem,
+                                  final NetworkingConfiguration config
+                                  ) {
     this.discoverySystem = discoverySystem;
-    this.discoveryService = discoveryService;
+    this.config = config;
   }
 
   @Override
   public CompletableFuture<Integer> start(final int tcpPort) {
-    stopped = false;
-
-    return discoverySystem.start()
-      .thenApply(
-        unused -> {
-          registerDiscoveryCallbacks();
-          return tcpPort;
-        });
+    LOG.info("Starting DiscV5 Peer Discovery Agent on TCP port {}", tcpPort);
+    return discoverySystem.start().thenApply(v -> tcpPort);
   }
 
   @Override
   public CompletableFuture<?> stop() {
+    LOG.info("Stopping DiscV5 Peer Discovery Agent");
+    discoverySystem.stop();
     stopped = true;
-    discoveredPeers.clear();
-    return discoverySystem.stop();
+    return CompletableFuture.completedFuture(null);
   }
 
   @Override
   public void updateNodeRecord() {
-    discoveryService.updateNodeRecord();
+    // discoverySystem.
+    // discoveryService.updateNodeRecord();
   }
 
   /**
-   * DiscV5 does not use fork IDs directly.
-   * This is intentionally permissive and expected to be refined.
+   * DiscV5 does not use fork IDs directly. This is intentionally permissive and expected to be
+   * refined.
    */
   @Override
   public boolean checkForkId(final DiscoveryPeer peer) {
@@ -76,18 +75,21 @@ public final class DiscV5PeerDiscoveryAgent implements PeerDiscoveryAgent {
 
   @Override
   public Stream<DiscoveryPeer> streamDiscoveredPeers() {
-    return discoveredPeers.values().stream()
-      .map(DiscoveryPeer::fromPeer);
+    LOG.info("Streaming discovered peers:");
+    discoverySystem
+        .streamLiveNodes()
+        .forEach(nodeRecord -> LOG.info("Discovered node: {}", nodeRecord.asEnr()));
+    return Stream.empty();
   }
 
   @Override
   public void dropPeer(final PeerId peerId) {
-    discoveredPeers.remove(peerId);
+    // discoveredPeers.remove(peerId);
   }
 
   @Override
   public boolean isEnabled() {
-    return !stopped;
+    return config.getDiscovery().isEnabled();
   }
 
   @Override
@@ -95,10 +97,7 @@ public final class DiscV5PeerDiscoveryAgent implements PeerDiscoveryAgent {
     return stopped;
   }
 
-  /**
-   * DiscV5 has no bonding concept.
-   * This method is intentionally a no-op.
-   */
+  /** DiscV5 has no bonding concept. This method is intentionally a no-op. */
   @Override
   public void bond(final Peer peer) {
     // no-op by design
@@ -106,18 +105,13 @@ public final class DiscV5PeerDiscoveryAgent implements PeerDiscoveryAgent {
 
   @Override
   public Optional<Peer> getPeer(final PeerId peerId) {
-    return Optional.ofNullable(discoveredPeers.get(peerId));
-  }
+    /*discoverySystem.lookupNode(peerId.getId())
+    .ifPresent(
+      nodeRecord -> {
 
-  /**
-   * Registers minimal callbacks to ingest discovered nodes.
-   */
-  private void registerDiscoveryCallbacks() {
-    discoveryService.addNodeDiscoveredListener(this::onNodeDiscovered);
-  }
-
-  private void onNodeDiscovered(final NodeRecord nodeRecord) {
-    final Peer peer = Peer.fromNodeRecord(nodeRecord);
-    discoveredPeers.put(peer.getId(), peer);
+        //final Peer peer = DiscoveryPeer.fromNodeRecord(nodeRecord);
+      });*/
+    return Optional.empty();
+    // return Optional.ofNullable(discoveredPeers.get(peerId));
   }
 }
