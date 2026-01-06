@@ -1,1 +1,2 @@
-network="DEV"
+network="MAINNET"
+logging="DEBUG"

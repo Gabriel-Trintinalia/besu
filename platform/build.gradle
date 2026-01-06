@@ -18,6 +18,7 @@ plugins {
 }
 
 repositories {
+  mavenLocal()
   mavenCentral()
 }
 
@@ -181,7 +182,7 @@ dependencies {
 
     api 'io.consensys.protocols:jc-kzg-4844:2.1.5'
 
-    api 'tech.pegasys.discovery:discovery:25.4.0'
+    api 'tech.pegasys.discovery:discovery:develop'
   }
 }
 

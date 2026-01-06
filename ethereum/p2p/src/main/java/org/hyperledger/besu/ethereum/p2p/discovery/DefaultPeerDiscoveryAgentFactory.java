@@ -16,6 +16,7 @@ package org.hyperledger.besu.ethereum.p2p.discovery;
 
 import org.hyperledger.besu.cryptoservices.NodeKey;
 import org.hyperledger.besu.ethereum.chain.Blockchain;
+import org.hyperledger.besu.ethereum.forkid.ForkIdManager;
 import org.hyperledger.besu.ethereum.p2p.config.NetworkingConfiguration;
 import org.hyperledger.besu.ethereum.p2p.discovery.discv4.PeerDiscoveryAgentFactoryDiscv4;
 import org.hyperledger.besu.ethereum.p2p.discovery.discv5.PeerDiscoveryAgentFactoryDiscv5;
@@ -46,7 +47,12 @@ public class DefaultPeerDiscoveryAgentFactory implements PeerDiscoveryAgentFacto
       final List<Long> timestampForks) {
 
     if (config.getDiscovery().isDiscoveryV5Enabled()) {
-      this.delegate = new PeerDiscoveryAgentFactoryDiscv5(vertx, nodeKey, config, metricsSystem);
+      final ForkIdManager forkIdManager =
+          new ForkIdManager(blockchain, blockNumberForks, timestampForks);
+      NodeRecordManager nodeRecordManager =
+          new NodeRecordManager(storageProvider, nodeKey, forkIdManager, natService);
+      this.delegate =
+          new PeerDiscoveryAgentFactoryDiscv5(vertx, nodeKey, config, nodeRecordManager);
     } else {
       this.delegate =
           new PeerDiscoveryAgentFactoryDiscv4(

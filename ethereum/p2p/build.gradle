@@ -58,11 +58,13 @@ dependencies {
   implementation 'org.xerial.snappy:snappy-java'
   implementation 'commons-net:commons-net'
 
+  //implementation files('/Users/gtrintinalia/.m2/repository/tech/pegasys/discovery/discovery/develop/discovery-develop.jar')
   implementation 'tech.pegasys.discovery:discovery'
 
   annotationProcessor "org.immutables:value"
   implementation "org.immutables:value-annotations"
   implementation 'tech.pegasys.discovery:discovery'
+  //implementation files('/Users/gtrintinalia/.m2/repository/tech/pegasys/discovery/discovery/develop/discovery-develop.jar')
 
   // test dependencies.
   testImplementation project(path: ':ethereum:core', configuration: 'testArtifacts')
