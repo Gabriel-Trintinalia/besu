@@ -14,13 +14,6 @@
  */
 package org.hyperledger.besu.ethereum.p2p.discovery.discv5;
 
-import com.google.common.base.Suppliers;
-import org.apache.tuweni.bytes.Bytes;
-import org.apache.tuweni.crypto.SECP256K1;
-import org.apache.tuweni.io.Base32;
-import org.bouncycastle.math.ec.ECPoint;
-import org.ethereum.beacon.discovery.schema.IdentitySchemaInterpreter;
-import org.hyperledger.besu.crypto.SignatureAlgorithm;
 import org.hyperledger.besu.crypto.SignatureAlgorithmFactory;
 import org.hyperledger.besu.ethereum.p2p.config.NetworkingConfiguration;
 import org.hyperledger.besu.ethereum.p2p.discovery.DiscoveryPeer;
@@ -32,30 +25,30 @@ import org.hyperledger.besu.ethereum.p2p.peers.PeerId;
 import org.hyperledger.besu.plugin.data.EnodeURL;
 
 import java.net.InetAddress;
-import java.net.UnknownHostException;
 import java.util.Arrays;
+import java.util.List;
 import java.util.Optional;
 import java.util.concurrent.CompletableFuture;
-import java.util.function.Supplier;
 import java.util.stream.Stream;
 
-import org.ethereum.beacon.discovery.DiscoverySystem;
+import org.apache.tuweni.bytes.Bytes;
+import org.ethereum.beacon.discovery.MutableDiscoverySystem;
 import org.ethereum.beacon.discovery.schema.EnrField;
-import org.ethereum.beacon.discovery.schema.NodeRecordFactory;
+import org.ethereum.beacon.discovery.schema.NodeRecord;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
 public final class DiscV5PeerDiscoveryAgent implements PeerDiscoveryAgent {
   private static final Logger LOG = LoggerFactory.getLogger(DiscV5PeerDiscoveryAgent.class);
 
-  private final DiscoverySystem discoverySystem;
+  private final MutableDiscoverySystem discoverySystem;
 
   private boolean stopped = false;
 
   private final NetworkingConfiguration config;
 
   public DiscV5PeerDiscoveryAgent(
-      final DiscoverySystem discoverySystem, final NetworkingConfiguration config) {
+      final MutableDiscoverySystem discoverySystem, final NetworkingConfiguration config) {
     this.discoverySystem = discoverySystem;
     this.config = config;
   }
@@ -91,43 +84,17 @@ public final class DiscV5PeerDiscoveryAgent implements PeerDiscoveryAgent {
 
   @Override
   public Stream<DiscoveryPeer> streamDiscoveredPeers() {
-    LOG.info("Streaming discovered peers:");
-    return discoverySystem
-        .streamLiveNodes()
-        .map(
-            nodeRecord -> {
-              LOG.info("Discovered node: {}", nodeRecord.asEnr());
-              final Bytes ipBytes = (Bytes) nodeRecord.get(EnrField.IP_V4);
-              EnodeURL peerEnode = null;
-              try {
-
-                Bytes keyBytes = (Bytes) nodeRecord.get(EnrField.PKEY_SECP256K1);
-                // convert 33 bytes compressed public key to uncompressed using Bouncy Castle
-                var curve = SignatureAlgorithmFactory.getInstance().getCurve();
-                var ecPoint = curve.getCurve().decodePoint(keyBytes.toArrayUnsafe());
-                // uncompressed public key is 65 bytes, first byte is 0x04.
-                var encodedPubKey = ecPoint.getEncoded(false);
-                var nodeId =  Bytes.of(Arrays.copyOfRange(encodedPubKey, 1, encodedPubKey.length));
-
-                peerEnode = EnodeURLImpl.builder()
-                    .nodeId(nodeId)
-                    .ipAddress(InetAddress.getByAddress(ipBytes.toArrayUnsafe()))
-                    .listeningPort((int) nodeRecord.get(EnrField.TCP))
-                    .discoveryPort((int) nodeRecord.get(EnrField.UDP))
-                    .build();
-              } catch (Exception e) {
-                LOG.error("Error creating EnodeURL from NodeRecord: {}", e.getMessage());
-              }
-              DiscoveryPeer peer = DiscoveryPeer.fromEnode(peerEnode);
-              peer.setStatus(PeerDiscoveryStatus.BONDED);
-              peer.setNodeRecord(nodeRecord);
-              return peer;
-            });
+    List<DiscoveryPeer> peers = new java.util.ArrayList<>();
+    for (NodeRecord nodeRecord : discoverySystem.streamLiveNodes().toList()) {
+      LOG.debug("Discovered node: {}", nodeRecord.asEnr());
+      this.createDiscoveryPeer(nodeRecord).ifPresent(peers::add);
+    }
+    return peers.stream();
   }
 
   @Override
   public void dropPeer(final PeerId peerId) {
-    // discoveredPeers.remove(peerId);
+    discoverySystem.deleteNodeRecord(peerId.getId());
   }
 
   @Override
@@ -140,21 +107,43 @@ public final class DiscV5PeerDiscoveryAgent implements PeerDiscoveryAgent {
     return stopped;
   }
 
-  /** DiscV5 has no bonding concept. This method is intentionally a no-op. */
   @Override
   public void bond(final Peer peer) {
-    // no-op by design
+    peer.getNodeRecord().ifPresent(discoverySystem::addNodeRecord);
   }
 
   @Override
   public Optional<Peer> getPeer(final PeerId peerId) {
-    /*discoverySystem.lookupNode(peerId.getId())
-    .ifPresent(
-      nodeRecord -> {
+    return discoverySystem
+        .lookupNode(peerId.getId())
+        .map(this::createDiscoveryPeer)
+        .map(DiscoveryPeer.class::cast);
+  }
 
-        //final Peer peer = DiscoveryPeer.fromNodeRecord(nodeRecord);
-      });*/
-    return Optional.empty();
-    // return Optional.ofNullable(discoveredPeers.get(peerId));
+  private Optional<DiscoveryPeer> createDiscoveryPeer(final NodeRecord nodeRecord) {
+    final Bytes ipBytes = (Bytes) nodeRecord.get(EnrField.IP_V4);
+    EnodeURL peerEnode = null;
+    try {
+      Bytes keyBytes = (Bytes) nodeRecord.get(EnrField.PKEY_SECP256K1);
+      // convert 33 bytes compressed public key to uncompressed using Bouncy Castle
+      var curve = SignatureAlgorithmFactory.getInstance().getCurve();
+      var ecPoint = curve.getCurve().decodePoint(keyBytes.toArrayUnsafe());
+      // uncompressed public key is 65 bytes, first byte is 0x04.
+      var encodedPubKey = ecPoint.getEncoded(false);
+      var nodeId = Bytes.of(Arrays.copyOfRange(encodedPubKey, 1, encodedPubKey.length));
+      peerEnode =
+          EnodeURLImpl.builder()
+              .nodeId(nodeId)
+              .ipAddress(InetAddress.getByAddress(ipBytes.toArrayUnsafe()))
+              .listeningPort((int) nodeRecord.get(EnrField.TCP))
+              .discoveryPort((int) nodeRecord.get(EnrField.UDP))
+              .build();
+    } catch (Exception e) {
+      LOG.debug("Error creating EnodeURL from NodeRecord: {}", e.getMessage());
+      return Optional.empty();
+    }
+    DiscoveryPeer peer = DiscoveryPeer.fromEnode(peerEnode);
+    peer.setStatus(PeerDiscoveryStatus.BONDED);
+    return Optional.of(peer);
   }
 }

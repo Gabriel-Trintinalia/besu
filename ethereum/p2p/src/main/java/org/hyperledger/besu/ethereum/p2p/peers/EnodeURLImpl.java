@@ -54,9 +54,9 @@ public class EnodeURLImpl implements EnodeURL {
       final Optional<String> maybeHostname,
       final Optional<Integer> listeningPort,
       final Optional<Integer> discoveryPort) {
-/*    checkArgument(
+    checkArgument(
         nodeId.size() == NODE_ID_SIZE,
-        "Invalid node id of length " + nodeId.size() + ".  Expected id of length: 64 bytes.");*/
+        "Invalid node id of length " + nodeId.size() + ".  Expected id of length: 64 bytes.");
     listeningPort.ifPresent(port -> NetworkUtility.checkPort(port, "listening"));
     discoveryPort.ifPresent(port -> NetworkUtility.checkPort(port, "discovery"));
 
@@ -157,13 +157,13 @@ public class EnodeURLImpl implements EnodeURL {
   }
 
   public static Bytes parseNodeId(final String nodeId) {
-/*    int expectedSize = EnodeURLImpl.NODE_ID_SIZE * 2;
+    int expectedSize = EnodeURLImpl.NODE_ID_SIZE * 2;
     if (nodeId.toLowerCase(Locale.ROOT).startsWith("0x")) {
       expectedSize += 2;
     }
     checkArgument(
         nodeId.length() == expectedSize,
-        "Expected " + EnodeURLImpl.NODE_ID_SIZE + " bytes in " + nodeId);*/
+        "Expected " + EnodeURLImpl.NODE_ID_SIZE + " bytes in " + nodeId);
     return Bytes.fromHexString(nodeId);
   }
 
