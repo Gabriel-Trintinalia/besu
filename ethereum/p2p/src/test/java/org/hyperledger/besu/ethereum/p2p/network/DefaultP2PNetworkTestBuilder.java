@@ -24,6 +24,7 @@ import org.hyperledger.besu.ethereum.core.Block;
 import org.hyperledger.besu.ethereum.core.InMemoryKeyValueStorageProvider;
 import org.hyperledger.besu.ethereum.p2p.EthProtocolHelper;
 import org.hyperledger.besu.ethereum.p2p.config.NetworkingConfiguration;
+import org.hyperledger.besu.ethereum.p2p.discovery.DefaultPeerDiscoveryAgentFactory;
 import org.hyperledger.besu.ethereum.p2p.discovery.DefaultRlpxAgentFactory;
 import org.hyperledger.besu.ethereum.p2p.discovery.PeerDiscoveryAgentFactory;
 import org.hyperledger.besu.ethereum.p2p.discovery.RlpxAgentFactory;
@@ -63,22 +64,28 @@ public final class DefaultP2PNetworkTestBuilder {
     when(mockGenesisBlock.getHash()).thenReturn(Hash.ZERO);
     when(mockBlockchain.getGenesisBlock()).thenReturn(mockGenesisBlock);
 
-    final PeerDiscoveryAgentFactory discv4DiscoveryFactory =
-        new PeerDiscoveryAgentFactoryDiscv4(
-            vertx,
-            nodeKey,
-            config,
-            peerPermissions,
-            new NatService(Optional.empty()),
-            noopMetricsSystem,
-            new InMemoryKeyValueStorageProvider(),
-            mockBlockchain,
-            Collections.emptyList(),
-            Collections.emptyList());
+    final PeerDiscoveryAgentFactory peerDiscoveryAgentFactory =
+        DefaultPeerDiscoveryAgentFactory.builder()
+            .vertx(vertx)
+            .nodeKey(nodeKey)
+            .config(config)
+            .peerPermissions(peerPermissions)
+            .metricsSystem(noopMetricsSystem)
+            .storageProvider(new InMemoryKeyValueStorageProvider())
+            .blockchain(mockBlockchain)
+            .blockNumberForks(Collections.emptyList())
+            .timestampForks(Collections.emptyList())
+            .build();
 
     final RlpxAgentFactory defaultRlpxFactory =
-        new DefaultRlpxAgentFactory(
-            nodeKey, config, peerPermissions, noopMetricsSystem, Stream::empty, Stream::empty);
+        DefaultRlpxAgentFactory.builder()
+            .nodeKey(nodeKey)
+            .config(config)
+            .peerPermissions(peerPermissions)
+            .metricsSystem(noopMetricsSystem)
+            .allConnectionsSupplier(Stream::empty)
+            .allActiveConnectionsSupplier(Stream::empty)
+            .build();
 
     return DefaultP2PNetwork.builder()
         .vertx(vertx)
@@ -86,7 +93,7 @@ public final class DefaultP2PNetworkTestBuilder {
         .config(config)
         .metricsSystem(noopMetricsSystem)
         .rlpxAgentFactory(defaultRlpxFactory)
-        .peerDiscoveryAgentFactory(discv4DiscoveryFactory)
+        .peerDiscoveryAgentFactory(peerDiscoveryAgentFactory)
         .supportedCapabilities(supportedCapabilities);
   }
 }

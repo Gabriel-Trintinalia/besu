@@ -153,6 +153,7 @@ public class NodeRecordManager implements NodeRecordListener {
    * @throws IllegalStateException if the local node has not been initialized
    */
   public void updateNodeRecord() {
+    final NodeRecordFactory factory = NodeRecordFactory.DEFAULT;
 
     final Optional<NodeRecord> existingRecord =
         variablesStorage.getLocalEnrSeqno().map(factory::fromBytes);
@@ -250,8 +251,16 @@ public class NodeRecordManager implements NodeRecordListener {
             new EnrField(EnrField.TCP, listeningPort),
             new EnrField(EnrField.UDP, discoveryPort),
             new EnrField(FORK_ID_ENR_FIELD, Collections.singletonList(forkId)));
+
     record.setSignature(
         nodeKey.sign(Hash.keccak256(record.serializeNoSignature())).encodedBytes().slice(0, 64));
+
+    LOG.info("Writing node record to disk. {}", record);
+
+    final var updater = variablesStorage.updater();
+    updater.setLocalEnrSeqno(record.serialize());
+    updater.commit();
+
     return record;
   }
 
