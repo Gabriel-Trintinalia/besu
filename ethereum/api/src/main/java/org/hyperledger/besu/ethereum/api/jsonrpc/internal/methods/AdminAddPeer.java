@@ -25,7 +25,7 @@ import org.hyperledger.besu.ethereum.p2p.peers.DefaultPeer;
 import org.hyperledger.besu.ethereum.p2p.peers.EnodeDnsConfiguration;
 import org.hyperledger.besu.ethereum.p2p.peers.NodeURLFactory;
 import org.hyperledger.besu.ethereum.p2p.peers.Peer;
-import org.hyperledger.besu.plugin.data.EnodeURL;
+import org.hyperledger.besu.plugin.data.NodeURL;
 
 import java.util.Optional;
 
@@ -53,11 +53,11 @@ public class AdminAddPeer extends AdminModifyPeer {
       return new JsonRpcErrorResponse(id, DISCOVERY_DISABLED);
     }
     LOG.debug("Adding ({}) to peers", enode);
-    final EnodeURL enodeURL =
+    final NodeURL nodeURL =
         this.enodeDnsConfiguration.isEmpty()
             ? NodeURLFactory.fromString(enode)
             : NodeURLFactory.fromString(enode, enodeDnsConfiguration.get());
-    final Peer peer = DefaultPeer.fromEnodeURL(enodeURL);
+    final Peer peer = DefaultPeer.fromNodeURL(nodeURL);
     final boolean addedToNetwork = peerNetwork.addMaintainedConnectionPeer(peer);
     return new JsonRpcSuccessResponse(id, addedToNetwork);
   }

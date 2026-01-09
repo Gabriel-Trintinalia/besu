@@ -67,7 +67,7 @@ import org.hyperledger.besu.ethereum.worldstate.WorldStateArchive;
 import org.hyperledger.besu.metrics.ObservableMetricsSystem;
 import org.hyperledger.besu.metrics.prometheus.MetricsConfiguration;
 import org.hyperledger.besu.nat.NatMethod;
-import org.hyperledger.besu.plugin.data.EnodeURL;
+import org.hyperledger.besu.plugin.data.NodeURL;
 import org.hyperledger.besu.services.BesuPluginContextImpl;
 import org.hyperledger.besu.services.PermissioningServiceImpl;
 import org.hyperledger.besu.services.RpcEndpointServiceImpl;
@@ -174,14 +174,14 @@ public final class RunnerBuilderTest {
             .build();
     runner.startEthereumMainLoop();
 
-    final EnodeURL expectedEnodeURL =
+    final NodeURL expectedNodeURL =
         EnodeURLImpl.builder()
             .ipAddress(p2pAdvertisedHost)
             .discoveryPort(0)
             .listeningPort(p2pListenPort)
             .nodeId(nodeKey.getPublicKey().getEncoded())
             .build();
-    assertThat(runner.getLocalEnode().orElseThrow()).isEqualTo(expectedEnodeURL);
+    assertThat(runner.getLocalEnode().orElseThrow()).isEqualTo(expectedNodeURL);
   }
 
   @Test

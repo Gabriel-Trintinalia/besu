@@ -33,7 +33,7 @@ import org.hyperledger.besu.ethereum.p2p.peers.NodeURLFactory;
 import org.hyperledger.besu.ethereum.permissioning.NodeLocalConfigPermissioningController.NodesAllowlistResult;
 import org.hyperledger.besu.ethereum.permissioning.node.NodeAllowlistUpdatedEvent;
 import org.hyperledger.besu.metrics.BesuMetricCategory;
-import org.hyperledger.besu.plugin.data.EnodeURL;
+import org.hyperledger.besu.plugin.data.NodeURL;
 import org.hyperledger.besu.plugin.services.MetricsSystem;
 import org.hyperledger.besu.plugin.services.metrics.Counter;
 
@@ -59,14 +59,14 @@ import org.mockito.junit.jupiter.MockitoExtension;
 public class NodeLocalConfigPermissioningControllerTest {
 
   @Mock private AllowlistPersistor allowlistPersistor;
-  private final List<EnodeURL> bootnodesList = new ArrayList<>();
+  private final List<NodeURL> bootnodesList = new ArrayList<>();
   private NodeLocalConfigPermissioningController controller;
 
   private final String enode1 =
       "enode://6f8a80d14311c39f35f516fa664deaaaa13e85b2f7493f37f6144d86991ec012937307647bd3b9a82abe2974e1407241d54947bbb39763a4cac9f77166ad92a0@192.168.0.10:4567";
   private final String enode2 =
       "enode://5f8a80d14311c39f35f516fa664deaaaa13e85b2f7493f37f6144d86991ec012937307647bd3b9a82abe2974e1407241d54947bbb39763a4cac9f77166ad92a0@192.168.0.10:4567";
-  private final EnodeURL selfEnode =
+  private final NodeURL selfEnode =
       NodeURLFactory.fromString(
           "enode://5f8a80d14311c39f35f516fa664deaaaa13e85b2f7493f37f6144d86991ec012937307647bd3b9a82abe2974e1407241d54947bbb39763a4cac9f77166ad92a0@192.168.0.10:1111");
   private final String enodeDns =

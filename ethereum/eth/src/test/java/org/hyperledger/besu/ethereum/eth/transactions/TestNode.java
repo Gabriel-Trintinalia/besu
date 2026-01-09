@@ -239,7 +239,7 @@ public class TestNode implements Closeable {
         (connection, reason, initiatedByPeer) -> disconnections.put(connection, reason));
 
     networkRunner.start();
-    selfPeer = DefaultPeer.fromEnodeURL(network.getLocalEnode().get());
+    selfPeer = DefaultPeer.fromNodeURL(network.getLocalEnode().get());
   }
 
   private P2PNetwork createP2PNetwork(
@@ -335,9 +335,9 @@ public class TestNode implements Closeable {
   public String toString() {
     return shortId()
         + "@"
-        + selfPeer.getEnodeURL().getIpAsString()
+        + selfPeer.getNodeURL().getIpAsString()
         + ':'
-        + selfPeer.getEnodeURL().getListeningPortOrZero();
+        + selfPeer.getNodeURL().getListeningPortOrZero();
   }
 
   public void receiveRemoteTransaction(final Transaction transaction) {

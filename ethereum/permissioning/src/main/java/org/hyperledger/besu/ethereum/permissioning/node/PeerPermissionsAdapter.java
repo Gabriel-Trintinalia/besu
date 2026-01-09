@@ -87,13 +87,11 @@ public class PeerPermissionsAdapter extends PeerPermissions {
   }
 
   private boolean outboundIsPermitted(final Peer localNode, final Peer remotePeer) {
-    return nodePermissioningController.isPermitted(
-        localNode.getEnodeURL(), remotePeer.getEnodeURL());
+    return nodePermissioningController.isPermitted(localNode.getNodeURL(), remotePeer.getNodeURL());
   }
 
   private boolean inboundIsPermitted(final Peer localNode, final Peer remotePeer) {
-    return nodePermissioningController.isPermitted(
-        remotePeer.getEnodeURL(), localNode.getEnodeURL());
+    return nodePermissioningController.isPermitted(remotePeer.getNodeURL(), localNode.getNodeURL());
   }
 
   @Override

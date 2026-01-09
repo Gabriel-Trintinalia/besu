@@ -68,7 +68,7 @@ import org.hyperledger.besu.metrics.MetricsSystemModule;
 import org.hyperledger.besu.metrics.ObservableMetricsSystem;
 import org.hyperledger.besu.metrics.noop.NoOpMetricsSystem;
 import org.hyperledger.besu.metrics.prometheus.MetricsConfiguration;
-import org.hyperledger.besu.plugin.data.EnodeURL;
+import org.hyperledger.besu.plugin.data.NodeURL;
 import org.hyperledger.besu.plugin.services.BesuConfiguration;
 import org.hyperledger.besu.plugin.services.BesuEvents;
 import org.hyperledger.besu.plugin.services.BlockchainService;
@@ -164,7 +164,7 @@ public class ThreadBesuNodeRunner implements BesuNodeRunner {
     GlobalOpenTelemetry.resetForTest();
     final ObservableMetricsSystem metricsSystem =
         (ObservableMetricsSystem) component.getMetricsSystem();
-    final List<EnodeURL> bootnodes =
+    final List<NodeURL> bootnodes =
         node.getConfiguration().getBootnodes().stream().map(NodeURLFactory::fromURI).toList();
 
     final EthNetworkConfig.Builder networkConfigBuilder = component.ethNetworkConfigBuilder();

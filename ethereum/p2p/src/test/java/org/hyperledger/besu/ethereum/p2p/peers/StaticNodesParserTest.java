@@ -17,7 +17,7 @@ package org.hyperledger.besu.ethereum.p2p.peers;
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
 
-import org.hyperledger.besu.plugin.data.EnodeURL;
+import org.hyperledger.besu.plugin.data.NodeURL;
 
 import java.io.File;
 import java.io.IOException;
@@ -41,7 +41,7 @@ public class StaticNodesParserTest {
   // to "A".
 
   // First peer in the valid_static_nodes file.
-  private final List<EnodeURL> validFileItems =
+  private final List<NodeURL> validFileItems =
       Lists.newArrayList(
           EnodeURLImpl.builder()
               .nodeId(
@@ -74,7 +74,7 @@ public class StaticNodesParserTest {
   public void validFileLoadsWithExpectedEnodes() throws IOException, URISyntaxException {
     final URL resource = StaticNodesParserTest.class.getResource("valid_static_nodes.json");
     final File validFile = new File(resource.getFile());
-    final Set<EnodeURL> enodes =
+    final Set<NodeURL> enodes =
         StaticNodesParser.fromPath(validFile.toPath(), EnodeDnsConfiguration.DEFAULT_CONFIG);
 
     assertThat(enodes)
@@ -89,7 +89,7 @@ public class StaticNodesParserTest {
     final File validFile = new File(resource.getFile());
     final EnodeDnsConfiguration enodeDnsConfiguration =
         ImmutableEnodeDnsConfiguration.builder().dnsEnabled(true).updateEnabled(false).build();
-    final Set<EnodeURL> enodes =
+    final Set<NodeURL> enodes =
         StaticNodesParser.fromPath(validFile.toPath(), enodeDnsConfiguration);
 
     assertThat(enodes)
@@ -118,15 +118,15 @@ public class StaticNodesParserTest {
     final File validFile = new File(resource.getFile());
     final EnodeDnsConfiguration enodeDnsConfiguration =
         ImmutableEnodeDnsConfiguration.builder().dnsEnabled(true).updateEnabled(true).build();
-    final Set<EnodeURL> enodes =
+    final Set<NodeURL> enodes =
         StaticNodesParser.fromPath(validFile.toPath(), enodeDnsConfiguration);
 
     assertThat(enodes)
-        .containsExactlyInAnyOrder(validFileItems.toArray(new EnodeURL[validFileItems.size()]));
-    final Set<EnodeURL> actual =
+        .containsExactlyInAnyOrder(validFileItems.toArray(new NodeURL[validFileItems.size()]));
+    final Set<NodeURL> actual =
         StaticNodesParser.fromPath(validFile.toPath(), enodeDnsConfiguration);
 
-    final EnodeURL[] expected = validFileItems.toArray(new EnodeURLImpl[validFileItems.size()]);
+    final NodeURL[] expected = validFileItems.toArray(new EnodeURLImpl[validFileItems.size()]);
 
     assertThat(actual).containsExactlyInAnyOrder(expected);
   }
@@ -185,7 +185,7 @@ public class StaticNodesParserTest {
   public void anEmptyCacheIsCreatedIfTheFileDoesNotExist() throws IOException {
     final Path path = Paths.get("./arbirtraryFilename.txt");
 
-    final Set<EnodeURL> enodes =
+    final Set<NodeURL> enodes =
         StaticNodesParser.fromPath(path, EnodeDnsConfiguration.DEFAULT_CONFIG);
     assertThat(enodes.size()).isZero();
   }
@@ -194,7 +194,7 @@ public class StaticNodesParserTest {
   public void cacheIsCreatedIfFileExistsButIsEmpty() throws IOException {
     final Path tempFile = Files.createTempFile(testFolder, "file", "txt");
 
-    final Set<EnodeURL> enodes =
+    final Set<NodeURL> enodes =
         StaticNodesParser.fromPath(tempFile, EnodeDnsConfiguration.DEFAULT_CONFIG);
     assertThat(enodes.size()).isZero();
   }

@@ -774,7 +774,7 @@ public class PeerDiscoveryControllerTest {
   @Test
   public void shouldNotAddSelfWhenReceivedPingFromSelf() {
     startPeerDiscoveryController();
-    final DiscoveryPeerV4 localPeer = DiscoveryPeerV4.fromEnode(this.localPeer.getEnodeURL());
+    final DiscoveryPeerV4 localPeer = DiscoveryPeerV4.fromEnode(this.localPeer.getNodeURL());
 
     final Packet pingPacket = mockPingPacket(this.localPeer, this.localPeer);
     controller.onMessage(pingPacket, localPeer);

@@ -19,7 +19,7 @@ import org.hyperledger.besu.ethereum.p2p.discovery.discv4.Endpoint;
 import org.hyperledger.besu.ethereum.p2p.peers.Peer;
 import org.hyperledger.besu.ethereum.rlp.RLPInput;
 import org.hyperledger.besu.ethereum.rlp.RLPOutput;
-import org.hyperledger.besu.plugin.data.EnodeURL;
+import org.hyperledger.besu.plugin.data.NodeURL;
 
 import java.util.Optional;
 import java.util.concurrent.atomic.AtomicLong;
@@ -38,12 +38,12 @@ public class DiscoveryPeerV4 extends DiscoveryPeer {
   // Timestamps.
   private final AtomicLong firstDiscovered = new AtomicLong(0L);
 
-  private DiscoveryPeerV4(final EnodeURL enode, final Endpoint endpoint) {
+  private DiscoveryPeerV4(final NodeURL enode, final Endpoint endpoint) {
     super(enode);
     this.endpoint = endpoint;
   }
 
-  public static DiscoveryPeerV4 fromEnode(final EnodeURL enode) {
+  public static DiscoveryPeerV4 fromEnode(final NodeURL enode) {
     return new DiscoveryPeerV4(enode, Endpoint.fromEnode(enode));
   }
 
@@ -53,8 +53,8 @@ public class DiscoveryPeerV4 extends DiscoveryPeer {
     }
 
     return Optional.of(peer)
-        .map(Peer::getEnodeURL)
-        .filter(EnodeURL::isRunningDiscovery)
+        .map(Peer::getNodeURL)
+        .filter(NodeURL::isRunningDiscovery)
         .map(DiscoveryPeerV4::fromEnode);
   }
 
@@ -126,7 +126,7 @@ public class DiscoveryPeerV4 extends DiscoveryPeer {
   public String toString() {
     final StringBuilder sb = new StringBuilder("DiscoveryPeer{");
     sb.append("status=").append(status);
-    sb.append(", enode=").append(this.getEnodeURL());
+    sb.append(", enode=").append(this.getNodeURL());
     sb.append(", firstDiscovered=").append(firstDiscovered);
     sb.append('}');
     return sb.toString();

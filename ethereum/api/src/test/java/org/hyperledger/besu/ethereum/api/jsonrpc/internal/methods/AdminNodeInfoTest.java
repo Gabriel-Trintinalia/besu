@@ -44,7 +44,7 @@ import org.hyperledger.besu.nat.NatService;
 import org.hyperledger.besu.nat.core.domain.NatPortMapping;
 import org.hyperledger.besu.nat.core.domain.NatServiceType;
 import org.hyperledger.besu.nat.core.domain.NetworkProtocol;
-import org.hyperledger.besu.plugin.data.EnodeURL;
+import org.hyperledger.besu.plugin.data.NodeURL;
 
 import java.math.BigInteger;
 import java.util.Collections;
@@ -82,7 +82,7 @@ public class AdminNodeInfoTest {
   private final GenesisConfigOptions genesisConfigOptions =
       new StubGenesisConfigOptions().chainId(BigInteger.valueOf(2019));
   private final DefaultPeer defaultPeer =
-      DefaultPeer.fromEnodeURL(
+      DefaultPeer.fromNodeURL(
           EnodeURLImpl.builder()
               .nodeId(nodeId)
               .ipAddress("1.2.3.4")
@@ -115,7 +115,7 @@ public class AdminNodeInfoTest {
   @Test
   public void shouldReturnCorrectResult() {
     when(p2pNetwork.isP2pEnabled()).thenReturn(true);
-    when(p2pNetwork.getLocalEnode()).thenReturn(Optional.of(defaultPeer.getEnodeURL()));
+    when(p2pNetwork.getLocalEnode()).thenReturn(Optional.of(defaultPeer.getNodeURL()));
     final JsonRpcRequestContext request = adminNodeInfo();
 
     final Map<String, Object> expected = new HashMap<>();
@@ -155,7 +155,7 @@ public class AdminNodeInfoTest {
   @Test
   public void shouldReturnCorrectResultWhenIsNatEnvironment() {
     when(p2pNetwork.isP2pEnabled()).thenReturn(true);
-    when(p2pNetwork.getLocalEnode()).thenReturn(Optional.of(defaultPeer.getEnodeURL()));
+    when(p2pNetwork.getLocalEnode()).thenReturn(Optional.of(defaultPeer.getNodeURL()));
 
     when(natService.queryExternalIPAddress("1.2.3.4")).thenReturn("3.4.5.6");
     when(natService.getPortMapping(NatServiceType.DISCOVERY, NetworkProtocol.UDP))
@@ -206,7 +206,7 @@ public class AdminNodeInfoTest {
 
   @Test
   public void handlesLocalEnodeWithListeningAndDiscoveryDisabled() {
-    final EnodeURL localEnode =
+    final NodeURL localEnode =
         EnodeURLImpl.builder()
             .nodeId(nodeId)
             .ipAddress("1.2.3.4")
@@ -252,7 +252,7 @@ public class AdminNodeInfoTest {
 
   @Test
   public void handlesLocalEnodeWithListeningDisabled() {
-    final EnodeURL localEnode =
+    final NodeURL localEnode =
         EnodeURLImpl.builder()
             .nodeId(nodeId)
             .ipAddress("1.2.3.4")
@@ -299,7 +299,7 @@ public class AdminNodeInfoTest {
 
   @Test
   public void handlesLocalEnodeWithDiscoveryDisabled() {
-    final EnodeURL localEnode =
+    final NodeURL localEnode =
         EnodeURLImpl.builder()
             .nodeId(nodeId)
             .ipAddress("1.2.3.4")
@@ -377,7 +377,7 @@ public class AdminNodeInfoTest {
   @Test
   public void returnsClassicForkBlocks() {
     when(p2pNetwork.isP2pEnabled()).thenReturn(true);
-    when(p2pNetwork.getLocalEnode()).thenReturn(Optional.of(defaultPeer.getEnodeURL()));
+    when(p2pNetwork.getLocalEnode()).thenReturn(Optional.of(defaultPeer.getNodeURL()));
     final GenesisConfigOptions genesisClassicConfigOptions =
         new StubGenesisConfigOptions()
             .chainId(BigInteger.valueOf(2019))

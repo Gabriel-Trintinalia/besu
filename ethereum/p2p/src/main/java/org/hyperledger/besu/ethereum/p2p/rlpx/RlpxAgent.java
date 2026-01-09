@@ -33,7 +33,7 @@ import org.hyperledger.besu.ethereum.p2p.rlpx.connections.netty.NettyConnectionI
 import org.hyperledger.besu.ethereum.p2p.rlpx.wire.Capability;
 import org.hyperledger.besu.ethereum.p2p.rlpx.wire.ShouldConnectCallback;
 import org.hyperledger.besu.ethereum.p2p.rlpx.wire.messages.DisconnectMessage.DisconnectReason;
-import org.hyperledger.besu.plugin.data.EnodeURL;
+import org.hyperledger.besu.plugin.data.NodeURL;
 import org.hyperledger.besu.plugin.services.MetricsSystem;
 import org.hyperledger.besu.util.Subscribers;
 
@@ -200,9 +200,9 @@ public class RlpxAgent {
     }
 
     // Check peer is valid
-    final EnodeURL enode = peer.getEnodeURL();
-    if (!enode.isListening()) {
-      final String errorMsg = "Attempt to connect to peer with no listening port: " + enode;
+    final NodeURL node = peer.getNodeURL();
+    if (!node.isListening()) {
+      final String errorMsg = "Attempt to connect to peer with no listening port: " + node;
       LOG.warn(errorMsg);
       return CompletableFuture.failedFuture((new IllegalArgumentException(errorMsg)));
     }
@@ -286,7 +286,7 @@ public class RlpxAgent {
   }
 
   private CompletableFuture<PeerConnection> initiateOutboundConnection(final Peer peer) {
-    LOG.trace("Initiating connection to peer: {}", peer.getEnodeURL());
+    LOG.trace("Initiating connection to peer: {}", peer.getNodeURL());
     if (peer instanceof DiscoveryPeer) {
       ((DiscoveryPeer) peer).setLastAttemptedConnection(System.currentTimeMillis());
     }

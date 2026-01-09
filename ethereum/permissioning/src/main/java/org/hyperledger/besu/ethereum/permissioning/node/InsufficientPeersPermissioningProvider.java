@@ -18,7 +18,7 @@ import org.hyperledger.besu.ethereum.p2p.network.P2PNetwork;
 import org.hyperledger.besu.ethereum.p2p.peers.EnodeURLImpl;
 import org.hyperledger.besu.ethereum.p2p.rlpx.connections.PeerConnection;
 import org.hyperledger.besu.ethereum.p2p.rlpx.wire.messages.DisconnectMessage.DisconnectReason;
-import org.hyperledger.besu.plugin.data.EnodeURL;
+import org.hyperledger.besu.plugin.data.NodeURL;
 import org.hyperledger.besu.util.Subscribers;
 
 import java.util.Collection;
@@ -30,7 +30,7 @@ import java.util.Optional;
  */
 public class InsufficientPeersPermissioningProvider implements ContextualNodePermissioningProvider {
   private final P2PNetwork p2pNetwork;
-  private final Collection<EnodeURL> bootnodeEnodes;
+  private final Collection<NodeURL> bootnodeEnodes;
   private long nonBootnodePeerConnections;
   private final Subscribers<Runnable> permissioningUpdateSubscribers = Subscribers.create();
 
@@ -41,7 +41,7 @@ public class InsufficientPeersPermissioningProvider implements ContextualNodePer
    * @param bootnodeEnodes the bootnodes that this node is configured to connect to
    */
   public InsufficientPeersPermissioningProvider(
-      final P2PNetwork p2pNetwork, final Collection<EnodeURL> bootnodeEnodes) {
+      final P2PNetwork p2pNetwork, final Collection<NodeURL> bootnodeEnodes) {
     this.p2pNetwork = p2pNetwork;
     this.bootnodeEnodes = bootnodeEnodes;
     this.nonBootnodePeerConnections = countP2PNetworkNonBootnodeConnections();
@@ -61,9 +61,8 @@ public class InsufficientPeersPermissioningProvider implements ContextualNodePer
   }
 
   @Override
-  public Optional<Boolean> isPermitted(
-      final EnodeURL sourceEnode, final EnodeURL destinationEnode) {
-    final Optional<EnodeURL> maybeSelfEnode = p2pNetwork.getLocalEnode();
+  public Optional<Boolean> isPermitted(final NodeURL sourceEnode, final NodeURL destinationEnode) {
+    final Optional<NodeURL> maybeSelfEnode = p2pNetwork.getLocalEnode();
     if (nonBootnodePeerConnections > 0) {
       return Optional.empty();
     } else if (!maybeSelfEnode.isPresent()) {
@@ -77,7 +76,7 @@ public class InsufficientPeersPermissioningProvider implements ContextualNodePer
     }
   }
 
-  private boolean checkEnode(final EnodeURL localEnode, final EnodeURL enode) {
+  private boolean checkEnode(final NodeURL localEnode, final NodeURL enode) {
     return (EnodeURLImpl.sameListeningEndpoint(localEnode, enode)
         || bootnodeEnodes.stream()
             .anyMatch(bootNode -> EnodeURLImpl.sameListeningEndpoint(bootNode, enode)));

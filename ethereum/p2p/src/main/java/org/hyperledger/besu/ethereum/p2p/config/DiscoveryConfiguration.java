@@ -14,7 +14,7 @@
  */
 package org.hyperledger.besu.ethereum.p2p.config;
 
-import org.hyperledger.besu.plugin.data.EnodeURL;
+import org.hyperledger.besu.plugin.data.NodeURL;
 import org.hyperledger.besu.util.NetworkUtility;
 
 import java.util.ArrayList;
@@ -29,7 +29,7 @@ public class DiscoveryConfiguration {
   private int bindPort = 30303;
   private String advertisedHost = "127.0.0.1";
   private int bucketSize = 16;
-  private List<EnodeURL> bootnodes = new ArrayList<>();
+  private List<NodeURL> bootnodes = new ArrayList<>();
   private String dnsDiscoveryURL;
   private boolean discoveryV5Enabled = false;
   private boolean filterOnEnrForkId = NetworkingConfiguration.DEFAULT_FILTER_ON_ENR_FORK_ID;
@@ -39,13 +39,13 @@ public class DiscoveryConfiguration {
     return new DiscoveryConfiguration();
   }
 
-  public static void assertValidBootnodes(final List<EnodeURL> bootnodes) {
-    final List<EnodeURL> invalidEnodes =
+  public static void assertValidBootnodes(final List<NodeURL> bootnodes) {
+    final List<NodeURL> invalidEnodes =
         bootnodes.stream().filter(e -> !e.isRunningDiscovery()).collect(Collectors.toList());
 
     if (invalidEnodes.size() > 0) {
       final String invalidBootnodes =
-          invalidEnodes.stream().map(EnodeURL::toString).collect(Collectors.joining(","));
+          invalidEnodes.stream().map(NodeURL::toString).collect(Collectors.joining(","));
       final String errorMsg =
           "Bootnodes must have discovery enabled. Invalid bootnodes: " + invalidBootnodes + ".";
       throw new IllegalArgumentException(errorMsg);
@@ -79,11 +79,11 @@ public class DiscoveryConfiguration {
     return this;
   }
 
-  public List<EnodeURL> getBootnodes() {
+  public List<NodeURL> getBootnodes() {
     return bootnodes;
   }
 
-  public DiscoveryConfiguration setBootnodes(final List<EnodeURL> bootnodes) {
+  public DiscoveryConfiguration setBootnodes(final List<NodeURL> bootnodes) {
     assertValidBootnodes(bootnodes);
     this.bootnodes = bootnodes;
     return this;

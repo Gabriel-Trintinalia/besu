@@ -14,7 +14,7 @@
  */
 package org.hyperledger.besu.ethereum.permissioning.node;
 
-import org.hyperledger.besu.plugin.data.EnodeURL;
+import org.hyperledger.besu.plugin.data.NodeURL;
 
 import java.util.Collections;
 import java.util.List;
@@ -22,20 +22,20 @@ import java.util.Objects;
 
 public class NodeAllowlistUpdatedEvent {
 
-  private final List<EnodeURL> addedNodes;
-  private final List<EnodeURL> removedNodes;
+  private final List<NodeURL> addedNodes;
+  private final List<NodeURL> removedNodes;
 
   public NodeAllowlistUpdatedEvent(
-      final List<EnodeURL> addedNodes, final List<EnodeURL> removedNodes) {
+      final List<NodeURL> addedNodes, final List<NodeURL> removedNodes) {
     this.addedNodes = addedNodes != null ? addedNodes : Collections.emptyList();
     this.removedNodes = removedNodes != null ? removedNodes : Collections.emptyList();
   }
 
-  public List<EnodeURL> getAddedNodes() {
+  public List<NodeURL> getAddedNodes() {
     return addedNodes;
   }
 
-  public List<EnodeURL> getRemovedNodes() {
+  public List<NodeURL> getRemovedNodes() {
     return removedNodes;
   }
 

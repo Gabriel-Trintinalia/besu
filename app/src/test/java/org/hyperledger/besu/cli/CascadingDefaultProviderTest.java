@@ -38,7 +38,7 @@ import org.hyperledger.besu.ethereum.eth.sync.SyncMode;
 import org.hyperledger.besu.ethereum.eth.sync.SynchronizerConfiguration;
 import org.hyperledger.besu.ethereum.p2p.peers.NodeURLFactory;
 import org.hyperledger.besu.metrics.prometheus.MetricsConfiguration;
-import org.hyperledger.besu.plugin.data.EnodeURL;
+import org.hyperledger.besu.plugin.data.NodeURL;
 
 import java.io.File;
 import java.io.IOException;
@@ -121,7 +121,7 @@ public class CascadingDefaultProviderTest extends CommandTestAbstract {
     verify(mockRunnerBuilder).metricsConfiguration(eq(metricsConfiguration));
     verify(mockRunnerBuilder).build();
 
-    final List<EnodeURL> nodes =
+    final List<NodeURL> nodes =
         asList(
             NodeURLFactory.fromString("enode://" + VALID_NODE_ID + "@192.168.0.1:4567"),
             NodeURLFactory.fromString("enode://" + VALID_NODE_ID + "@192.168.0.1:4567"),

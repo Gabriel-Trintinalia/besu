@@ -60,6 +60,6 @@ public class MockPeerConnection {
   }
 
   public static Peer createPeer(final Bytes nodeId) {
-    return DefaultPeer.fromEnodeURL(enodeBuilder().nodeId(nodeId).build());
+    return DefaultPeer.fromNodeURL(enodeBuilder().nodeId(nodeId).build());
   }
 }

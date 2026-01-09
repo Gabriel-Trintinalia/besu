@@ -19,7 +19,7 @@ import static org.hyperledger.besu.ethereum.permissioning.AllowlistPersistor.ALL
 
 import org.hyperledger.besu.ethereum.p2p.peers.ImmutableEnodeDnsConfiguration;
 import org.hyperledger.besu.ethereum.p2p.peers.NodeURLFactory;
-import org.hyperledger.besu.plugin.data.EnodeURL;
+import org.hyperledger.besu.plugin.data.NodeURL;
 import org.hyperledger.besu.tests.acceptance.dsl.AcceptanceTestBase;
 import org.hyperledger.besu.tests.acceptance.dsl.account.Account;
 import org.hyperledger.besu.tests.acceptance.dsl.condition.Condition;
@@ -116,11 +116,11 @@ public class AllowlistWithDnsPersistorAcceptanceTest extends AcceptanceTestBase 
 
     node.verify(perm.addNodesToAllowlist(ENODE_LOCALHOST_DNS, ENODE_TWO_IP));
     // use DNS config to resolve the Enode with IP. It either resolves to a hostname or remain as is
-    final EnodeURL enodeURL0 =
+    final NodeURL nodeURL0 =
         NodeURLFactory.fromString(
             ENODE_TWO_IP,
             ImmutableEnodeDnsConfiguration.builder().dnsEnabled(true).updateEnabled(true).build());
-    final String enode2ResolvedToDns = enodeURL0.toString();
+    final String enode2ResolvedToDns = nodeURL0.toString();
     node.verify(
         perm.expectPermissioningAllowlistFileKeyValue(
             ALLOWLIST_TYPE.NODES, tempFile, ENODE_LOCALHOST_DNS, enode2ResolvedToDns));

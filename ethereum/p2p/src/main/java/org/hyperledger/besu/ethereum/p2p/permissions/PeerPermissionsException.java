@@ -24,7 +24,7 @@ public class PeerPermissionsException extends RuntimeException {
   public PeerPermissionsException(final Peer peer, final Action action) {
     super(
         String.format(
-            "Permission for action %s denied to peer %s", action.name(), peer.getEnodeURL()));
+            "Permission for action %s denied to peer %s", action.name(), peer.getNodeURL()));
     this.peer = peer;
     this.action = action;
   }

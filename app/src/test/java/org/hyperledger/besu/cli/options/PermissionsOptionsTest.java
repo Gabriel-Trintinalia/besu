@@ -23,7 +23,7 @@ import org.hyperledger.besu.ethereum.p2p.peers.EnodeURLImpl;
 import org.hyperledger.besu.ethereum.p2p.peers.NodeURLFactory;
 import org.hyperledger.besu.ethereum.permissioning.LocalPermissioningConfiguration;
 import org.hyperledger.besu.ethereum.permissioning.PermissioningConfiguration;
-import org.hyperledger.besu.plugin.data.EnodeURL;
+import org.hyperledger.besu.plugin.data.NodeURL;
 
 import java.io.IOException;
 import java.net.URL;
@@ -51,7 +51,7 @@ public class PermissionsOptionsTest extends CommandTestAbstract {
     final Path staticNodesFile = testFolder.resolve("static-nodes.json");
     final Path permissioningConfig = testFolder.resolve("permissioning.json");
 
-    final EnodeURL staticNodeURI =
+    final NodeURL staticNodeURI =
         EnodeURLImpl.builder()
             .nodeId(
                 "50203c6bfca6874370e71aecc8958529fd723feb05013dc1abca8fc1fff845c5259faba05852e9dfe5ce172a7d6e7c2a3a5eaa8b541c8af15ea5518bbff5f2fa")
@@ -59,7 +59,7 @@ public class PermissionsOptionsTest extends CommandTestAbstract {
             .useDefaultPorts()
             .build();
 
-    final EnodeURL allowedNode =
+    final NodeURL allowedNode =
         EnodeURLImpl.builder()
             .nodeId(
                 "50203c6bfca6874370e71aecc8958529fd723feb05013dc1abca8fc1fff845c5259faba05852e9dfe5ce172a7d6e7c2a3a5eaa8b541c8af15ea5518bbff5f2fa")
@@ -169,7 +169,7 @@ public class PermissionsOptionsTest extends CommandTestAbstract {
 
   @Test
   public void nodePermissioningTomlPathMustUseOption() throws IOException {
-    final List<EnodeURL> allowedNodes =
+    final List<NodeURL> allowedNodes =
         Lists.newArrayList(
             NodeURLFactory.fromString(
                 "enode://6f8a80d14311c39f35f516fa664deaaaa13e85b2f7493f37f6144d86991ec012937307647bd3b9a82abe2974e1407241d54947bbb39763a4cac9f77166ad92a0@192.168.0.9:4567"),

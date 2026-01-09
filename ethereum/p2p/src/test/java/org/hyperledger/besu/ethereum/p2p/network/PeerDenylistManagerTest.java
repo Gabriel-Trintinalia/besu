@@ -141,7 +141,7 @@ public class PeerDenylistManagerTest {
   }
 
   private Peer generatePeer() {
-    return DefaultPeer.fromEnodeURL(
+    return DefaultPeer.fromNodeURL(
         EnodeURLImpl.builder()
             .nodeId(Peer.randomId())
             .ipAddress("10.9.8.7")

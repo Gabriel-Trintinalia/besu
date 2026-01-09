@@ -131,7 +131,7 @@ public class MaintainedPeersTest {
   @Test
   public void contains() {
     final Peer peerA = createPeer();
-    final Peer peerAClone = DefaultPeer.fromEnodeURL(peerA.getEnodeURL());
+    final Peer peerAClone = DefaultPeer.fromNodeURL(peerA.getNodeURL());
     final Peer peerB = createPeer();
 
     maintainedPeers.add(peerA);
@@ -147,10 +147,10 @@ public class MaintainedPeersTest {
   }
 
   private Peer createPeer() {
-    return DefaultPeer.fromEnodeURL(enodeBuilder().build());
+    return DefaultPeer.fromNodeURL(enodeBuilder().build());
   }
 
   private Peer nonListeningPeer() {
-    return DefaultPeer.fromEnodeURL(enodeBuilder().disableListening().build());
+    return DefaultPeer.fromNodeURL(enodeBuilder().disableListening().build());
   }
 }

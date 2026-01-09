@@ -16,7 +16,7 @@ package org.hyperledger.besu.ethereum.p2p.peers;
 
 import static com.google.common.base.Preconditions.checkArgument;
 
-import org.hyperledger.besu.plugin.data.EnodeURL;
+import org.hyperledger.besu.plugin.data.NodeURL;
 
 import java.net.URI;
 import java.util.Optional;
@@ -31,11 +31,11 @@ public class NodeURLFactory {
       Pattern.compile("^discport=([0-9]{1,5})$");
   private static final Pattern NODE_ID_PATTERN = Pattern.compile("^[0-9a-fA-F]{128}$");
 
-  public static EnodeURL fromString(final String value) {
+  public static NodeURL fromString(final String value) {
     return fromString(value, EnodeDnsConfiguration.dnsDisabled());
   }
 
-  public static EnodeURL fromString(
+  public static NodeURL fromString(
       final String value, final EnodeDnsConfiguration enodeDnsConfiguration) {
     try {
       checkStringArgumentNotEmpty(value, "Invalid empty value.");
@@ -61,13 +61,33 @@ public class NodeURLFactory {
     }
   }
 
-  public static EnodeURL fromURI(final URI uri) {
+  public static NodeURL fromURI(final URI uri) {
     return fromURI(uri, EnodeDnsConfiguration.dnsDisabled());
   }
 
-  public static EnodeURL fromURI(final URI uri, final EnodeDnsConfiguration enodeDnsConfiguration) {
+  private static final String ENODE_SCHEME = "enode";
+  private static final String ENR_SCHEME = "enr";
+
+  public static NodeURL fromURI(final URI uri, final EnodeDnsConfiguration enodeDnsConfiguration) {
     checkArgument(uri != null, "URI cannot be null");
-    checkStringArgumentNotEmpty(uri.getScheme(), "Missing 'enode' scheme.");
+    final String scheme = uri.getScheme();
+    checkArgument(scheme != null && !scheme.isEmpty(), "Missing URI scheme.");
+
+    return switch (scheme) {
+      case ENODE_SCHEME -> fromEnodeURI(uri, enodeDnsConfiguration);
+      case ENR_SCHEME -> fromEnrURI(uri);
+      default ->
+          throw new IllegalArgumentException(
+              "Unknown URI scheme: "
+                  + scheme
+                  + ". Only '"
+                  + ENODE_SCHEME
+                  + "' scheme is supported.");
+    };
+  }
+
+  public static NodeURL fromEnodeURI(
+      final URI uri, final EnodeDnsConfiguration enodeDnsConfiguration) {
     checkStringArgumentNotEmpty(uri.getHost(), "Missing or invalid host or ip address.");
     checkStringArgumentNotEmpty(uri.getUserInfo(), "Missing node ID.");
 
@@ -100,6 +120,11 @@ public class NodeURLFactory {
         .listeningPort(tcpPort)
         .discoveryPort(discoveryPort)
         .build();
+  }
+
+  private static NodeURL fromEnrURI(final URI uri) {
+
+    throw new UnsupportedOperationException("ENR URI scheme is not yet supported.");
   }
 
   private static void checkStringArgumentNotEmpty(final String argument, final String message) {

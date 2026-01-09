@@ -16,7 +16,7 @@ package org.hyperledger.besu.ethereum.p2p.peers;
 
 import org.hyperledger.besu.ethereum.p2p.rlpx.wire.Capability;
 import org.hyperledger.besu.ethereum.p2p.rlpx.wire.PeerInfo;
-import org.hyperledger.besu.plugin.data.EnodeURL;
+import org.hyperledger.besu.plugin.data.NodeURL;
 
 import java.util.List;
 import java.util.Optional;
@@ -44,7 +44,7 @@ class DefaultLocalNode implements MutableLocalNode {
   }
 
   @Override
-  public void setEnode(final EnodeURL enode) throws NodeAlreadySetException {
+  public void setNode(final NodeURL node) throws NodeAlreadySetException {
     if (peer.isPresent()) {
       throw new NodeAlreadySetException("Attempt to set already initialized local node");
     }
@@ -54,9 +54,9 @@ class DefaultLocalNode implements MutableLocalNode {
                 p2pVersion,
                 clientId,
                 supportedCapabilities,
-                enode.getListeningPortOrZero(),
-                enode.getNodeId()));
-    this.peer = Optional.of(DefaultPeer.fromEnodeURL(enode));
+                node.getListeningPortOrZero(),
+                node.getNodeId()));
+    this.peer = Optional.of(DefaultPeer.fromNodeURL(node));
     isReady.set(true);
   }
 

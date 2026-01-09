@@ -19,7 +19,7 @@ import org.hyperledger.besu.ethereum.p2p.rlpx.wire.Capability;
 import org.hyperledger.besu.ethereum.p2p.rlpx.wire.MessageData;
 import org.hyperledger.besu.ethereum.p2p.rlpx.wire.PeerInfo;
 import org.hyperledger.besu.ethereum.p2p.rlpx.wire.messages.DisconnectMessage.DisconnectReason;
-import org.hyperledger.besu.plugin.data.EnodeURL;
+import org.hyperledger.besu.plugin.data.NodeURL;
 
 import java.net.InetSocketAddress;
 import java.util.Set;
@@ -126,8 +126,8 @@ public interface PeerConnection extends org.hyperledger.besu.plugin.data.p2p.Pee
   }
 
   @Override
-  default EnodeURL getRemoteEnode() {
-    return getPeer().getEnodeURL();
+  default NodeURL getRemoteEnode() {
+    return getPeer().getNodeURL();
   }
 
   /**

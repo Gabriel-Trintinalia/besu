@@ -51,7 +51,7 @@ public class DiscoveryProtocolLogger {
         "<<< Sending {} packet to peer {} ({}): {}",
         shortenPacketType(packet),
         peer.getLoggableId(),
-        peer.getEnodeURL(),
+        peer.getNodeURL(),
         packet);
   }
 
@@ -61,7 +61,7 @@ public class DiscoveryProtocolLogger {
         ">>> Received {} packet from peer {} ({}): {}",
         shortenPacketType(packet),
         peer.getLoggableId(),
-        peer.getEnodeURL(),
+        peer.getNodeURL(),
         packet);
   }
 

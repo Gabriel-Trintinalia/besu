@@ -16,8 +16,8 @@ package org.hyperledger.besu.ethereum.p2p.config;
 
 import static java.util.stream.Collectors.toList;
 
-import org.hyperledger.besu.ethereum.p2p.peers.EnodeURLImpl;
-import org.hyperledger.besu.plugin.data.EnodeURL;
+import org.hyperledger.besu.ethereum.p2p.peers.NodeURLFactory;
+import org.hyperledger.besu.plugin.data.NodeURL;
 
 import java.util.Collections;
 import java.util.List;
@@ -31,7 +31,7 @@ public class DefaultDiscoveryConfiguration {
   public static final String MAINNET_DISCOVERY_URL =
       "enrtree://AKA3AM6LPBYEUDMVNU3BSVQJ5AD45Y7YPOHJLEF6W26QOE4VTUDPE@all.mainnet.ethdisco.net";
 
-  public static final List<EnodeURL> MAINNET_BOOTSTRAP_NODES =
+  public static final List<NodeURL> MAINNET_BOOTSTRAP_NODES =
       Collections.unmodifiableList(
           Stream.of(
                   // Ethereum Foundation Bootnodes
@@ -40,9 +40,9 @@ public class DefaultDiscoveryConfiguration {
                   "enode://2b252ab6a1d0f971d9722cb839a42cb81db019ba44c08754628ab4a823487071b5695317c8ccd085219c3a03af063495b2f1da8d18218da2d6a82981b45e6ffc@65.108.70.101:30303", // Helsinki Hetzner
                   "enode://4aeb4ab6c14b23e2c4cfdce879c04b0748a20d8e9b59e25ded2a08143e265c6c25936e74cbc8e641e3312ca288673d91f2f93f8e277de3cfa444ecdaaf982052@157.90.35.166:30303" // Falkenstein Hetzner
                   )
-              .map(EnodeURLImpl::fromString)
+              .map(NodeURLFactory::fromString)
               .collect(toList()));
-  public static final List<EnodeURL> SEPOLIA_BOOTSTRAP_NODES =
+  public static final List<NodeURL> SEPOLIA_BOOTSTRAP_NODES =
       Collections.unmodifiableList(
           Stream.of(
                   "enode://4e5e92199ee224a01932a377160aa432f31d0b351f84ab413a8e0a42f4f36476f8fb1cbe914af0d9aef0d51665c214cf653c651c4bbd9d5550a934f241f1682b@138.197.51.181:30303",
@@ -50,14 +50,14 @@ public class DefaultDiscoveryConfiguration {
                   "enode://8b61dc2d06c3f96fddcbebb0efb29d60d3598650275dc469c22229d3e5620369b0d3dedafd929835fe7f489618f19f456fe7c0df572bf2d914a9f4e006f783a9@170.64.250.88:30303",
                   "enode://10d62eff032205fcef19497f35ca8477bea0eadfff6d769a147e895d8b2b8f8ae6341630c645c30f5df6e67547c03494ced3d9c5764e8622a26587b083b028e8@139.59.49.206:30303",
                   "enode://9e9492e2e8836114cc75f5b929784f4f46c324ad01daf87d956f98b3b6c5fcba95524d6e5cf9861dc96a2c8a171ea7105bb554a197455058de185fa870970c7c@138.68.123.152:30303")
-              .map(EnodeURLImpl::fromString)
+              .map(NodeURLFactory::fromString)
               .collect(toList()));
-  public static final List<EnodeURL> HOODI_BOOTSTRAP_NODES =
+  public static final List<NodeURL> HOODI_BOOTSTRAP_NODES =
       Collections.unmodifiableList(
           Stream.of(
                   "enode://2112dd3839dd752813d4df7f40936f06829fc54c0e051a93967c26e5f5d27d99d886b57b4ffcc3c475e930ec9e79c56ef1dbb7d86ca5ee83a9d2ccf36e5c240c@134.209.138.84:30303",
                   "enode://60203fcb3524e07c5df60a14ae1c9c5b24023ea5d47463dfae051d2c9f3219f309657537576090ca0ae641f73d419f53d8e8000d7a464319d4784acd7d2abc41@209.38.124.160:30303",
                   "enode://8ae4a48101b2299597341263da0deb47cc38aa4d3ef4b7430b897d49bfa10eb1ccfe1655679b1ed46928ef177fbf21b86837bd724400196c508427a6f41602cd@134.199.184.23:30303")
-              .map(EnodeURLImpl::fromString)
+              .map(NodeURLFactory::fromString)
               .collect(toList()));
 }

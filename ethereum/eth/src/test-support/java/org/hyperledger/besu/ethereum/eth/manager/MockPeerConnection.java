@@ -48,7 +48,7 @@ public class MockPeerConnection implements PeerConnection {
     this.onSend = onSend;
     this.nodeId = Peer.randomId();
     this.peer =
-        DefaultPeer.fromEnodeURL(
+        DefaultPeer.fromNodeURL(
             EnodeURLImpl.builder()
                 .ipAddress("127.0.0.1")
                 .nodeId(nodeId)

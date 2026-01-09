@@ -15,7 +15,7 @@
 package org.hyperledger.besu.ethereum.p2p.peers;
 
 import org.hyperledger.besu.ethereum.p2p.EthProtocolHelper;
-import org.hyperledger.besu.plugin.data.EnodeURL;
+import org.hyperledger.besu.plugin.data.NodeURL;
 
 import java.util.Arrays;
 
@@ -24,18 +24,18 @@ import org.apache.tuweni.bytes.Bytes;
 public class PeerTestHelper {
 
   public static Peer createPeer() {
-    return DefaultPeer.fromEnodeURL(enode());
+    return DefaultPeer.fromNodeURL(enode());
   }
 
-  public static Peer createPeer(final EnodeURL enodeURL) {
-    return DefaultPeer.fromEnodeURL(enodeURL);
+  public static Peer createPeer(final NodeURL nodeURL) {
+    return DefaultPeer.fromNodeURL(nodeURL);
   }
 
   public static Peer createPeer(final Bytes nodeId) {
-    return DefaultPeer.fromEnodeURL(enodeBuilder().nodeId(nodeId).build());
+    return DefaultPeer.fromNodeURL(enodeBuilder().nodeId(nodeId).build());
   }
 
-  public static EnodeURL enode() {
+  public static NodeURL enode() {
     return enodeBuilder().build();
   }
 
@@ -48,7 +48,7 @@ public class PeerTestHelper {
    */
   public static LocalNode createLocalNode() {
     final MutableLocalNode localNode = createMutableLocalNode();
-    localNode.setEnode(enode());
+    localNode.setNode(enode());
     return localNode;
   }
 

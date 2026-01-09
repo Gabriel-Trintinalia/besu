@@ -156,7 +156,7 @@ public class PeerPermissionsTest {
   }
 
   private Peer createPeer() {
-    return DefaultPeer.fromEnodeURL(
+    return DefaultPeer.fromNodeURL(
         EnodeURLImpl.builder()
             .listeningPort(30303)
             .discoveryPort(30303)

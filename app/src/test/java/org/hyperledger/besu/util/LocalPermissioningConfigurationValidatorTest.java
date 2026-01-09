@@ -25,7 +25,7 @@ import org.hyperledger.besu.ethereum.p2p.peers.ImmutableEnodeDnsConfiguration;
 import org.hyperledger.besu.ethereum.p2p.peers.NodeURLFactory;
 import org.hyperledger.besu.ethereum.permissioning.LocalPermissioningConfiguration;
 import org.hyperledger.besu.ethereum.permissioning.PermissioningConfigurationBuilder;
-import org.hyperledger.besu.plugin.data.EnodeURL;
+import org.hyperledger.besu.plugin.data.NodeURL;
 
 import java.net.URL;
 import java.nio.file.Files;
@@ -68,7 +68,7 @@ public class LocalPermissioningConfigurationValidatorTest {
             true,
             toml.toAbsolutePath().toString());
 
-    final List<EnodeURL> enodeURIs = ethNetworkConfig.bootNodes();
+    final List<NodeURL> enodeURIs = ethNetworkConfig.bootNodes();
     PermissioningConfigurationValidator.areAllNodesInAllowlist(
         enodeURIs, permissioningConfiguration);
   }
@@ -93,7 +93,7 @@ public class LocalPermissioningConfigurationValidatorTest {
             toml.toAbsolutePath().toString());
 
     try {
-      final List<EnodeURL> enodeURIs = ethNetworkConfig.bootNodes();
+      final List<NodeURL> enodeURIs = ethNetworkConfig.bootNodes();
       PermissioningConfigurationValidator.areAllNodesInAllowlist(
           enodeURIs, permissioningConfiguration);
       fail("expected exception because sepolia bootnodes are not in node-allowlist");
@@ -133,19 +133,19 @@ public class LocalPermissioningConfigurationValidatorTest {
             toml.toAbsolutePath().toString());
 
     // This node is defined in the PERMISSIONING_CONFIG file without the discovery port
-    final EnodeURL enodeURL =
+    final NodeURL nodeURL =
         NodeURLFactory.fromString(
             "enode://6f8a80d14311c39f35f516fa664deaaaa13e85b2f7493f37f6144d86991ec012937307647bd3b9a82abe2974e1407241d54947bbb39763a4cac9f77166ad92a0@192.168.0.9:4567?discport=30303");
 
     // In an URI comparison the URLs should not match
-    boolean isInAllowlist = permissioningConfiguration.getNodeAllowlist().contains(enodeURL);
+    boolean isInAllowlist = permissioningConfiguration.getNodeAllowlist().contains(nodeURL);
     assertThat(isInAllowlist).isFalse();
 
     // However, for the allowlist validation, we should ignore the discovery port and don't throw an
     // error
     try {
       PermissioningConfigurationValidator.areAllNodesInAllowlist(
-          Lists.newArrayList(enodeURL), permissioningConfiguration);
+          Lists.newArrayList(nodeURL), permissioningConfiguration);
     } catch (Exception e) {
       fail(
           "Exception not expected. Validation of nodes in allowlist should ignore the optional discovery port param.");
@@ -170,20 +170,20 @@ public class LocalPermissioningConfigurationValidatorTest {
             toml.toAbsolutePath().toString());
 
     // This node is defined in the PERMISSIONING_CONFIG_DNS file without the discovery port
-    final EnodeURL enodeURL =
+    final NodeURL nodeURL =
         NodeURLFactory.fromString(
             "enode://6f8a80d14311c39f35f516fa664deaaaa13e85b2f7493f37f6144d86991ec012937307647bd3b9a82abe2974e1407241d54947bbb39763a4cac9f77166ad92a0@localhost:4567?discport=30303",
             enodeDnsConfiguration);
 
     // In an URI comparison the URLs should not match
-    boolean isInAllowlist = permissioningConfiguration.getNodeAllowlist().contains(enodeURL);
+    boolean isInAllowlist = permissioningConfiguration.getNodeAllowlist().contains(nodeURL);
     assertThat(isInAllowlist).isFalse();
 
     // However, for the allowlist validation, we should ignore the discovery port and don't throw an
     // error
     try {
       PermissioningConfigurationValidator.areAllNodesInAllowlist(
-          Lists.newArrayList(enodeURL), permissioningConfiguration);
+          Lists.newArrayList(nodeURL), permissioningConfiguration);
     } catch (Exception e) {
       fail(
           "Exception not expected. Validation of nodes in allowlist should ignore the optional discovery port param.");

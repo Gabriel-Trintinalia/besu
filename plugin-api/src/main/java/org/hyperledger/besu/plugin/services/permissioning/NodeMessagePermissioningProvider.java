@@ -14,7 +14,7 @@
  */
 package org.hyperledger.besu.plugin.services.permissioning;
 
-import org.hyperledger.besu.plugin.data.EnodeURL;
+import org.hyperledger.besu.plugin.data.NodeURL;
 
 /**
  * Allows you to register a provider that will decide if a devp2p message is permitted. <br>
@@ -42,5 +42,5 @@ public interface NodeMessagePermissioningProvider {
    * @param code devp2p code for the message
    * @return if we can send the message to the peer
    */
-  boolean isMessagePermitted(final EnodeURL destinationEnode, final int code);
+  boolean isMessagePermitted(final NodeURL destinationEnode, final int code);
 }

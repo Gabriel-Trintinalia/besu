@@ -24,7 +24,7 @@ import org.hyperledger.besu.ethereum.permissioning.AllowlistPersistor;
 import org.hyperledger.besu.ethereum.permissioning.AllowlistPersistor.ALLOWLIST_TYPE;
 import org.hyperledger.besu.ethereum.permissioning.LocalPermissioningConfiguration;
 import org.hyperledger.besu.ethereum.permissioning.PermissioningConfiguration;
-import org.hyperledger.besu.plugin.data.EnodeURL;
+import org.hyperledger.besu.plugin.data.NodeURL;
 import org.hyperledger.besu.tests.acceptance.dsl.node.BesuNode;
 import org.hyperledger.besu.tests.acceptance.dsl.node.Node;
 import org.hyperledger.besu.tests.acceptance.dsl.node.RunnableNode;
@@ -183,14 +183,14 @@ public class PermissionedNodeBuilder {
         localConfigNodesPermissioningFile = createTemporaryPermissionsFile();
       }
 
-      final List<EnodeURL> nodeAllowList =
+      final List<NodeURL> nodeAllowList =
           localConfigPermittedNodes.stream()
               .map(NodeURLFactory::fromURI)
               .collect(Collectors.toList());
 
       initPermissioningConfigurationFile(
           ALLOWLIST_TYPE.NODES,
-          nodeAllowList.stream().map(EnodeURL::toString).collect(Collectors.toList()),
+          nodeAllowList.stream().map(NodeURL::toString).collect(Collectors.toList()),
           localConfigNodesPermissioningFile);
 
       localPermissioningConfiguration.setNodeAllowlist(nodeAllowList);

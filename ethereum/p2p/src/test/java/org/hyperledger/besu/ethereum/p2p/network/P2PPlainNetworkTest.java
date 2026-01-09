@@ -39,7 +39,7 @@ import org.hyperledger.besu.ethereum.p2p.rlpx.wire.MockSubProtocol;
 import org.hyperledger.besu.ethereum.p2p.rlpx.wire.ShouldConnectCallback;
 import org.hyperledger.besu.ethereum.p2p.rlpx.wire.SubProtocol;
 import org.hyperledger.besu.ethereum.p2p.rlpx.wire.messages.DisconnectMessage.DisconnectReason;
-import org.hyperledger.besu.plugin.data.EnodeURL;
+import org.hyperledger.besu.plugin.data.NodeURL;
 
 import java.net.InetAddress;
 import java.util.List;
@@ -81,7 +81,7 @@ public class P2PPlainNetworkTest {
 
       listener.start();
       connector.start();
-      final EnodeURL listenerEnode = listener.getLocalEnode().get();
+      final NodeURL listenerEnode = listener.getLocalEnode().get();
       final Bytes listenId = listenerEnode.getNodeId();
       final int listenPort = listenerEnode.getListeningPort().get();
 
@@ -105,7 +105,7 @@ public class P2PPlainNetworkTest {
 
       listener.start();
       connector.start();
-      final EnodeURL listenerEnode = listener.getLocalEnode().get();
+      final NodeURL listenerEnode = listener.getLocalEnode().get();
       final Bytes listenId = listenerEnode.getNodeId();
       final int listenPort = listenerEnode.getListeningPort().get();
 
@@ -150,7 +150,7 @@ public class P2PPlainNetworkTest {
       // Setup listener and first connection
       listener.start();
       connector1.start();
-      final EnodeURL listenerEnode = listener.getLocalEnode().get();
+      final NodeURL listenerEnode = listener.getLocalEnode().get();
       final Bytes listenId = listenerEnode.getNodeId();
       final int listenPort = listenerEnode.getListeningPort().get();
 
@@ -192,7 +192,7 @@ public class P2PPlainNetworkTest {
 
       listener.start();
       connector.start();
-      final EnodeURL listenerEnode = listener.getLocalEnode().get();
+      final NodeURL listenerEnode = listener.getLocalEnode().get();
       final Bytes listenId = listenerEnode.getNodeId();
       final int listenPort = listenerEnode.getListeningPort().get();
 
@@ -214,11 +214,11 @@ public class P2PPlainNetworkTest {
       localNetwork.start();
       remoteNetwork.start();
 
-      final EnodeURL localEnode = localNetwork.getLocalEnode().get();
+      final NodeURL localEnode = localNetwork.getLocalEnode().get();
       final Bytes localId = localEnode.getNodeId();
       final int localPort = localEnode.getListeningPort().get();
 
-      final EnodeURL remoteEnode = remoteNetwork.getLocalEnode().get();
+      final NodeURL remoteEnode = remoteNetwork.getLocalEnode().get();
       final Bytes remoteId = remoteEnode.getNodeId();
       final int remotePort = remoteEnode.getListeningPort().get();
 
@@ -263,9 +263,9 @@ public class P2PPlainNetworkTest {
       localNetwork.start();
       remoteNetwork.start();
 
-      final EnodeURL localEnode = localNetwork.getLocalEnode().get();
-      final Peer localPeer = DefaultPeer.fromEnodeURL(localEnode);
-      final Peer remotePeer = DefaultPeer.fromEnodeURL(remoteNetwork.getLocalEnode().get());
+      final NodeURL localEnode = localNetwork.getLocalEnode().get();
+      final Peer localPeer = DefaultPeer.fromNodeURL(localEnode);
+      final Peer remotePeer = DefaultPeer.fromNodeURL(remoteNetwork.getLocalEnode().get());
 
       // Deny incoming connection permissions for remotePeer
       when(peerPermissions.isPermitted(
@@ -300,7 +300,7 @@ public class P2PPlainNetworkTest {
   private final ShouldConnectCallback testCallback = (p, d) -> true;
 
   private Peer createPeer(final Bytes nodeId, final int listenPort) {
-    return DefaultPeer.fromEnodeURL(
+    return DefaultPeer.fromNodeURL(
         EnodeURLImpl.builder()
             .ipAddress(InetAddress.getLoopbackAddress().getHostAddress())
             .nodeId(nodeId)

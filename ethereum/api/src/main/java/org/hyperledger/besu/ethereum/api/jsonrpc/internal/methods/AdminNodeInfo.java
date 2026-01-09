@@ -29,7 +29,7 @@ import org.hyperledger.besu.nat.NatService;
 import org.hyperledger.besu.nat.core.domain.NatPortMapping;
 import org.hyperledger.besu.nat.core.domain.NatServiceType;
 import org.hyperledger.besu.nat.core.domain.NetworkProtocol;
-import org.hyperledger.besu.plugin.data.EnodeURL;
+import org.hyperledger.besu.plugin.data.NodeURL;
 
 import java.math.BigInteger;
 import java.net.URI;
@@ -81,12 +81,12 @@ public class AdminNodeInfo implements JsonRpcMethod {
       return new JsonRpcErrorResponse(
           requestContext.getRequest().getId(), RpcErrorType.P2P_DISABLED);
     }
-    final Optional<EnodeURL> maybeEnode = peerNetwork.getLocalEnode();
+    final Optional<NodeURL> maybeEnode = peerNetwork.getLocalEnode();
     if (maybeEnode.isEmpty()) {
       return new JsonRpcErrorResponse(
           requestContext.getRequest().getId(), RpcErrorType.P2P_NETWORK_NOT_RUNNING);
     }
-    final EnodeURL enode = maybeEnode.get();
+    final NodeURL enode = maybeEnode.get();
 
     response.put("enode", enode.toString());
     response.put("ip", enode.getIpAsString());
@@ -141,10 +141,10 @@ public class AdminNodeInfo implements JsonRpcMethod {
   }
 
   private String getNodeAsString(
-      final EnodeURL enodeURL, final String ip, final int listeningPort, final int discoveryPort) {
+      final NodeURL nodeURL, final String ip, final int listeningPort, final int discoveryPort) {
     final String uri =
         String.format(
-            "enode://%s@%s:%d", enodeURL.getNodeId().toUnprefixedHexString(), ip, listeningPort);
+            "enode://%s@%s:%d", nodeURL.getNodeId().toUnprefixedHexString(), ip, listeningPort);
     if (listeningPort != discoveryPort) {
       return URI.create(uri + String.format("?discport=%d", discoveryPort)).toString();
     } else {
@@ -152,18 +152,18 @@ public class AdminNodeInfo implements JsonRpcMethod {
     }
   }
 
-  private String getIp(final EnodeURL enode) {
+  private String getIp(final NodeURL enode) {
     return natService.queryExternalIPAddress(enode.getIpAsString());
   }
 
-  private int getDiscoveryPort(final EnodeURL enode) {
+  private int getDiscoveryPort(final NodeURL enode) {
     return natService
         .getPortMapping(NatServiceType.DISCOVERY, NetworkProtocol.UDP)
         .map(NatPortMapping::getExternalPort)
         .orElseGet(enode::getDiscoveryPortOrZero);
   }
 
-  private int getListeningPort(final EnodeURL enode) {
+  private int getListeningPort(final NodeURL enode) {
     return natService
         .getPortMapping(NatServiceType.RLPX, NetworkProtocol.TCP)
         .map(NatPortMapping::getExternalPort)

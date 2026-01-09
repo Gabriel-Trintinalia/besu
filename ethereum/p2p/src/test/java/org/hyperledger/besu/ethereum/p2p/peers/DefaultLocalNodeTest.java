@@ -20,7 +20,7 @@ import static org.assertj.core.api.Java6Assertions.assertThatThrownBy;
 import org.hyperledger.besu.ethereum.p2p.EthProtocolHelper;
 import org.hyperledger.besu.ethereum.p2p.rlpx.wire.Capability;
 import org.hyperledger.besu.ethereum.p2p.rlpx.wire.PeerInfo;
-import org.hyperledger.besu.plugin.data.EnodeURL;
+import org.hyperledger.besu.plugin.data.NodeURL;
 
 import java.util.Arrays;
 import java.util.List;
@@ -35,7 +35,7 @@ public class DefaultLocalNodeTest {
   private final List<Capability> supportedCapabilities = Arrays.asList(EthProtocolHelper.LATEST);
   private final Bytes nodeId = Bytes.of(new byte[64]);
   private final int port = 30303;
-  private final EnodeURL enode =
+  private final NodeURL enode =
       EnodeURLImpl.builder()
           .ipAddress("127.0.0.1")
           .discoveryAndListeningPorts(port)
@@ -43,7 +43,7 @@ public class DefaultLocalNodeTest {
           .build();
   private final PeerInfo peerInfo =
       new PeerInfo(p2pVersion, clientId, supportedCapabilities, port, nodeId);
-  private final Peer peer = DefaultPeer.fromEnodeURL(enode);
+  private final Peer peer = DefaultPeer.fromNodeURL(enode);
 
   @Test
   public void create() {
@@ -54,15 +54,15 @@ public class DefaultLocalNodeTest {
   }
 
   @Test
-  public void setEnode() {
+  public void setNode() {
     final MutableLocalNode localNode = createLocalNode();
-    localNode.setEnode(enode);
+    localNode.setNode(enode);
 
     assertThat(localNode.isReady()).isTrue();
     validateReadyNode(localNode);
 
     // Verify we can't set the enode a second time
-    assertThatThrownBy(() -> localNode.setEnode(enode))
+    assertThatThrownBy(() -> localNode.setNode(enode))
         .isInstanceOf(MutableLocalNode.NodeAlreadySetException.class);
   }
 

@@ -28,7 +28,7 @@ import org.hyperledger.besu.ethereum.p2p.rlpx.wire.MessageData;
 import org.hyperledger.besu.ethereum.p2p.rlpx.wire.PeerInfo;
 import org.hyperledger.besu.ethereum.p2p.rlpx.wire.ShouldConnectCallback;
 import org.hyperledger.besu.ethereum.p2p.rlpx.wire.messages.DisconnectMessage.DisconnectReason;
-import org.hyperledger.besu.plugin.data.EnodeURL;
+import org.hyperledger.besu.plugin.data.NodeURL;
 import org.hyperledger.besu.util.Subscribers;
 
 import java.net.InetSocketAddress;
@@ -230,7 +230,7 @@ public final class MockNetwork {
     }
 
     @Override
-    public Optional<EnodeURL> getLocalEnode() {
+    public Optional<NodeURL> getLocalEnode() {
       return Optional.empty();
     }
 
@@ -299,7 +299,7 @@ public final class MockNetwork {
           5,
           "mock-network-client",
           capabilities,
-          to.getEnodeURL().getListeningPortOrZero(),
+          to.getNodeURL().getListeningPortOrZero(),
           to.getId());
     }
 

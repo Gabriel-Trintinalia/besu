@@ -23,7 +23,7 @@ import org.hyperledger.besu.ethereum.p2p.rlpx.MessageCallback;
 import org.hyperledger.besu.ethereum.p2p.rlpx.connections.PeerConnection;
 import org.hyperledger.besu.ethereum.p2p.rlpx.wire.Capability;
 import org.hyperledger.besu.ethereum.p2p.rlpx.wire.ShouldConnectCallback;
-import org.hyperledger.besu.plugin.data.EnodeURL;
+import org.hyperledger.besu.plugin.data.NodeURL;
 
 import java.io.IOException;
 import java.util.Collection;
@@ -103,7 +103,7 @@ public class NoopP2PNetwork implements P2PNetwork {
   }
 
   @Override
-  public Optional<EnodeURL> getLocalEnode() {
+  public Optional<NodeURL> getLocalEnode() {
     return Optional.empty();
   }
 

@@ -21,7 +21,7 @@ import org.hyperledger.besu.ethereum.p2p.network.P2PNetwork;
 import org.hyperledger.besu.ethereum.p2p.peers.DefaultPeer;
 import org.hyperledger.besu.ethereum.p2p.peers.EnodeDnsConfiguration;
 import org.hyperledger.besu.ethereum.p2p.peers.NodeURLFactory;
-import org.hyperledger.besu.plugin.data.EnodeURL;
+import org.hyperledger.besu.plugin.data.NodeURL;
 
 import java.util.Optional;
 
@@ -45,12 +45,12 @@ public class AdminRemovePeer extends AdminModifyPeer {
   @Override
   protected JsonRpcResponse performOperation(final Object id, final String enode) {
     LOG.debug("Remove ({}) from peer cache", enode);
-    final EnodeURL enodeURL =
+    final NodeURL nodeURL =
         this.enodeDnsConfiguration.isEmpty()
             ? NodeURLFactory.fromString(enode)
             : NodeURLFactory.fromString(enode, enodeDnsConfiguration.get());
     final boolean result =
-        peerNetwork.removeMaintainedConnectionPeer(DefaultPeer.fromEnodeURL(enodeURL));
+        peerNetwork.removeMaintainedConnectionPeer(DefaultPeer.fromNodeURL(nodeURL));
     return new JsonRpcSuccessResponse(id, result);
   }
 }

@@ -17,7 +17,7 @@ package org.hyperledger.besu.util;
 import static java.util.stream.Collectors.toList;
 
 import org.hyperledger.besu.ethereum.permissioning.LocalPermissioningConfiguration;
-import org.hyperledger.besu.plugin.data.EnodeURL;
+import org.hyperledger.besu.plugin.data.NodeURL;
 
 import java.net.URI;
 import java.util.Collection;
@@ -37,19 +37,19 @@ public class PermissioningConfigurationValidator {
    * @throws Exception In case of nodes are not in allow list
    */
   public static void areAllNodesInAllowlist(
-      final Collection<EnodeURL> nodeURIs,
+      final Collection<NodeURL> nodeURIs,
       final LocalPermissioningConfiguration permissioningConfiguration)
       throws Exception {
 
     if (permissioningConfiguration.isNodeAllowlistEnabled() && nodeURIs != null) {
       final List<URI> allowlistNodesWithoutQueryParam =
           permissioningConfiguration.getNodeAllowlist().stream()
-              .map(EnodeURL::toURIWithoutDiscoveryPort)
+              .map(NodeURL::toURIWithoutDiscoveryPort)
               .collect(toList());
 
       final List<URI> nodeURIsNotInAllowlist =
           nodeURIs.stream()
-              .map(EnodeURL::toURIWithoutDiscoveryPort)
+              .map(NodeURL::toURIWithoutDiscoveryPort)
               .filter(uri -> !allowlistNodesWithoutQueryParam.contains(uri))
               .collect(toList());
 

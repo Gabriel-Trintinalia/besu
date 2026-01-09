@@ -20,7 +20,7 @@ import static org.assertj.core.api.Assertions.assertThatThrownBy;
 import static org.assertj.core.api.Assertions.catchThrowable;
 import static org.junit.jupiter.api.Assertions.assertEquals;
 
-import org.hyperledger.besu.plugin.data.EnodeURL;
+import org.hyperledger.besu.plugin.data.NodeURL;
 import org.hyperledger.besu.util.IllegalPortException;
 
 import java.net.InetAddress;
@@ -49,7 +49,7 @@ public class EnodeURLImplTest {
 
   @Test
   public void build_withMatchingDiscoveryAndListeningPorts() {
-    final EnodeURL enode =
+    final NodeURL enode =
         EnodeURLImpl.builder()
             .nodeId(VALID_NODE_ID)
             .ipAddress(IPV4_ADDRESS)
@@ -62,7 +62,7 @@ public class EnodeURLImplTest {
 
   @Test
   public void build_withNonMatchingDiscoveryAndListeningPorts() {
-    final EnodeURL enode =
+    final NodeURL enode =
         EnodeURLImpl.builder()
             .nodeId(VALID_NODE_ID)
             .ipAddress(IPV4_ADDRESS)
@@ -75,7 +75,7 @@ public class EnodeURLImplTest {
 
   @Test
   public void fromString_withDiscoveryPortShouldBuildExpectedEnodeURLObject() {
-    final EnodeURL expectedEnodeURL =
+    final NodeURL expectedNodeURL =
         EnodeURLImpl.builder()
             .nodeId(VALID_NODE_ID)
             .ipAddress(IPV4_ADDRESS)
@@ -85,15 +85,15 @@ public class EnodeURLImplTest {
     final String enodeURLString =
         "enode://" + VALID_NODE_ID + "@" + IPV4_ADDRESS + ":" + P2P_PORT + "?" + DISCOVERY_QUERY;
 
-    final EnodeURL enodeURL = NodeURLFactory.fromString(enodeURLString);
+    final NodeURL nodeURL = NodeURLFactory.fromString(enodeURLString);
 
-    assertThat(enodeURL).isEqualTo(expectedEnodeURL);
-    assertThat(enodeURL.toString()).isEqualTo(enodeURLString);
+    assertThat(nodeURL).isEqualTo(expectedNodeURL);
+    assertThat(nodeURL.toString()).isEqualTo(enodeURLString);
   }
 
   @Test
   public void fromString_withoutDiscoveryPortShouldBuildExpectedEnodeURLObject() {
-    final EnodeURL expectedEnodeURL =
+    final NodeURL expectedNodeURL =
         EnodeURLImpl.builder()
             .nodeId(VALID_NODE_ID)
             .ipAddress(IPV4_ADDRESS)
@@ -101,15 +101,15 @@ public class EnodeURLImplTest {
             .build();
     final String enodeURLString = "enode://" + VALID_NODE_ID + "@" + IPV4_ADDRESS + ":" + P2P_PORT;
 
-    final EnodeURL enodeURL = NodeURLFactory.fromString(enodeURLString);
+    final NodeURL nodeURL = NodeURLFactory.fromString(enodeURLString);
 
-    assertThat(enodeURL).isEqualTo(expectedEnodeURL);
-    assertThat(enodeURL.toString()).isEqualTo(enodeURLString);
+    assertThat(nodeURL).isEqualTo(expectedNodeURL);
+    assertThat(nodeURL.toString()).isEqualTo(enodeURLString);
   }
 
   @Test
   public void fromString_withIPV6ShouldBuildExpectedEnodeURLObject() {
-    final EnodeURL expectedEnodeURL =
+    final NodeURL expectedNodeURL =
         EnodeURLImpl.builder()
             .nodeId(VALID_NODE_ID)
             .ipAddress(IPV6_FULL_ADDRESS)
@@ -126,14 +126,14 @@ public class EnodeURLImplTest {
             + "?"
             + DISCOVERY_QUERY;
 
-    final EnodeURL enodeURL = NodeURLFactory.fromString(enodeURLString);
+    final NodeURL nodeURL = NodeURLFactory.fromString(enodeURLString);
 
-    assertThat(enodeURL).isEqualTo(expectedEnodeURL);
+    assertThat(nodeURL).isEqualTo(expectedNodeURL);
   }
 
   @Test
   public void fromString_withIPV6InCompactFormShouldBuildExpectedEnodeURLObject() {
-    final EnodeURL expectedEnodeURL =
+    final NodeURL expectedNodeURL =
         EnodeURLImpl.builder()
             .nodeId(VALID_NODE_ID)
             .ipAddress(IPV6_COMPACT_ADDRESS)
@@ -150,10 +150,10 @@ public class EnodeURLImplTest {
             + "?"
             + DISCOVERY_QUERY;
 
-    final EnodeURL enodeURL = NodeURLFactory.fromString(enodeURLString);
+    final NodeURL nodeURL = NodeURLFactory.fromString(enodeURLString);
 
-    assertThat(enodeURL).isEqualTo(expectedEnodeURL);
-    assertThat(enodeURL.toString()).isEqualTo(enodeURLString);
+    assertThat(nodeURL).isEqualTo(expectedNodeURL);
+    assertThat(nodeURL.toString()).isEqualTo(enodeURLString);
   }
 
   @Test
@@ -162,30 +162,30 @@ public class EnodeURLImplTest {
     final String enodeURLString =
         "enode://" + VALID_NODE_ID + "@" + IPV6_COMPACT_ADDRESS + ":" + P2P_PORT + "?" + query;
 
-    EnodeURL enodeURL = NodeURLFactory.fromString(enodeURLString);
-    assertThat(enodeURL.getNodeId().toUnprefixedHexString()).isEqualTo(VALID_NODE_ID);
-    assertThat("[" + enodeURL.getIpAsString() + "]").isEqualTo(IPV6_FULL_ADDRESS);
-    assertThat(enodeURL.getListeningPort()).isEqualTo(Optional.of(P2P_PORT));
-    assertThat(enodeURL.getDiscoveryPortOrZero()).isEqualTo(0);
-    assertThat(enodeURL.isListening()).isTrue();
-    assertThat(enodeURL.isRunningDiscovery()).isFalse();
+    NodeURL nodeURL = NodeURLFactory.fromString(enodeURLString);
+    assertThat(nodeURL.getNodeId().toUnprefixedHexString()).isEqualTo(VALID_NODE_ID);
+    assertThat("[" + nodeURL.getIpAsString() + "]").isEqualTo(IPV6_FULL_ADDRESS);
+    assertThat(nodeURL.getListeningPort()).isEqualTo(Optional.of(P2P_PORT));
+    assertThat(nodeURL.getDiscoveryPortOrZero()).isEqualTo(0);
+    assertThat(nodeURL.isListening()).isTrue();
+    assertThat(nodeURL.isRunningDiscovery()).isFalse();
 
-    assertThat(enodeURL.toString()).isEqualTo(enodeURLString);
+    assertThat(nodeURL.toString()).isEqualTo(enodeURLString);
   }
 
   @Test
   public void fromString_with0ValuedListeningPort() {
     final String enodeURLString = "enode://" + VALID_NODE_ID + "@" + IPV4_ADDRESS + ":" + 0;
 
-    EnodeURL enodeURL = NodeURLFactory.fromString(enodeURLString);
-    assertThat(enodeURL.getNodeId().toUnprefixedHexString()).isEqualTo(VALID_NODE_ID);
-    assertThat(enodeURL.getIpAsString()).isEqualTo(IPV4_ADDRESS);
-    assertThat(enodeURL.getListeningPortOrZero()).isEqualTo(0);
-    assertThat(enodeURL.getDiscoveryPortOrZero()).isEqualTo(0);
-    assertThat(enodeURL.isListening()).isFalse();
-    assertThat(enodeURL.isRunningDiscovery()).isFalse();
+    NodeURL nodeURL = NodeURLFactory.fromString(enodeURLString);
+    assertThat(nodeURL.getNodeId().toUnprefixedHexString()).isEqualTo(VALID_NODE_ID);
+    assertThat(nodeURL.getIpAsString()).isEqualTo(IPV4_ADDRESS);
+    assertThat(nodeURL.getListeningPortOrZero()).isEqualTo(0);
+    assertThat(nodeURL.getDiscoveryPortOrZero()).isEqualTo(0);
+    assertThat(nodeURL.isListening()).isFalse();
+    assertThat(nodeURL.isRunningDiscovery()).isFalse();
 
-    assertThat(enodeURL.toString()).isEqualTo(enodeURLString);
+    assertThat(nodeURL.toString()).isEqualTo(enodeURLString);
   }
 
   @Test
@@ -194,13 +194,13 @@ public class EnodeURLImplTest {
     final String enodeURLString =
         "enode://" + VALID_NODE_ID + "@" + IPV4_ADDRESS + ":" + 0 + "?" + query;
 
-    EnodeURL enodeURL = NodeURLFactory.fromString(enodeURLString);
-    assertThat(enodeURL.getNodeId().toUnprefixedHexString()).isEqualTo(VALID_NODE_ID);
-    assertThat(enodeURL.getIpAsString()).isEqualTo(IPV4_ADDRESS);
-    assertThat(enodeURL.getListeningPortOrZero()).isEqualTo(0);
-    assertThat(enodeURL.getDiscoveryPortOrZero()).isEqualTo(0);
-    assertThat(enodeURL.isListening()).isFalse();
-    assertThat(enodeURL.isRunningDiscovery()).isFalse();
+    NodeURL nodeURL = NodeURLFactory.fromString(enodeURLString);
+    assertThat(nodeURL.getNodeId().toUnprefixedHexString()).isEqualTo(VALID_NODE_ID);
+    assertThat(nodeURL.getIpAsString()).isEqualTo(IPV4_ADDRESS);
+    assertThat(nodeURL.getListeningPortOrZero()).isEqualTo(0);
+    assertThat(nodeURL.getDiscoveryPortOrZero()).isEqualTo(0);
+    assertThat(nodeURL.isListening()).isFalse();
+    assertThat(nodeURL.isRunningDiscovery()).isFalse();
   }
 
   @Test
@@ -419,7 +419,7 @@ public class EnodeURLImplTest {
 
   @Test
   public void fromString_withHostnameEnodeURLShouldWorkWhenDnsEnabled() {
-    final EnodeURL expectedEnodeURL =
+    final NodeURL expectedNodeURL =
         EnodeURLImpl.builder()
             .nodeId(VALID_NODE_ID)
             .ipAddress("127.0.0.1")
@@ -429,18 +429,18 @@ public class EnodeURLImplTest {
     final String enodeURLString =
         "enode://" + VALID_NODE_ID + "@" + "localhost" + ":" + P2P_PORT + "?" + DISCOVERY_QUERY;
 
-    final EnodeURL enodeURL =
+    final NodeURL nodeURL =
         NodeURLFactory.fromString(
             enodeURLString,
             ImmutableEnodeDnsConfiguration.builder().dnsEnabled(true).updateEnabled(false).build());
     ;
 
-    assertThat(enodeURL).isEqualTo(expectedEnodeURL);
+    assertThat(nodeURL).isEqualTo(expectedNodeURL);
   }
 
   @Test
   public void fromString_withHostnameEnodeURLShouldWorkWhenDnsEnabledAndUpdateEnabled() {
-    final EnodeURL expectedEnodeURL =
+    final NodeURL expectedNodeURL =
         EnodeURLImpl.builder()
             .nodeId(VALID_NODE_ID)
             .ipAddress("127.0.0.1")
@@ -450,13 +450,13 @@ public class EnodeURLImplTest {
     final String enodeURLString =
         "enode://" + VALID_NODE_ID + "@" + "localhost" + ":" + P2P_PORT + "?" + DISCOVERY_QUERY;
 
-    final EnodeURL enodeURL =
+    final NodeURL nodeURL =
         NodeURLFactory.fromString(
             enodeURLString,
             ImmutableEnodeDnsConfiguration.builder().dnsEnabled(true).updateEnabled(false).build());
     ;
 
-    assertThat(enodeURL).isEqualTo(expectedEnodeURL);
+    assertThat(nodeURL).isEqualTo(expectedNodeURL);
   }
 
   @Test
@@ -541,7 +541,7 @@ public class EnodeURLImplTest {
 
   @Test
   public void fromURI_withHostnameEnodeURLShouldWorkWhenDnsEnabled() {
-    final EnodeURL expectedEnodeURL =
+    final NodeURL expectedNodeURL =
         EnodeURLImpl.builder()
             .nodeId(VALID_NODE_ID)
             .ipAddress("127.0.0.1")
@@ -553,11 +553,11 @@ public class EnodeURLImplTest {
         "enode://" + VALID_NODE_ID + "@" + "localhost" + ":" + P2P_PORT + "?" + DISCOVERY_QUERY;
     final URI expectedURI = URI.create(enodeURLString);
 
-    final EnodeURL enodeURL =
+    final NodeURL nodeURL =
         NodeURLFactory.fromURI(
             expectedURI,
             ImmutableEnodeDnsConfiguration.builder().dnsEnabled(true).updateEnabled(false).build());
-    assertThat(enodeURL).isEqualTo(expectedEnodeURL);
+    assertThat(nodeURL).isEqualTo(expectedNodeURL);
   }
 
   @Test
@@ -575,7 +575,7 @@ public class EnodeURLImplTest {
 
   @Test
   public void builder_setEachPortExplicitly() {
-    final EnodeURL enodeURL =
+    final NodeURL nodeURL =
         EnodeURLImpl.builder()
             .nodeId(VALID_NODE_ID)
             .ipAddress(IPV4_ADDRESS)
@@ -583,51 +583,51 @@ public class EnodeURLImplTest {
             .discoveryPort(DISCOVERY_PORT)
             .build();
 
-    assertThat(enodeURL.getNodeId().toUnprefixedHexString()).isEqualTo(VALID_NODE_ID);
-    assertThat(enodeURL.getIpAsString()).isEqualTo(IPV4_ADDRESS);
-    assertThat(enodeURL.getListeningPortOrZero()).isEqualTo(P2P_PORT);
-    assertThat(enodeURL.getDiscoveryPortOrZero()).isEqualTo(DISCOVERY_PORT);
-    assertThat(enodeURL.isListening()).isTrue();
-    assertThat(enodeURL.isRunningDiscovery()).isTrue();
+    assertThat(nodeURL.getNodeId().toUnprefixedHexString()).isEqualTo(VALID_NODE_ID);
+    assertThat(nodeURL.getIpAsString()).isEqualTo(IPV4_ADDRESS);
+    assertThat(nodeURL.getListeningPortOrZero()).isEqualTo(P2P_PORT);
+    assertThat(nodeURL.getDiscoveryPortOrZero()).isEqualTo(DISCOVERY_PORT);
+    assertThat(nodeURL.isListening()).isTrue();
+    assertThat(nodeURL.isRunningDiscovery()).isTrue();
   }
 
   @Test
   public void builder_setPortsTogether() {
-    final EnodeURL enodeURL =
+    final NodeURL nodeURL =
         EnodeURLImpl.builder()
             .nodeId(VALID_NODE_ID)
             .ipAddress(IPV4_ADDRESS)
             .discoveryAndListeningPorts(P2P_PORT)
             .build();
 
-    assertThat(enodeURL.getNodeId().toUnprefixedHexString()).isEqualTo(VALID_NODE_ID);
-    assertThat(enodeURL.getIpAsString()).isEqualTo(IPV4_ADDRESS);
-    assertThat(enodeURL.getListeningPortOrZero()).isEqualTo(P2P_PORT);
-    assertThat(enodeURL.getDiscoveryPortOrZero()).isEqualTo(P2P_PORT);
-    assertThat(enodeURL.isListening()).isTrue();
-    assertThat(enodeURL.isRunningDiscovery()).isTrue();
+    assertThat(nodeURL.getNodeId().toUnprefixedHexString()).isEqualTo(VALID_NODE_ID);
+    assertThat(nodeURL.getIpAsString()).isEqualTo(IPV4_ADDRESS);
+    assertThat(nodeURL.getListeningPortOrZero()).isEqualTo(P2P_PORT);
+    assertThat(nodeURL.getDiscoveryPortOrZero()).isEqualTo(P2P_PORT);
+    assertThat(nodeURL.isListening()).isTrue();
+    assertThat(nodeURL.isRunningDiscovery()).isTrue();
   }
 
   @Test
   public void builder_setDefaultPorts() {
-    final EnodeURL enodeURL =
+    final NodeURL nodeURL =
         EnodeURLImpl.builder()
             .nodeId(VALID_NODE_ID)
             .ipAddress(IPV4_ADDRESS)
             .useDefaultPorts()
             .build();
 
-    assertThat(enodeURL.getNodeId().toUnprefixedHexString()).isEqualTo(VALID_NODE_ID);
-    assertThat(enodeURL.getIpAsString()).isEqualTo(IPV4_ADDRESS);
-    assertThat(enodeURL.getListeningPortOrZero()).isEqualTo(EnodeURLImpl.DEFAULT_LISTENING_PORT);
-    assertThat(enodeURL.getDiscoveryPortOrZero()).isEqualTo(EnodeURLImpl.DEFAULT_LISTENING_PORT);
-    assertThat(enodeURL.isListening()).isTrue();
-    assertThat(enodeURL.isRunningDiscovery()).isTrue();
+    assertThat(nodeURL.getNodeId().toUnprefixedHexString()).isEqualTo(VALID_NODE_ID);
+    assertThat(nodeURL.getIpAsString()).isEqualTo(IPV4_ADDRESS);
+    assertThat(nodeURL.getListeningPortOrZero()).isEqualTo(EnodeURLImpl.DEFAULT_LISTENING_PORT);
+    assertThat(nodeURL.getDiscoveryPortOrZero()).isEqualTo(EnodeURLImpl.DEFAULT_LISTENING_PORT);
+    assertThat(nodeURL.isListening()).isTrue();
+    assertThat(nodeURL.isRunningDiscovery()).isTrue();
   }
 
   @Test
   public void builder_discoveryDisabled() {
-    final EnodeURL enodeURL =
+    final NodeURL nodeURL =
         EnodeURLImpl.builder()
             .nodeId(VALID_NODE_ID)
             .ipAddress(IPV4_ADDRESS)
@@ -635,17 +635,17 @@ public class EnodeURLImplTest {
             .disableDiscovery()
             .build();
 
-    assertThat(enodeURL.getNodeId().toUnprefixedHexString()).isEqualTo(VALID_NODE_ID);
-    assertThat(enodeURL.getIpAsString()).isEqualTo(IPV4_ADDRESS);
-    assertThat(enodeURL.getListeningPortOrZero()).isEqualTo(P2P_PORT);
-    assertThat(enodeURL.getDiscoveryPortOrZero()).isEqualTo(0);
-    assertThat(enodeURL.isListening()).isTrue();
-    assertThat(enodeURL.isRunningDiscovery()).isFalse();
+    assertThat(nodeURL.getNodeId().toUnprefixedHexString()).isEqualTo(VALID_NODE_ID);
+    assertThat(nodeURL.getIpAsString()).isEqualTo(IPV4_ADDRESS);
+    assertThat(nodeURL.getListeningPortOrZero()).isEqualTo(P2P_PORT);
+    assertThat(nodeURL.getDiscoveryPortOrZero()).isEqualTo(0);
+    assertThat(nodeURL.isListening()).isTrue();
+    assertThat(nodeURL.isRunningDiscovery()).isFalse();
   }
 
   @Test
   public void builder_listeningDisabled() {
-    final EnodeURL enodeURL =
+    final NodeURL nodeURL =
         EnodeURLImpl.builder()
             .nodeId(VALID_NODE_ID)
             .ipAddress(IPV4_ADDRESS)
@@ -653,17 +653,17 @@ public class EnodeURLImplTest {
             .disableListening()
             .build();
 
-    assertThat(enodeURL.getNodeId().toUnprefixedHexString()).isEqualTo(VALID_NODE_ID);
-    assertThat(enodeURL.getIpAsString()).isEqualTo(IPV4_ADDRESS);
-    assertThat(enodeURL.getListeningPortOrZero()).isEqualTo(0);
-    assertThat(enodeURL.getDiscoveryPortOrZero()).isEqualTo(P2P_PORT);
-    assertThat(enodeURL.isListening()).isFalse();
-    assertThat(enodeURL.isRunningDiscovery()).isTrue();
+    assertThat(nodeURL.getNodeId().toUnprefixedHexString()).isEqualTo(VALID_NODE_ID);
+    assertThat(nodeURL.getIpAsString()).isEqualTo(IPV4_ADDRESS);
+    assertThat(nodeURL.getListeningPortOrZero()).isEqualTo(0);
+    assertThat(nodeURL.getDiscoveryPortOrZero()).isEqualTo(P2P_PORT);
+    assertThat(nodeURL.isListening()).isFalse();
+    assertThat(nodeURL.isRunningDiscovery()).isTrue();
   }
 
   @Test
   public void builder_listeningAndDiscoveryDisabled() {
-    final EnodeURL enodeURL =
+    final NodeURL nodeURL =
         EnodeURLImpl.builder()
             .nodeId(VALID_NODE_ID)
             .ipAddress(IPV4_ADDRESS)
@@ -671,34 +671,34 @@ public class EnodeURLImplTest {
             .disableListening()
             .build();
 
-    assertThat(enodeURL.getNodeId().toUnprefixedHexString()).isEqualTo(VALID_NODE_ID);
-    assertThat(enodeURL.getIpAsString()).isEqualTo(IPV4_ADDRESS);
-    assertThat(enodeURL.getListeningPortOrZero()).isEqualTo(0);
-    assertThat(enodeURL.getDiscoveryPortOrZero()).isEqualTo(0);
-    assertThat(enodeURL.isListening()).isFalse();
-    assertThat(enodeURL.isRunningDiscovery()).isFalse();
+    assertThat(nodeURL.getNodeId().toUnprefixedHexString()).isEqualTo(VALID_NODE_ID);
+    assertThat(nodeURL.getIpAsString()).isEqualTo(IPV4_ADDRESS);
+    assertThat(nodeURL.getListeningPortOrZero()).isEqualTo(0);
+    assertThat(nodeURL.getDiscoveryPortOrZero()).isEqualTo(0);
+    assertThat(nodeURL.isListening()).isFalse();
+    assertThat(nodeURL.isRunningDiscovery()).isFalse();
   }
 
   @Test
   public void builder_setPortsTo0() {
-    final EnodeURL enodeURL =
+    final NodeURL nodeURL =
         EnodeURLImpl.builder()
             .nodeId(VALID_NODE_ID)
             .ipAddress(IPV4_ADDRESS)
             .discoveryAndListeningPorts(0)
             .build();
 
-    assertThat(enodeURL.getNodeId().toUnprefixedHexString()).isEqualTo(VALID_NODE_ID);
-    assertThat(enodeURL.getIpAsString()).isEqualTo(IPV4_ADDRESS);
-    assertThat(enodeURL.getListeningPortOrZero()).isEqualTo(0);
-    assertThat(enodeURL.getDiscoveryPortOrZero()).isEqualTo(0);
-    assertThat(enodeURL.isListening()).isFalse();
-    assertThat(enodeURL.isRunningDiscovery()).isFalse();
+    assertThat(nodeURL.getNodeId().toUnprefixedHexString()).isEqualTo(VALID_NODE_ID);
+    assertThat(nodeURL.getIpAsString()).isEqualTo(IPV4_ADDRESS);
+    assertThat(nodeURL.getListeningPortOrZero()).isEqualTo(0);
+    assertThat(nodeURL.getDiscoveryPortOrZero()).isEqualTo(0);
+    assertThat(nodeURL.isListening()).isFalse();
+    assertThat(nodeURL.isRunningDiscovery()).isFalse();
   }
 
   @Test
   public void builder_setDiscoveryPortTo0() {
-    final EnodeURL enodeURL =
+    final NodeURL nodeURL =
         EnodeURLImpl.builder()
             .nodeId(VALID_NODE_ID)
             .ipAddress(IPV4_ADDRESS)
@@ -706,17 +706,17 @@ public class EnodeURLImplTest {
             .listeningPort(P2P_PORT)
             .build();
 
-    assertThat(enodeURL.getNodeId().toUnprefixedHexString()).isEqualTo(VALID_NODE_ID);
-    assertThat(enodeURL.getIpAsString()).isEqualTo(IPV4_ADDRESS);
-    assertThat(enodeURL.getListeningPortOrZero()).isEqualTo(P2P_PORT);
-    assertThat(enodeURL.getDiscoveryPortOrZero()).isEqualTo(0);
-    assertThat(enodeURL.isListening()).isTrue();
-    assertThat(enodeURL.isRunningDiscovery()).isFalse();
+    assertThat(nodeURL.getNodeId().toUnprefixedHexString()).isEqualTo(VALID_NODE_ID);
+    assertThat(nodeURL.getIpAsString()).isEqualTo(IPV4_ADDRESS);
+    assertThat(nodeURL.getListeningPortOrZero()).isEqualTo(P2P_PORT);
+    assertThat(nodeURL.getDiscoveryPortOrZero()).isEqualTo(0);
+    assertThat(nodeURL.isListening()).isTrue();
+    assertThat(nodeURL.isRunningDiscovery()).isFalse();
   }
 
   @Test
   public void builder_setListeningPortTo0() {
-    final EnodeURL enodeURL =
+    final NodeURL nodeURL =
         EnodeURLImpl.builder()
             .nodeId(VALID_NODE_ID)
             .ipAddress(IPV4_ADDRESS)
@@ -724,17 +724,17 @@ public class EnodeURLImplTest {
             .listeningPort(0)
             .build();
 
-    assertThat(enodeURL.getNodeId().toUnprefixedHexString()).isEqualTo(VALID_NODE_ID);
-    assertThat(enodeURL.getIpAsString()).isEqualTo(IPV4_ADDRESS);
-    assertThat(enodeURL.getListeningPortOrZero()).isEqualTo(0);
-    assertThat(enodeURL.getDiscoveryPortOrZero()).isEqualTo(P2P_PORT);
-    assertThat(enodeURL.isListening()).isFalse();
-    assertThat(enodeURL.isRunningDiscovery()).isTrue();
+    assertThat(nodeURL.getNodeId().toUnprefixedHexString()).isEqualTo(VALID_NODE_ID);
+    assertThat(nodeURL.getIpAsString()).isEqualTo(IPV4_ADDRESS);
+    assertThat(nodeURL.getListeningPortOrZero()).isEqualTo(0);
+    assertThat(nodeURL.getDiscoveryPortOrZero()).isEqualTo(P2P_PORT);
+    assertThat(nodeURL.isListening()).isFalse();
+    assertThat(nodeURL.isRunningDiscovery()).isTrue();
   }
 
   @Test
   public void builder_setDiscoveryPortToEmptyValue() {
-    final EnodeURL enodeURL =
+    final NodeURL nodeURL =
         EnodeURLImpl.builder()
             .nodeId(VALID_NODE_ID)
             .ipAddress(IPV4_ADDRESS)
@@ -742,17 +742,17 @@ public class EnodeURLImplTest {
             .listeningPort(P2P_PORT)
             .build();
 
-    assertThat(enodeURL.getNodeId().toUnprefixedHexString()).isEqualTo(VALID_NODE_ID);
-    assertThat(enodeURL.getIpAsString()).isEqualTo(IPV4_ADDRESS);
-    assertThat(enodeURL.getListeningPortOrZero()).isEqualTo(P2P_PORT);
-    assertThat(enodeURL.getDiscoveryPortOrZero()).isEqualTo(0);
-    assertThat(enodeURL.isListening()).isTrue();
-    assertThat(enodeURL.isRunningDiscovery()).isFalse();
+    assertThat(nodeURL.getNodeId().toUnprefixedHexString()).isEqualTo(VALID_NODE_ID);
+    assertThat(nodeURL.getIpAsString()).isEqualTo(IPV4_ADDRESS);
+    assertThat(nodeURL.getListeningPortOrZero()).isEqualTo(P2P_PORT);
+    assertThat(nodeURL.getDiscoveryPortOrZero()).isEqualTo(0);
+    assertThat(nodeURL.isListening()).isTrue();
+    assertThat(nodeURL.isRunningDiscovery()).isFalse();
   }
 
   @Test
   public void builder_setListeningPortToEmptyValue() {
-    final EnodeURL enodeURL =
+    final NodeURL nodeURL =
         EnodeURLImpl.builder()
             .nodeId(VALID_NODE_ID)
             .ipAddress(IPV4_ADDRESS)
@@ -760,12 +760,12 @@ public class EnodeURLImplTest {
             .listeningPort(Optional.empty())
             .build();
 
-    assertThat(enodeURL.getNodeId().toUnprefixedHexString()).isEqualTo(VALID_NODE_ID);
-    assertThat(enodeURL.getIpAsString()).isEqualTo(IPV4_ADDRESS);
-    assertThat(enodeURL.getListeningPortOrZero()).isEqualTo(0);
-    assertThat(enodeURL.getDiscoveryPortOrZero()).isEqualTo(P2P_PORT);
-    assertThat(enodeURL.isListening()).isFalse();
-    assertThat(enodeURL.isRunningDiscovery()).isTrue();
+    assertThat(nodeURL.getNodeId().toUnprefixedHexString()).isEqualTo(VALID_NODE_ID);
+    assertThat(nodeURL.getIpAsString()).isEqualTo(IPV4_ADDRESS);
+    assertThat(nodeURL.getListeningPortOrZero()).isEqualTo(0);
+    assertThat(nodeURL.getDiscoveryPortOrZero()).isEqualTo(P2P_PORT);
+    assertThat(nodeURL.isListening()).isFalse();
+    assertThat(nodeURL.isRunningDiscovery()).isTrue();
   }
 
   @Test
@@ -816,14 +816,14 @@ public class EnodeURLImplTest {
 
   @Test
   public void sameListeningEndpoint_forMatchingEnodes() {
-    final EnodeURL enodeA =
+    final NodeURL enodeA =
         EnodeURLImpl.builder()
             .nodeId(VALID_NODE_ID)
             .ipAddress(IPV4_ADDRESS)
             .listeningPort(P2P_PORT)
             .discoveryPort(DISCOVERY_PORT)
             .build();
-    final EnodeURL enodeB =
+    final NodeURL enodeB =
         EnodeURLImpl.builder()
             .nodeId(VALID_NODE_ID)
             .ipAddress(IPV4_ADDRESS)
@@ -836,14 +836,14 @@ public class EnodeURLImplTest {
 
   @Test
   public void sameListeningEndpoint_differentListeningPorts() {
-    final EnodeURL enodeA =
+    final NodeURL enodeA =
         EnodeURLImpl.builder()
             .nodeId(VALID_NODE_ID)
             .ipAddress(IPV4_ADDRESS)
             .listeningPort(P2P_PORT)
             .discoveryPort(DISCOVERY_PORT)
             .build();
-    final EnodeURL enodeB =
+    final NodeURL enodeB =
         EnodeURLImpl.builder()
             .nodeId(VALID_NODE_ID)
             .ipAddress(IPV4_ADDRESS)
@@ -856,14 +856,14 @@ public class EnodeURLImplTest {
 
   @Test
   public void sameListeningEndpoint_differentIps() {
-    final EnodeURL enodeA =
+    final NodeURL enodeA =
         EnodeURLImpl.builder()
             .nodeId(VALID_NODE_ID)
             .ipAddress(IPV6_COMPACT_ADDRESS)
             .listeningPort(P2P_PORT)
             .discoveryPort(DISCOVERY_PORT)
             .build();
-    final EnodeURL enodeB =
+    final NodeURL enodeB =
         EnodeURLImpl.builder()
             .nodeId(VALID_NODE_ID)
             .ipAddress(IPV4_ADDRESS)
@@ -876,14 +876,14 @@ public class EnodeURLImplTest {
 
   @Test
   public void sameListeningEndpoint_listeningDisabledForOne() {
-    final EnodeURL enodeA =
+    final NodeURL enodeA =
         EnodeURLImpl.builder()
             .nodeId(VALID_NODE_ID)
             .ipAddress(IPV4_ADDRESS)
             .disableListening()
             .discoveryPort(DISCOVERY_PORT)
             .build();
-    final EnodeURL enodeB =
+    final NodeURL enodeB =
         EnodeURLImpl.builder()
             .nodeId(VALID_NODE_ID)
             .ipAddress(IPV4_ADDRESS)
@@ -896,14 +896,14 @@ public class EnodeURLImplTest {
 
   @Test
   public void sameListeningEndpoint_listeningDisabledForBoth() {
-    final EnodeURL enodeA =
+    final NodeURL enodeA =
         EnodeURLImpl.builder()
             .nodeId(VALID_NODE_ID)
             .ipAddress(IPV4_ADDRESS)
             .disableListening()
             .discoveryPort(DISCOVERY_PORT)
             .build();
-    final EnodeURL enodeB =
+    final NodeURL enodeB =
         EnodeURLImpl.builder()
             .nodeId(VALID_NODE_ID)
             .ipAddress(IPV4_ADDRESS)
@@ -935,7 +935,7 @@ public class EnodeURLImplTest {
       throws UnknownHostException {
     String enodeString = String.format("enode://%s@%s:%d", VALID_NODE_ID, "127.0.0.1", 9999);
 
-    final EnodeURL enodeA =
+    final NodeURL enodeA =
         NodeURLFactory.fromString(
             enodeString,
             ImmutableEnodeDnsConfiguration.builder().dnsEnabled(true).updateEnabled(true).build());
@@ -952,7 +952,7 @@ public class EnodeURLImplTest {
     String enodeString =
         String.format("enode://%s@%s:%d", VALID_NODE_ID, "besu-is-awesome.example.com", 9999);
 
-    final EnodeURL enodeA =
+    final NodeURL enodeA =
         NodeURLFactory.fromString(
             enodeString,
             ImmutableEnodeDnsConfiguration.builder().dnsEnabled(true).updateEnabled(true).build());
@@ -965,7 +965,7 @@ public class EnodeURLImplTest {
   public void toURIWithoutDiscoveryPortShouldKeepDomainWhenFound() {
     String enodeString = String.format("enode://%s@%s:%d", VALID_NODE_ID, "hyperledger.org", 9999);
 
-    final EnodeURL enodeA =
+    final NodeURL enodeA =
         NodeURLFactory.fromString(
             enodeString,
             ImmutableEnodeDnsConfiguration.builder().dnsEnabled(true).updateEnabled(true).build());
@@ -977,7 +977,7 @@ public class EnodeURLImplTest {
 
   @Test
   public void getHostShouldReturnHostNameIpv4() {
-    final EnodeURL enode =
+    final NodeURL enode =
         EnodeURLImpl.builder()
             .nodeId(VALID_NODE_ID)
             .ipAddress(IPV4_ADDRESS)
@@ -989,7 +989,7 @@ public class EnodeURLImplTest {
 
   @Test
   public void getHostShouldReturnHostNameIpv6Compact() {
-    final EnodeURL enode =
+    final NodeURL enode =
         EnodeURLImpl.builder()
             .nodeId(VALID_NODE_ID)
             .ipAddress(IPV6_COMPACT_ADDRESS)
@@ -1001,7 +1001,7 @@ public class EnodeURLImplTest {
 
   @Test
   public void getHostShouldReturnHostNameIpv6CompactFromFull() {
-    final EnodeURL enode =
+    final NodeURL enode =
         EnodeURLImpl.builder()
             .nodeId(VALID_NODE_ID)
             .ipAddress(IPV6_FULL_ADDRESS)
@@ -1013,7 +1013,7 @@ public class EnodeURLImplTest {
 
   @Test
   public void getHostShouldReturnHostNameWhenHostContainsUnderscore() {
-    EnodeURL enodeMock = Mockito.mock(EnodeURLImpl.class);
+    NodeURL enodeMock = Mockito.mock(EnodeURLImpl.class);
     URI uriMock = Mockito.mock(URI.class);
     Mockito.when(enodeMock.getHost()).thenCallRealMethod();
     Mockito.when(enodeMock.toURIWithoutDiscoveryPort()).thenReturn(uriMock);
@@ -1026,7 +1026,7 @@ public class EnodeURLImplTest {
 
   @Test
   public void getHostShouldReturnEmptyStringWhenUriToStringDoesNotContainAt() {
-    EnodeURL enodeMock = Mockito.mock(EnodeURLImpl.class);
+    NodeURL enodeMock = Mockito.mock(EnodeURLImpl.class);
     URI uriMock = Mockito.mock(URI.class);
     Mockito.when(enodeMock.getHost()).thenCallRealMethod();
     Mockito.when(enodeMock.toURIWithoutDiscoveryPort()).thenReturn(uriMock);
@@ -1038,7 +1038,7 @@ public class EnodeURLImplTest {
 
   @Test
   public void getHostShouldReturnEmptyStringWhenUriToStringReturnsColonBeforeAt() {
-    EnodeURL enodeMock = Mockito.mock(EnodeURLImpl.class);
+    NodeURL enodeMock = Mockito.mock(EnodeURLImpl.class);
     URI uriMock = Mockito.mock(URI.class);
     Mockito.when(enodeMock.getHost()).thenCallRealMethod();
     Mockito.when(enodeMock.toURIWithoutDiscoveryPort()).thenReturn(uriMock);
@@ -1052,7 +1052,7 @@ public class EnodeURLImplTest {
   public void getHostShouldReturnHostNameWhenDomainFound() {
     String site = "hyperledger.org";
     String enodeString = String.format("enode://%s@%s:%d", VALID_NODE_ID, site, 9999);
-    final EnodeURL enode =
+    final NodeURL enode =
         NodeURLFactory.fromString(
             enodeString,
             ImmutableEnodeDnsConfiguration.builder().dnsEnabled(true).updateEnabled(true).build());
@@ -1063,7 +1063,7 @@ public class EnodeURLImplTest {
   public void getHostShouldReturnLoopBackWhenDomainNotFound() {
     String site = "besu-is-awesome.example.com";
     String enodeString = String.format("enode://%s@%s:%d", VALID_NODE_ID, site, 9999);
-    final EnodeURL enode =
+    final NodeURL enode =
         NodeURLFactory.fromString(
             enodeString,
             ImmutableEnodeDnsConfiguration.builder().dnsEnabled(true).updateEnabled(true).build());

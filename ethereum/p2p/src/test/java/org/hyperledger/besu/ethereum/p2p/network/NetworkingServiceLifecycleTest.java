@@ -25,7 +25,7 @@ import org.hyperledger.besu.cryptoservices.NodeKeyUtils;
 import org.hyperledger.besu.ethereum.p2p.config.DiscoveryConfiguration;
 import org.hyperledger.besu.ethereum.p2p.config.NetworkingConfiguration;
 import org.hyperledger.besu.ethereum.p2p.discovery.PeerDiscoveryServiceException;
-import org.hyperledger.besu.plugin.data.EnodeURL;
+import org.hyperledger.besu.plugin.data.NodeURL;
 
 import java.io.IOException;
 
@@ -52,7 +52,7 @@ public class NetworkingServiceLifecycleTest {
     final DefaultP2PNetwork.Builder builder = getP2PNetworkBuilder(config);
     try (final P2PNetwork service = builder.build()) {
       service.start();
-      final EnodeURL enode = service.getLocalEnode().get();
+      final NodeURL enode = service.getLocalEnode().get();
       final int udpPort = enode.getDiscoveryPortOrZero();
       final int tcpPort = enode.getListeningPortOrZero();
 

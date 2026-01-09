@@ -14,7 +14,7 @@
  */
 package org.hyperledger.besu.plugin.data.p2p;
 
-import org.hyperledger.besu.plugin.data.EnodeURL;
+import org.hyperledger.besu.plugin.data.NodeURL;
 
 import java.io.IOException;
 import java.net.InetSocketAddress;
@@ -71,7 +71,7 @@ public interface PeerConnection {
    *
    * @return remote enode URL
    */
-  EnodeURL getRemoteEnode();
+  NodeURL getRemoteEnode();
 
   /**
    * Get the difference, measured in milliseconds, between the time this connection was initiated

@@ -227,7 +227,7 @@ public class RlpxAgentTest {
   public void connect_failsIfPeerIsNotListening() {
     startAgent();
 
-    final Peer peer = DefaultPeer.fromEnodeURL(enodeBuilder().disableListening().build());
+    final Peer peer = DefaultPeer.fromNodeURL(enodeBuilder().disableListening().build());
     final CompletableFuture<PeerConnection> connection = agent.connect(peer);
 
     assertThat(connection).isDone();
@@ -576,7 +576,7 @@ public class RlpxAgentTest {
 
   private void startAgent(final Bytes nodeId) {
     agent.start();
-    localNode.setEnode(enodeBuilder().nodeId(nodeId).build());
+    localNode.setNode(enodeBuilder().nodeId(nodeId).build());
   }
 
   private RlpxAgent agent() {

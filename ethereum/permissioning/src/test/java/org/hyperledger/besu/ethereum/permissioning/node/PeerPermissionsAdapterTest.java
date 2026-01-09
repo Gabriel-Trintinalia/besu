@@ -212,17 +212,17 @@ public class PeerPermissionsAdapterTest {
   private void mockControllerPermissions(
       final boolean allowLocalToRemote, final boolean allowRemoteToLocal) {
     when(nodePermissioningController.isPermitted(
-            ArgumentMatchers.eq(localNode.getEnodeURL()),
-            ArgumentMatchers.eq(remoteNode.getEnodeURL())))
+            ArgumentMatchers.eq(localNode.getNodeURL()),
+            ArgumentMatchers.eq(remoteNode.getNodeURL())))
         .thenReturn(allowLocalToRemote);
     when(nodePermissioningController.isPermitted(
-            ArgumentMatchers.eq(remoteNode.getEnodeURL()),
-            ArgumentMatchers.eq(localNode.getEnodeURL())))
+            ArgumentMatchers.eq(remoteNode.getNodeURL()),
+            ArgumentMatchers.eq(localNode.getNodeURL())))
         .thenReturn(allowRemoteToLocal);
   }
 
   private Peer createPeer() {
-    return DefaultPeer.fromEnodeURL(
+    return DefaultPeer.fromNodeURL(
         EnodeURLImpl.builder()
             .ipAddress("127.0.0.1")
             .nodeId(Peer.randomId())

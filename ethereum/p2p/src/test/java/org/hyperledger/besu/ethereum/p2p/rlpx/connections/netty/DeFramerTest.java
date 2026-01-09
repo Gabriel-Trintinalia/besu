@@ -55,7 +55,7 @@ import org.hyperledger.besu.ethereum.p2p.rlpx.wire.messages.PingMessage;
 import org.hyperledger.besu.ethereum.p2p.rlpx.wire.messages.WireMessageCodes;
 import org.hyperledger.besu.ethereum.rlp.RLPException;
 import org.hyperledger.besu.metrics.noop.NoOpMetricsSystem;
-import org.hyperledger.besu.plugin.data.EnodeURL;
+import org.hyperledger.besu.plugin.data.NodeURL;
 
 import java.net.InetAddress;
 import java.net.InetSocketAddress;
@@ -102,7 +102,7 @@ public class DeFramerTest {
   private final String clientId = "abc";
   private final int port = 30303;
   private final List<Capability> capabilities = Arrays.asList(EthProtocolHelper.LATEST);
-  private final EnodeURL localEnode =
+  private final NodeURL localEnode =
       EnodeURLImpl.builder()
           .ipAddress("127.0.0.1")
           .discoveryAndListeningPorts(port)
@@ -196,13 +196,13 @@ public class DeFramerTest {
     final PeerConnection peerConnection = connectFuture.get();
     assertThat(peerConnection.getPeerInfo()).isEqualTo(remotePeerInfo);
 
-    final EnodeURL expectedEnode =
+    final NodeURL expectedEnode =
         EnodeURLImpl.builder()
-            .configureFromEnode(peer.getEnodeURL())
+            .configureFromEnode(peer.getNodeURL())
             // Discovery information is not available from peer info
             .disableDiscovery()
             .build();
-    assertThat(peerConnection.getPeer().getEnodeURL()).isEqualTo(expectedEnode);
+    assertThat(peerConnection.getPeer().getNodeURL()).isEqualTo(expectedEnode);
     assertThat(out).isEmpty();
 
     // Next phase of pipeline should be setup
@@ -244,7 +244,7 @@ public class DeFramerTest {
     assertThat(peerConnection.getPeerInfo()).isEqualTo(remotePeerInfo);
     assertThat(out).isEmpty();
 
-    final EnodeURL expectedEnode =
+    final NodeURL expectedEnode =
         EnodeURLImpl.builder()
             .ipAddress(remoteAddress.getAddress())
             .nodeId(peer.getId())
@@ -253,7 +253,7 @@ public class DeFramerTest {
             // Discovery port is unknown
             .disableDiscovery()
             .build();
-    assertThat(peerConnection.getPeer().getEnodeURL()).isEqualTo(expectedEnode);
+    assertThat(peerConnection.getPeer().getNodeURL()).isEqualTo(expectedEnode);
 
     // Next phase of pipeline should be setup
     verify(pipeline, times(1)).addLast(any(ChannelHandler[].class));
@@ -314,7 +314,7 @@ public class DeFramerTest {
             p2pVersion,
             clientId,
             capabilities,
-            peer.getEnodeURL().getListeningPortOrZero(),
+            peer.getNodeURL().getListeningPortOrZero(),
             mismatchedId);
     final DeFramer deFramer = createDeFramer(peer, Optional.empty());
 
@@ -439,7 +439,7 @@ public class DeFramerTest {
   }
 
   private Peer createRemotePeer() {
-    return DefaultPeer.fromEnodeURL(
+    return DefaultPeer.fromNodeURL(
         EnodeURLImpl.builder()
             .ipAddress(remoteAddress.getAddress())
             .discoveryAndListeningPorts(remotePort)
@@ -452,7 +452,7 @@ public class DeFramerTest {
         p2pVersion,
         clientId,
         capabilities,
-        forPeer.getEnodeURL().getListeningPortOrZero(),
+        forPeer.getNodeURL().getListeningPortOrZero(),
         forPeer.getId());
   }
 

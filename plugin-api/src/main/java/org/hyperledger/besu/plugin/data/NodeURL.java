@@ -21,7 +21,7 @@ import java.util.Optional;
 import org.apache.tuweni.bytes.Bytes;
 
 /** The interface Enode url. */
-public interface EnodeURL {
+public interface NodeURL {
   /**
    * Enode to uri without discovery port.
    *

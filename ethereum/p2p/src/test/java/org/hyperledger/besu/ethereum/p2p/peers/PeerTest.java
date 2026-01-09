@@ -92,9 +92,9 @@ public class PeerTest {
         .isEqualTo(
             fromHexString(
                 "c7849b663d12a2b5bf05b1ebf5810364f4870d5f1053fbd7500d38bc54c705b453d7511ca8a4a86003d34d4c8ee0bbfcd387aa724f5b240b3ab4bbb994a1e09b"));
-    assertThat(peer.getEnodeURL().getIpAsString()).isEqualTo("172.20.0.4");
-    assertThat(peer.getEnodeURL().getListeningPortOrZero()).isEqualTo(30403);
-    assertThat(peer.getEnodeURL().getDiscoveryPortOrZero()).isEqualTo(30403);
+    assertThat(peer.getNodeURL().getIpAsString()).isEqualTo("172.20.0.4");
+    assertThat(peer.getNodeURL().getListeningPortOrZero()).isEqualTo(30403);
+    assertThat(peer.getNodeURL().getDiscoveryPortOrZero()).isEqualTo(30403);
   }
 
   @Test
@@ -106,10 +106,10 @@ public class PeerTest {
         .isEqualTo(
             fromHexString(
                 "c7849b663d12a2b5bf05b1ebf5810364f4870d5f1053fbd7500d38bc54c705b453d7511ca8a4a86003d34d4c8ee0bbfcd387aa724f5b240b3ab4bbb994a1e09b"));
-    assertThat(peer.getEnodeURL().getIp())
+    assertThat(peer.getNodeURL().getIp())
         .isEqualTo(InetAddresses.forString("2001:db8:85a3::8a2e:370:7334"));
-    assertThat(peer.getEnodeURL().getListeningPortOrZero()).isEqualTo(30403);
-    assertThat(peer.getEnodeURL().getDiscoveryPortOrZero()).isEqualTo(30403);
+    assertThat(peer.getNodeURL().getListeningPortOrZero()).isEqualTo(30403);
+    assertThat(peer.getNodeURL().getDiscoveryPortOrZero()).isEqualTo(30403);
   }
 
   @Test
@@ -141,9 +141,9 @@ public class PeerTest {
         .isEqualTo(
             fromHexString(
                 "c7849b663d12a2b5bf05b1ebf5810364f4870d5f1053fbd7500d38bc54c705b453d7511ca8a4a86003d34d4c8ee0bbfcd387aa724f5b240b3ab4bbb994a1e09b"));
-    assertThat(peer.getEnodeURL().getIpAsString()).isEqualTo("172.20.0.4");
-    assertThat(peer.getEnodeURL().getDiscoveryPortOrZero()).isEqualTo(22222);
-    assertThat(peer.getEnodeURL().getListeningPortOrZero()).isEqualTo(12345);
+    assertThat(peer.getNodeURL().getIpAsString()).isEqualTo("172.20.0.4");
+    assertThat(peer.getNodeURL().getDiscoveryPortOrZero()).isEqualTo(22222);
+    assertThat(peer.getNodeURL().getListeningPortOrZero()).isEqualTo(12345);
   }
 
   @Test

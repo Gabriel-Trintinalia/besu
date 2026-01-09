@@ -66,7 +66,7 @@ public class PeerPermissionSubnet extends PeerPermissions {
     if (allowedSubnets == null || allowedSubnets.isEmpty()) {
       return true;
     }
-    String remotePeerHostAddress = remotePeer.getEnodeURL().getIpAsString();
+    String remotePeerHostAddress = remotePeer.getNodeURL().getIpAsString();
     for (SubnetInfo subnet : allowedSubnets) {
       if (subnet.isInRange(remotePeerHostAddress)) {
         return true;

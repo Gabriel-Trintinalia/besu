@@ -15,7 +15,7 @@
 package org.hyperledger.besu.ethereum.permissioning.node;
 
 import org.hyperledger.besu.ethereum.permissioning.NodeLocalConfigPermissioningController;
-import org.hyperledger.besu.plugin.data.EnodeURL;
+import org.hyperledger.besu.plugin.data.NodeURL;
 import org.hyperledger.besu.plugin.services.permissioning.NodeConnectionPermissioningProvider;
 import org.hyperledger.besu.util.Subscribers;
 
@@ -38,7 +38,7 @@ public class NodePermissioningController {
     this.providers = providers;
   }
 
-  public boolean isPermitted(final EnodeURL sourceEnode, final EnodeURL destinationEnode) {
+  public boolean isPermitted(final NodeURL sourceEnode, final NodeURL destinationEnode) {
 
     LOG.trace("Node permissioning: Checking {} -> {}", sourceEnode, destinationEnode);
 

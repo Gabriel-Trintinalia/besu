@@ -16,7 +16,7 @@ package org.hyperledger.besu.ethereum.permissioning;
 
 import org.hyperledger.besu.ethereum.p2p.peers.EnodeDnsConfiguration;
 import org.hyperledger.besu.ethereum.p2p.peers.NodeURLFactory;
-import org.hyperledger.besu.plugin.data.EnodeURL;
+import org.hyperledger.besu.plugin.data.NodeURL;
 
 import java.util.List;
 import java.util.stream.Collectors;
@@ -64,7 +64,7 @@ public class PermissioningConfigurationBuilder {
           nodePermissioningConfigFilepath);
 
       if (nodeAllowlistTomlArray != null) {
-        List<EnodeURL> nodesAllowlistToml =
+        List<NodeURL> nodesAllowlistToml =
             nodeAllowlistTomlArray.toList().parallelStream()
                 .map(Object::toString)
                 .map(

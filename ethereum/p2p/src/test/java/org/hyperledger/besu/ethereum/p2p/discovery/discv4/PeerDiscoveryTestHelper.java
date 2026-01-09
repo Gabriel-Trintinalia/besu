@@ -36,7 +36,7 @@ import org.hyperledger.besu.ethereum.p2p.peers.Peer;
 import org.hyperledger.besu.ethereum.p2p.permissions.PeerPermissions;
 import org.hyperledger.besu.ethereum.p2p.rlpx.RlpxAgent;
 import org.hyperledger.besu.nat.NatService;
-import org.hyperledger.besu.plugin.data.EnodeURL;
+import org.hyperledger.besu.plugin.data.NodeURL;
 
 import java.util.Arrays;
 import java.util.Collections;
@@ -231,7 +231,7 @@ public class PeerDiscoveryTestHelper {
     private final Map<Bytes, MockPeerDiscoveryAgent> agents;
     private final AtomicInteger nextAvailablePort;
 
-    private List<EnodeURL> bootnodes = Collections.emptyList();
+    private List<NodeURL> bootnodes = Collections.emptyList();
     private boolean enabled = true;
     private PeerPermissions peerPermissions = PeerPermissions.noop();
     private String advertisedHost = "127.0.0.1";
@@ -255,13 +255,13 @@ public class PeerDiscoveryTestHelper {
       return bootstrapPeers(asList(peers));
     }
 
-    public AgentBuilder bootnodes(final EnodeURL... bootnodes) {
+    public AgentBuilder bootnodes(final NodeURL... bootnodes) {
       this.bootnodes = Arrays.asList(bootnodes);
       return this;
     }
 
-    private List<EnodeURL> asEnodes(final List<DiscoveryPeerV4> peers) {
-      return peers.stream().map(Peer::getEnodeURL).collect(Collectors.toList());
+    private List<NodeURL> asEnodes(final List<DiscoveryPeerV4> peers) {
+      return peers.stream().map(Peer::getNodeURL).collect(Collectors.toList());
     }
 
     public AgentBuilder peerPermissions(final PeerPermissions peerPermissions) {

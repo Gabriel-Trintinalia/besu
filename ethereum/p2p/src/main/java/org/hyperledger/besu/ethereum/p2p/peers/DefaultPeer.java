@@ -15,7 +15,7 @@
 package org.hyperledger.besu.ethereum.p2p.peers;
 
 import org.hyperledger.besu.ethereum.forkid.ForkId;
-import org.hyperledger.besu.plugin.data.EnodeURL;
+import org.hyperledger.besu.plugin.data.NodeURL;
 
 import java.util.Objects;
 import java.util.Optional;
@@ -23,16 +23,16 @@ import java.util.Optional;
 /** The default, basic representation of an Ethereum {@link Peer}. */
 public class DefaultPeer extends DefaultPeerId implements Peer {
 
-  private final EnodeURL enodeURL;
+  private final NodeURL nodeURL;
   private ForkId forkId;
 
-  protected DefaultPeer(final EnodeURL enodeURL) {
-    super(enodeURL.getNodeId());
-    this.enodeURL = enodeURL;
+  protected DefaultPeer(final NodeURL nodeURL) {
+    super(nodeURL.getNodeId());
+    this.nodeURL = nodeURL;
   }
 
-  public static DefaultPeer fromEnodeURL(final EnodeURL enodeURL) {
-    return new DefaultPeer(enodeURL);
+  public static DefaultPeer fromNodeURL(final NodeURL nodeURL) {
+    return new DefaultPeer(nodeURL);
   }
 
   /**
@@ -47,8 +47,8 @@ public class DefaultPeer extends DefaultPeerId implements Peer {
   }
 
   @Override
-  public EnodeURL getEnodeURL() {
-    return enodeURL;
+  public NodeURL getNodeURL() {
+    return nodeURL;
   }
 
   @Override
@@ -73,19 +73,19 @@ public class DefaultPeer extends DefaultPeerId implements Peer {
       return false;
     }
     final DefaultPeer other = (DefaultPeer) obj;
-    return id.equals(other.id) && enodeURL.equals(other.enodeURL);
+    return id.equals(other.id) && nodeURL.equals(other.nodeURL);
   }
 
   @Override
   public int hashCode() {
-    return Objects.hash(id, enodeURL);
+    return Objects.hash(id, nodeURL);
   }
 
   @Override
   public String toString() {
     final StringBuilder sb = new StringBuilder("DefaultPeer{");
     sb.append("id=").append(id);
-    sb.append(", enode=").append(enodeURL);
+    sb.append(", enode=").append(nodeURL);
     sb.append('}');
     return sb.toString();
   }

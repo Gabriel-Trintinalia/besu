@@ -116,7 +116,7 @@ import org.hyperledger.besu.nat.docker.DockerDetector;
 import org.hyperledger.besu.nat.docker.DockerNatManager;
 import org.hyperledger.besu.nat.upnp.UpnpNatManager;
 import org.hyperledger.besu.plugin.BesuPlugin;
-import org.hyperledger.besu.plugin.data.EnodeURL;
+import org.hyperledger.besu.plugin.data.NodeURL;
 import org.hyperledger.besu.services.BesuPluginContextImpl;
 import org.hyperledger.besu.services.PermissioningServiceImpl;
 import org.hyperledger.besu.services.RpcEndpointServiceImpl;
@@ -182,7 +182,7 @@ public class RunnerBuilder {
   private ObservableMetricsSystem metricsSystem;
   private PermissioningServiceImpl permissioningService;
   private Optional<PermissioningConfiguration> permissioningConfiguration = Optional.empty();
-  private Collection<EnodeURL> staticNodes = Collections.emptyList();
+  private Collection<NodeURL> staticNodes = Collections.emptyList();
   private Optional<String> identityString = Optional.empty();
   private BesuPluginContextImpl besuPluginContext;
   private boolean autoLogBloomCaching = true;
@@ -494,7 +494,7 @@ public class RunnerBuilder {
    * @param staticNodes the static nodes
    * @return the runner builder
    */
-  public RunnerBuilder staticNodes(final Collection<EnodeURL> staticNodes) {
+  public RunnerBuilder staticNodes(final Collection<NodeURL> staticNodes) {
     this.staticNodes = staticNodes;
     return this;
   }
@@ -627,7 +627,7 @@ public class RunnerBuilder {
             .setBindPort(p2pListenPort)
             .setAdvertisedHost(p2pAdvertisedHost);
     if (discoveryEnabled) {
-      final List<EnodeURL> bootstrap;
+      final List<NodeURL> bootstrap;
       if (ethNetworkConfig.bootNodes() == null) {
         bootstrap = EthNetworkConfig.getNetworkConfig(NetworkDefinition.MAINNET).bootNodes();
       } else {
@@ -677,7 +677,7 @@ public class RunnerBuilder {
     final PeerPermissions defaultPeerPermissions =
         PeerPermissions.combine(peerPermissionSubnet, bannedNodes);
 
-    final List<EnodeURL> bootnodes = discoveryConfiguration.getBootnodes();
+    final List<NodeURL> bootnodes = discoveryConfiguration.getBootnodes();
 
     final Synchronizer synchronizer = besuController.getSynchronizer();
 
@@ -790,7 +790,7 @@ public class RunnerBuilder {
     final P2PNetwork peerNetwork = networkRunner.getNetwork();
 
     sanitizePeers(network, staticNodes)
-        .map(DefaultPeer::fromEnodeURL)
+        .map(DefaultPeer::fromNodeURL)
         .forEach(peerNetwork::addMaintainedConnectionPeer);
 
     protocolSchedule.setAdditionalValidationRules(
@@ -1130,23 +1130,23 @@ public class RunnerBuilder {
     return ethstatsOptions != null && !Strings.isNullOrEmpty(ethstatsOptions.getEthstatsUrl());
   }
 
-  private Stream<EnodeURL> sanitizePeers(
-      final P2PNetwork network, final Collection<EnodeURL> enodeURLS) {
+  private Stream<NodeURL> sanitizePeers(
+      final P2PNetwork network, final Collection<NodeURL> nodeURLS) {
     if (network.getLocalEnode().isEmpty()) {
-      return enodeURLS.stream();
+      return nodeURLS.stream();
     }
-    final EnodeURL localEnodeURL = network.getLocalEnode().get();
-    return enodeURLS.stream()
-        .filter(enodeURL -> !enodeURL.getNodeId().equals(localEnodeURL.getNodeId()));
+    final NodeURL localNodeURL = network.getLocalEnode().get();
+    return nodeURLS.stream()
+        .filter(enodeURL -> !enodeURL.getNodeId().equals(localNodeURL.getNodeId()));
   }
 
   private Optional<NodePermissioningController> buildNodePermissioningController(
-      final List<EnodeURL> bootnodesAsEnodeURLs,
+      final List<NodeURL> bootnodesAsNodeURLS,
       final Synchronizer synchronizer,
       final TransactionSimulator transactionSimulator,
       final Bytes localNodeId,
       final Blockchain blockchain) {
-    final Collection<EnodeURL> fixedNodes = getFixedNodes(bootnodesAsEnodeURLs, staticNodes);
+    final Collection<NodeURL> fixedNodes = getFixedNodes(bootnodesAsNodeURLS, staticNodes);
 
     if (permissioningConfiguration.isPresent()) {
       final PermissioningConfiguration configuration = this.permissioningConfiguration.get();
@@ -1235,9 +1235,9 @@ public class RunnerBuilder {
    * @return the fixed and more nodes combined
    */
   @VisibleForTesting
-  public static Collection<EnodeURL> getFixedNodes(
-      final Collection<EnodeURL> someFixedNodes, final Collection<EnodeURL> moreFixedNodes) {
-    final Collection<EnodeURL> fixedNodes = new ArrayList<>(someFixedNodes);
+  public static Collection<NodeURL> getFixedNodes(
+      final Collection<NodeURL> someFixedNodes, final Collection<NodeURL> moreFixedNodes) {
+    final Collection<NodeURL> fixedNodes = new ArrayList<>(someFixedNodes);
     fixedNodes.addAll(moreFixedNodes);
     return fixedNodes;
   }

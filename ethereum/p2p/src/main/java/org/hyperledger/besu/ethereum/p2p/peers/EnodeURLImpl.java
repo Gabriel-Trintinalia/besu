@@ -17,7 +17,7 @@ package org.hyperledger.besu.ethereum.p2p.peers;
 import static com.google.common.base.Preconditions.checkArgument;
 import static com.google.common.base.Preconditions.checkState;
 
-import org.hyperledger.besu.plugin.data.EnodeURL;
+import org.hyperledger.besu.plugin.data.NodeURL;
 import org.hyperledger.besu.util.NetworkUtility;
 
 import java.net.InetAddress;
@@ -31,7 +31,7 @@ import java.util.OptionalInt;
 import com.google.common.net.InetAddresses;
 import org.apache.tuweni.bytes.Bytes;
 
-public class EnodeURLImpl implements EnodeURL {
+public class EnodeURLImpl implements NodeURL {
 
   public static final int DEFAULT_LISTENING_PORT = 30303;
   public static final int NODE_ID_SIZE = 64;
@@ -65,7 +65,7 @@ public class EnodeURLImpl implements EnodeURL {
     return new Builder();
   }
 
-  public static boolean sameListeningEndpoint(final EnodeURL enodeA, final EnodeURL enodeB) {
+  public static boolean sameListeningEndpoint(final NodeURL enodeA, final NodeURL enodeB) {
     if (enodeA == null || enodeB == null) {
       return false;
     }
@@ -202,11 +202,11 @@ public class EnodeURLImpl implements EnodeURL {
     if (o == null || getClass() != o.getClass()) {
       return false;
     }
-    final EnodeURL enodeURL = (EnodeURL) o;
-    return Objects.equals(getNodeId(), enodeURL.getNodeId())
-        && Objects.equals(getIp(), enodeURL.getIp())
-        && Objects.equals(getListeningPort(), enodeURL.getListeningPort())
-        && Objects.equals(getDiscoveryPort(), enodeURL.getDiscoveryPort());
+    final NodeURL nodeURL = (NodeURL) o;
+    return Objects.equals(getNodeId(), nodeURL.getNodeId())
+        && Objects.equals(getIp(), nodeURL.getIp())
+        && Objects.equals(getListeningPort(), nodeURL.getListeningPort())
+        && Objects.equals(getDiscoveryPort(), nodeURL.getDiscoveryPort());
   }
 
   @Override
@@ -229,7 +229,7 @@ public class EnodeURLImpl implements EnodeURL {
 
     private Builder() {}
 
-    public EnodeURL build() {
+    public NodeURL build() {
       validate();
       return new EnodeURLImpl(nodeId, ip, maybeHostname, listeningPort, discoveryPort);
     }
@@ -241,7 +241,7 @@ public class EnodeURLImpl implements EnodeURL {
       checkState(ip != null, "Ip address must be configured.");
     }
 
-    public Builder configureFromEnode(final EnodeURL enode) {
+    public Builder configureFromEnode(final NodeURL enode) {
       return this.nodeId(enode.getNodeId())
           .listeningPort(enode.getListeningPort())
           .discoveryPort(enode.getDiscoveryPort())

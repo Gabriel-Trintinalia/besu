@@ -71,7 +71,7 @@ public class PeerPermissionsSubnetTest {
   }
 
   private Peer createPeer() {
-    return DefaultPeer.fromEnodeURL(
+    return DefaultPeer.fromNodeURL(
         EnodeURLImpl.builder()
             .nodeId(Peer.randomId())
             .ipAddress("127.0.0.1")

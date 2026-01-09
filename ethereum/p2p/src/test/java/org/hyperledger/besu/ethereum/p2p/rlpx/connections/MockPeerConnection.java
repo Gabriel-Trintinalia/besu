@@ -77,7 +77,7 @@ public class MockPeerConnection extends AbstractPeerConnection {
     final List<Capability> caps = Arrays.asList(Capability.create("eth", 68));
     final CapabilityMultiplexer multiplexer = new CapabilityMultiplexer(subProtocols, caps, caps);
     final PeerInfo peerInfo =
-        new PeerInfo(5, "test", caps, peer.getEnodeURL().getListeningPortOrZero(), peer.getId());
+        new PeerInfo(5, "test", caps, peer.getNodeURL().getListeningPortOrZero(), peer.getId());
 
     return new MockPeerConnection(
         peer,

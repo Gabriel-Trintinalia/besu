@@ -51,7 +51,7 @@ import org.hyperledger.besu.nat.core.NatManager;
 import org.hyperledger.besu.nat.core.domain.NatServiceType;
 import org.hyperledger.besu.nat.core.domain.NetworkProtocol;
 import org.hyperledger.besu.nat.upnp.UpnpNatManager;
-import org.hyperledger.besu.plugin.data.EnodeURL;
+import org.hyperledger.besu.plugin.data.NodeURL;
 import org.hyperledger.besu.plugin.services.MetricsSystem;
 
 import java.time.Duration;
@@ -326,8 +326,8 @@ public class DefaultP2PNetwork implements P2PNetwork {
   public boolean addMaintainedConnectionPeer(final Peer peer) {
     if (localNode.isReady()
         && localNode.getPeer() != null
-        && localNode.getPeer().getEnodeURL() != null
-        && peer.getEnodeURL().getNodeId().equals(localNode.getPeer().getEnodeURL().getNodeId())) {
+        && localNode.getPeer().getNodeURL() != null
+        && peer.getNodeURL().getNodeId().equals(localNode.getPeer().getNodeURL().getNodeId())) {
       return false;
     }
     final boolean wasAdded = maintainedPeers.add(peer);
@@ -360,14 +360,14 @@ public class DefaultP2PNetwork implements P2PNetwork {
     return (seq, records) -> {
       final List<DiscoveryPeer> peers = new ArrayList<>();
       for (final EthereumNodeRecord enr : records) {
-        final EnodeURL enodeURL =
+        final NodeURL nodeURL =
             EnodeURLImpl.builder()
                 .ipAddress(enr.ip())
                 .nodeId(enr.publicKey())
                 .discoveryPort(enr.udp())
                 .listeningPort(enr.tcp())
                 .build();
-        final DiscoveryPeer peer = DiscoveryPeerFactory.fromEnode(enodeURL);
+        final DiscoveryPeer peer = DiscoveryPeerFactory.fromEnode(nodeURL);
         peers.add(peer);
       }
       if (!peers.isEmpty()) {
@@ -386,7 +386,7 @@ public class DefaultP2PNetwork implements P2PNetwork {
             .streamActiveConnections()
             .map(c -> c.getPeer().getId())
             .collect(Collectors.toList());
-    doNotConnectTo.add(localNode.getPeer().getEnodeURL().getNodeId());
+    doNotConnectTo.add(localNode.getPeer().getNodeURL().getNodeId());
     maintainedPeers
         .streamPeers()
         .filter(p -> !doNotConnectTo.contains(p.getId()))
@@ -470,11 +470,11 @@ public class DefaultP2PNetwork implements P2PNetwork {
   }
 
   @Override
-  public Optional<EnodeURL> getLocalEnode() {
+  public Optional<NodeURL> getLocalEnode() {
     if (!localNode.isReady()) {
       return Optional.empty();
     }
-    return Optional.of(localNode.getPeer().getEnodeURL());
+    return Optional.of(localNode.getPeer().getNodeURL());
   }
 
   private void setLocalNode(
@@ -487,7 +487,7 @@ public class DefaultP2PNetwork implements P2PNetwork {
     // override advertised host if we detect an external IP address via NAT manager
     final String advertisedAddress = natService.queryExternalIPAddress(address);
 
-    final EnodeURL localEnode =
+    final NodeURL localEnode =
         EnodeURLImpl.builder()
             .nodeId(nodeId)
             .ipAddress(advertisedAddress)
@@ -495,9 +495,9 @@ public class DefaultP2PNetwork implements P2PNetwork {
             .discoveryPort(discoveryPort)
             .build();
 
-    LOG.info("Enode URL {}", localEnode.toString());
+    LOG.info("Node URL {}", localEnode.toString());
     LOG.info("Node address {}", Util.publicKeyToAddress(localEnode.getNodeId()));
-    localNode.setEnode(localEnode);
+    localNode.setNode(localEnode);
   }
 
   @Override

@@ -46,7 +46,7 @@ import org.hyperledger.besu.ethereum.p2p.peers.Peer;
 import org.hyperledger.besu.ethereum.p2p.permissions.PeerPermissions;
 import org.hyperledger.besu.ethereum.p2p.permissions.PeerPermissions.Action;
 import org.hyperledger.besu.ethereum.p2p.permissions.PeerPermissionsDenylist;
-import org.hyperledger.besu.plugin.data.EnodeURL;
+import org.hyperledger.besu.plugin.data.NodeURL;
 
 import java.net.InetAddress;
 import java.net.UnknownHostException;
@@ -80,7 +80,7 @@ public class PeerDiscoveryAgentDiscv4Test {
 
   @Test
   public void createAgentWithInvalidBootnodes() {
-    final EnodeURL invalidBootnode =
+    final NodeURL invalidBootnode =
         EnodeURLImpl.builder()
             .nodeId(Peer.randomId())
             .ipAddress("127.0.0.1")
@@ -356,7 +356,7 @@ public class PeerDiscoveryAgentDiscv4Test {
     final MockPeerDiscoveryAgent otherNode = helper.startDiscoveryAgent();
     assertThat(otherNode.getAdvertisedPeer().isPresent()).isTrue();
     final DiscoveryPeerV4 remotePeer = otherNode.getAdvertisedPeer().get();
-    final Peer genericPeer = DefaultPeer.fromEnodeURL(remotePeer.getEnodeURL());
+    final Peer genericPeer = DefaultPeer.fromNodeURL(remotePeer.getNodeURL());
 
     final PeerPermissions peerPermissions = mock(PeerPermissions.class);
     final MockPeerDiscoveryAgent agent =
@@ -420,12 +420,12 @@ public class PeerDiscoveryAgentDiscv4Test {
     final MockPeerDiscoveryAgent otherNode = helper.startDiscoveryAgent();
     assertThat(otherNode.getAdvertisedPeer().isPresent()).isTrue();
     final DiscoveryPeerV4 remotePeer = otherNode.getAdvertisedPeer().get();
-    final EnodeURL enodeWithDiscoveryDisabled =
+    final NodeURL enodeWithDiscoveryDisabled =
         EnodeURLImpl.builder()
-            .configureFromEnode(remotePeer.getEnodeURL())
+            .configureFromEnode(remotePeer.getNodeURL())
             .disableDiscovery()
             .build();
-    final Peer peerWithDisabledDiscovery = DefaultPeer.fromEnodeURL(enodeWithDiscoveryDisabled);
+    final Peer peerWithDisabledDiscovery = DefaultPeer.fromNodeURL(enodeWithDiscoveryDisabled);
 
     final PeerPermissions peerPermissions = mock(PeerPermissions.class);
     final MockPeerDiscoveryAgent agent =
@@ -680,11 +680,11 @@ public class PeerDiscoveryAgentDiscv4Test {
     assertThat(discoveredPeer.getEndpoint().getHost())
         .isEqualTo(updatedRemotePeer.getEndpoint().getHost());
     // Check endpoint is consistent with enodeURL
-    assertThat(discoveredPeer.getEnodeURL().getDiscoveryPortOrZero())
+    assertThat(discoveredPeer.getNodeURL().getDiscoveryPortOrZero())
         .isEqualTo(updatedRemotePeer.getEndpoint().getUdpPort());
-    assertThat(discoveredPeer.getEnodeURL().getListeningPortOrZero())
+    assertThat(discoveredPeer.getNodeURL().getListeningPortOrZero())
         .isEqualTo(updatedRemotePeer.getEndpoint().getFunctionalTcpPort());
-    assertThat(discoveredPeer.getEnodeURL().getIpAsString())
+    assertThat(discoveredPeer.getNodeURL().getIpAsString())
         .isEqualTo(updatedRemotePeer.getEndpoint().getHost());
   }
 
@@ -926,7 +926,7 @@ public class PeerDiscoveryAgentDiscv4Test {
 
   @Test
   void testFromEnodeWithDiscoveryDisabled() throws UnknownHostException {
-    EnodeURL enodeWithNoDiscovery = mock(EnodeURL.class);
+    NodeURL enodeWithNoDiscovery = mock(NodeURL.class);
     when(enodeWithNoDiscovery.getDiscoveryPort()).thenReturn(Optional.empty());
     when(enodeWithNoDiscovery.getListeningPort()).thenReturn(Optional.of(8545));
 

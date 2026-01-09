@@ -216,7 +216,7 @@ public class VertxPeerDiscoveryAgent extends PeerDiscoveryAgentDiscv4 {
       socket.send(
           packetSerializer.encode(packet),
           peer.getEndpoint().getUdpPort(),
-          peer.getEnodeURL().getIpAsString(),
+          peer.getNodeURL().getIpAsString(),
           ar -> {
             if (ar.failed()) {
               result.completeExceptionally(ar.cause());

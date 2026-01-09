@@ -43,7 +43,7 @@ public final class MockNetworkTest {
     final Capability cap = Capability.create("eth", 68);
     final MockNetwork network = new MockNetwork(Arrays.asList(cap));
     final Peer one =
-        DefaultPeer.fromEnodeURL(
+        DefaultPeer.fromNodeURL(
             EnodeURLImpl.builder()
                 .nodeId(randomId())
                 .ipAddress("192.168.1.2")
@@ -51,7 +51,7 @@ public final class MockNetworkTest {
                 .listeningPort(4321)
                 .build());
     final Peer two =
-        DefaultPeer.fromEnodeURL(
+        DefaultPeer.fromNodeURL(
             EnodeURLImpl.builder()
                 .nodeId(randomId())
                 .ipAddress("192.168.1.3")

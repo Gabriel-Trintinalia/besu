@@ -15,10 +15,10 @@
 package org.hyperledger.besu.ethereum.p2p.discovery;
 
 import org.hyperledger.besu.ethereum.p2p.discovery.discv4.internal.DiscoveryPeerV4;
-import org.hyperledger.besu.plugin.data.EnodeURL;
+import org.hyperledger.besu.plugin.data.NodeURL;
 
 public class DiscoveryPeerFactory {
-  public static DiscoveryPeer fromEnode(final EnodeURL enode) {
+  public static DiscoveryPeer fromEnode(final NodeURL enode) {
     return DiscoveryPeerV4.fromEnode(enode);
   }
 }

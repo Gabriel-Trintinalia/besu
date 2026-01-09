@@ -24,7 +24,7 @@ import org.hyperledger.besu.ethereum.p2p.discovery.discv4.internal.DiscoveryPeer
 import org.hyperledger.besu.ethereum.p2p.peers.EnodeURLImpl;
 import org.hyperledger.besu.ethereum.storage.StorageProvider;
 import org.hyperledger.besu.nat.NatService;
-import org.hyperledger.besu.plugin.data.EnodeURL;
+import org.hyperledger.besu.plugin.data.NodeURL;
 
 import java.util.Collections;
 import java.util.List;
@@ -158,9 +158,9 @@ public class NodeRecordManager {
 
     final Bytes ipAddressBytes = Bytes.of(InetAddresses.forString(advertisedAddress).getAddress());
 
-    final EnodeURL enode =
+    final NodeURL enode =
         localNode
-            .map(DiscoveryPeerV4::getEnodeURL)
+            .map(DiscoveryPeerV4::getNodeURL)
             .orElseThrow(() -> new IllegalStateException("Local node must be initialized"));
 
     final int discoveryPort = enode.getDiscoveryPort().orElse(0);

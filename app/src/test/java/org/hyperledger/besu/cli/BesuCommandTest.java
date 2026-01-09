@@ -69,13 +69,13 @@ import org.hyperledger.besu.ethereum.api.jsonrpc.websocket.WebSocketConfiguratio
 import org.hyperledger.besu.ethereum.core.MiningConfiguration;
 import org.hyperledger.besu.ethereum.eth.sync.SyncMode;
 import org.hyperledger.besu.ethereum.eth.sync.SynchronizerConfiguration;
-import org.hyperledger.besu.ethereum.p2p.peers.EnodeURLImpl;
+import org.hyperledger.besu.ethereum.p2p.peers.NodeURLFactory;
 import org.hyperledger.besu.ethereum.worldstate.DataStorageConfiguration;
 import org.hyperledger.besu.evm.precompile.AbstractAltBnPrecompiledContract;
 import org.hyperledger.besu.evm.precompile.KZGPointEvalPrecompiledContract;
 import org.hyperledger.besu.metrics.StandardMetricCategory;
 import org.hyperledger.besu.metrics.prometheus.MetricsConfiguration;
-import org.hyperledger.besu.plugin.data.EnodeURL;
+import org.hyperledger.besu.plugin.data.NodeURL;
 import org.hyperledger.besu.plugin.services.storage.DataStorageFormat;
 import org.hyperledger.besu.util.BesuVersionUtils;
 import org.hyperledger.besu.util.number.Fraction;
@@ -908,7 +908,7 @@ public class BesuCommandTest extends CommandTestAbstract {
     verify(mockControllerBuilder).build();
 
     final EthNetworkConfig config = networkArg.getValue();
-    assertThat(config.bootNodes()).extracting(EnodeURL::toURI).containsExactly(bootnode);
+    assertThat(config.bootNodes()).extracting(NodeURL::toURI).containsExactly(bootnode);
 
     assertThat(commandErrorOutput.toString(UTF_8)).isEmpty();
   }
@@ -1015,7 +1015,7 @@ public class BesuCommandTest extends CommandTestAbstract {
     assertThat(ethNetworkConfigArgumentCaptor.getValue().bootNodes())
         .isEqualTo(
             Stream.of(VALID_ENODE_STRINGS)
-                .map(EnodeURLImpl::fromString)
+                .map(NodeURLFactory::fromString)
                 .collect(Collectors.toList()));
 
     assertThat(commandOutput.toString(UTF_8)).isEmpty();
@@ -2080,7 +2080,7 @@ public class BesuCommandTest extends CommandTestAbstract {
     assertThat(networkArg.getValue().bootNodes())
         .isEqualTo(
             Stream.of(VALID_ENODE_STRINGS)
-                .map(EnodeURLImpl::fromString)
+                .map(NodeURLFactory::fromString)
                 .collect(Collectors.toList()));
     assertThat(networkArg.getValue().networkId()).isEqualTo(1234567);
 

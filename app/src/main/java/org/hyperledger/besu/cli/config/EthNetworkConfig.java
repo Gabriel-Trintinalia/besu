@@ -18,7 +18,7 @@ import org.hyperledger.besu.config.GenesisConfig;
 import org.hyperledger.besu.config.GenesisConfigOptions;
 import org.hyperledger.besu.config.NetworkDefinition;
 import org.hyperledger.besu.ethereum.p2p.peers.NodeURLFactory;
-import org.hyperledger.besu.plugin.data.EnodeURL;
+import org.hyperledger.besu.plugin.data.NodeURL;
 
 import java.io.IOException;
 import java.io.InputStream;
@@ -42,7 +42,7 @@ import java.util.stream.Collectors;
 public record EthNetworkConfig(
     GenesisConfig genesisConfig,
     BigInteger networkId,
-    List<EnodeURL> bootNodes,
+    List<NodeURL> bootNodes,
     String dnsDiscoveryUrl) {
 
   /**
@@ -72,7 +72,7 @@ public record EthNetworkConfig(
     final GenesisConfigOptions genesisConfigOptions = genesisConfig.getConfigOptions();
     final Optional<List<String>> rawBootNodes =
         genesisConfigOptions.getDiscoveryOptions().getBootNodes();
-    final List<EnodeURL> bootNodes =
+    final List<NodeURL> bootNodes =
         rawBootNodes
             .map(
                 strings ->
@@ -111,7 +111,7 @@ public record EthNetworkConfig(
     private String dnsDiscoveryUrl;
     private GenesisConfig genesisConfig;
     private BigInteger networkId;
-    private List<EnodeURL> bootNodes;
+    private List<NodeURL> bootNodes;
 
     /**
      * Instantiates a new Builder.
@@ -153,7 +153,7 @@ public record EthNetworkConfig(
      * @param bootNodes the boot nodes
      * @return this builder
      */
-    public Builder setBootNodes(final List<EnodeURL> bootNodes) {
+    public Builder setBootNodes(final List<NodeURL> bootNodes) {
       this.bootNodes = bootNodes;
       return this;
     }

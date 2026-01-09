@@ -19,7 +19,7 @@ import org.hyperledger.besu.ethereum.p2p.peers.NodeURLFactory;
 import org.hyperledger.besu.ethereum.permissioning.AllowlistPersistor.ALLOWLIST_TYPE;
 import org.hyperledger.besu.ethereum.permissioning.node.NodeAllowlistUpdatedEvent;
 import org.hyperledger.besu.metrics.BesuMetricCategory;
-import org.hyperledger.besu.plugin.data.EnodeURL;
+import org.hyperledger.besu.plugin.data.NodeURL;
 import org.hyperledger.besu.plugin.services.MetricsSystem;
 import org.hyperledger.besu.plugin.services.metrics.Counter;
 import org.hyperledger.besu.plugin.services.permissioning.NodeConnectionPermissioningProvider;
@@ -48,9 +48,9 @@ public class NodeLocalConfigPermissioningController implements NodeConnectionPer
       LoggerFactory.getLogger(NodeLocalConfigPermissioningController.class);
 
   private LocalPermissioningConfiguration configuration;
-  private final List<EnodeURL> fixedNodes;
+  private final List<NodeURL> fixedNodes;
   private final Bytes localNodeId;
-  private final List<EnodeURL> nodesAllowlist = new CopyOnWriteArrayList<>();
+  private final List<NodeURL> nodesAllowlist = new CopyOnWriteArrayList<>();
   private final AllowlistPersistor allowlistPersistor;
   private final Subscribers<Consumer<NodeAllowlistUpdatedEvent>> nodeAllowlistUpdatedObservers =
       Subscribers.create();
@@ -61,7 +61,7 @@ public class NodeLocalConfigPermissioningController implements NodeConnectionPer
 
   public NodeLocalConfigPermissioningController(
       final LocalPermissioningConfiguration permissioningConfiguration,
-      final List<EnodeURL> fixedNodes,
+      final List<NodeURL> fixedNodes,
       final Bytes localNodeId,
       final MetricsSystem metricsSystem) {
     this(
@@ -74,7 +74,7 @@ public class NodeLocalConfigPermissioningController implements NodeConnectionPer
 
   public NodeLocalConfigPermissioningController(
       final LocalPermissioningConfiguration configuration,
-      final List<EnodeURL> fixedNodes,
+      final List<NodeURL> fixedNodes,
       final Bytes localNodeId,
       final AllowlistPersistor allowlistPersistor,
       final MetricsSystem metricsSystem) {
@@ -103,8 +103,8 @@ public class NodeLocalConfigPermissioningController implements NodeConnectionPer
 
   private void readNodesFromConfig(final LocalPermissioningConfiguration configuration) {
     if (configuration.isNodeAllowlistEnabled() && configuration.getNodeAllowlist() != null) {
-      for (EnodeURL enodeURL : configuration.getNodeAllowlist()) {
-        addNode(enodeURL);
+      for (NodeURL nodeURL : configuration.getNodeAllowlist()) {
+        addNode(nodeURL);
       }
     }
   }
@@ -114,12 +114,12 @@ public class NodeLocalConfigPermissioningController implements NodeConnectionPer
     if (inputValidationResult.result() != AllowlistOperationResult.SUCCESS) {
       return inputValidationResult;
     }
-    final List<EnodeURL> peers =
+    final List<NodeURL> peers =
         enodeURLs.stream()
             .map(url -> NodeURLFactory.fromString(url, configuration.getEnodeDnsConfiguration()))
             .collect(Collectors.toList());
 
-    for (EnodeURL peer : peers) {
+    for (NodeURL peer : peers) {
       if (nodesAllowlist.contains(peer)) {
         return new NodesAllowlistResult(
             AllowlistOperationResult.ERROR_EXISTING_ENTRY,
@@ -127,7 +127,7 @@ public class NodeLocalConfigPermissioningController implements NodeConnectionPer
       }
     }
 
-    final List<EnodeURL> oldAllowlist = new ArrayList<>(this.nodesAllowlist);
+    final List<NodeURL> oldAllowlist = new ArrayList<>(this.nodesAllowlist);
     peers.forEach(this::addNode);
     notifyListUpdatedSubscribers(new NodeAllowlistUpdatedEvent(peers, Collections.emptyList()));
 
@@ -139,8 +139,8 @@ public class NodeLocalConfigPermissioningController implements NodeConnectionPer
     return new NodesAllowlistResult(AllowlistOperationResult.SUCCESS);
   }
 
-  public boolean addNode(final EnodeURL enodeURL) {
-    return nodesAllowlist.add(enodeURL);
+  public boolean addNode(final NodeURL nodeURL) {
+    return nodesAllowlist.add(nodeURL);
   }
 
   public NodesAllowlistResult removeNodes(final List<String> enodeURLs) {
@@ -148,7 +148,7 @@ public class NodeLocalConfigPermissioningController implements NodeConnectionPer
     if (inputValidationResult.result() != AllowlistOperationResult.SUCCESS) {
       return inputValidationResult;
     }
-    final List<EnodeURL> peers =
+    final List<NodeURL> peers =
         enodeURLs.stream()
             .map(url -> NodeURLFactory.fromString(url, configuration.getEnodeDnsConfiguration()))
             .collect(Collectors.toList());
@@ -158,7 +158,7 @@ public class NodeLocalConfigPermissioningController implements NodeConnectionPer
       return new NodesAllowlistResult(AllowlistOperationResult.ERROR_FIXED_NODE_CANNOT_BE_REMOVED);
     }
 
-    for (EnodeURL peer : peers) {
+    for (NodeURL peer : peers) {
       if (!(nodesAllowlist.contains(peer))) {
         return new NodesAllowlistResult(
             AllowlistOperationResult.ERROR_ABSENT_ENTRY,
@@ -166,7 +166,7 @@ public class NodeLocalConfigPermissioningController implements NodeConnectionPer
       }
     }
 
-    final List<EnodeURL> oldAllowlist = new ArrayList<>(this.nodesAllowlist);
+    final List<NodeURL> oldAllowlist = new ArrayList<>(this.nodesAllowlist);
     peers.forEach(this::removeNode);
     notifyListUpdatedSubscribers(new NodeAllowlistUpdatedEvent(Collections.emptyList(), peers));
 
@@ -178,11 +178,11 @@ public class NodeLocalConfigPermissioningController implements NodeConnectionPer
     return new NodesAllowlistResult(AllowlistOperationResult.SUCCESS);
   }
 
-  private boolean removeNode(final EnodeURL enodeURL) {
-    return nodesAllowlist.remove(enodeURL);
+  private boolean removeNode(final NodeURL nodeURL) {
+    return nodesAllowlist.remove(nodeURL);
   }
 
-  private NodesAllowlistResult updateAllowlistInConfigFile(final List<EnodeURL> oldAllowlist) {
+  private NodesAllowlistResult updateAllowlistInConfigFile(final List<NodeURL> oldAllowlist) {
     try {
       verifyConfigurationFileState(peerToEnodeURI(oldAllowlist));
       updateConfigurationFile(peerToEnodeURI(nodesAllowlist));
@@ -225,13 +225,13 @@ public class NodeLocalConfigPermissioningController implements NodeConnectionPer
     allowlistPersistor.updateConfig(ALLOWLIST_TYPE.NODES, nodes);
   }
 
-  private void revertState(final List<EnodeURL> nodesAllowlist) {
+  private void revertState(final List<NodeURL> nodesAllowlist) {
     this.nodesAllowlist.clear();
     this.nodesAllowlist.addAll(nodesAllowlist);
   }
 
-  private Collection<String> peerToEnodeURI(final Collection<EnodeURL> peers) {
-    return peers.parallelStream().map(EnodeURL::toString).collect(Collectors.toList());
+  private Collection<String> peerToEnodeURI(final Collection<NodeURL> peers) {
+    return peers.parallelStream().map(NodeURL::toString).collect(Collectors.toList());
   }
 
   public boolean isPermitted(final String enodeURL) {
@@ -239,7 +239,7 @@ public class NodeLocalConfigPermissioningController implements NodeConnectionPer
         NodeURLFactory.fromString(enodeURL, configuration.getEnodeDnsConfiguration()));
   }
 
-  public boolean isPermitted(final EnodeURL node) {
+  public boolean isPermitted(final NodeURL node) {
     if (Objects.equals(localNodeId, node.getNodeId())) {
       return true;
     }
@@ -251,7 +251,7 @@ public class NodeLocalConfigPermissioningController implements NodeConnectionPer
   }
 
   public synchronized void reload() throws RuntimeException {
-    final List<EnodeURL> currentAccountsList = new ArrayList<>(nodesAllowlist);
+    final List<NodeURL> currentAccountsList = new ArrayList<>(nodesAllowlist);
     nodesAllowlist.clear();
 
     try {
@@ -277,13 +277,13 @@ public class NodeLocalConfigPermissioningController implements NodeConnectionPer
   }
 
   private void createNodeAllowlistModifiedEventAfterReload(
-      final List<EnodeURL> previousNodeAllowlist, final List<EnodeURL> currentNodesList) {
-    final List<EnodeURL> removedNodes =
+      final List<NodeURL> previousNodeAllowlist, final List<NodeURL> currentNodesList) {
+    final List<NodeURL> removedNodes =
         previousNodeAllowlist.stream()
             .filter(n -> !currentNodesList.contains(n))
             .collect(Collectors.toList());
 
-    final List<EnodeURL> addedNodes =
+    final List<NodeURL> addedNodes =
         currentNodesList.stream()
             .filter(n -> !previousNodeAllowlist.contains(n))
             .collect(Collectors.toList());
@@ -331,8 +331,7 @@ public class NodeLocalConfigPermissioningController implements NodeConnectionPer
   }
 
   @Override
-  public boolean isConnectionPermitted(
-      final EnodeURL sourceEnode, final EnodeURL destinationEnode) {
+  public boolean isConnectionPermitted(final NodeURL sourceEnode, final NodeURL destinationEnode) {
     this.checkCounter.inc();
     if (isPermitted(sourceEnode) && isPermitted(destinationEnode)) {
       this.checkCounterPermitted.inc();

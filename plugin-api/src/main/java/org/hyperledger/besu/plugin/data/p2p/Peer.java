@@ -14,7 +14,7 @@
  */
 package org.hyperledger.besu.plugin.data.p2p;
 
-import org.hyperledger.besu.plugin.data.EnodeURL;
+import org.hyperledger.besu.plugin.data.NodeURL;
 
 import org.apache.tuweni.bytes.Bytes;
 
@@ -33,5 +33,5 @@ public interface Peer {
    *
    * @return enode URL
    */
-  EnodeURL getEnodeURL();
+  NodeURL getNodeURL();
 }

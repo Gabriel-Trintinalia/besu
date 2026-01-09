@@ -31,7 +31,7 @@ public class MaintainedPeers {
 
   public boolean add(final Peer peer) {
     checkArgument(
-        peer.getEnodeURL().isListening(),
+        peer.getNodeURL().isListening(),
         "Invalid enode url.  Enode url must contain a non-zero listening port.");
     final boolean wasAdded = maintainedPeers.add(peer);
     addedSubscribers.forEach(s -> s.onPeerAdded(peer, wasAdded));

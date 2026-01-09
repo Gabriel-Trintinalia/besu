@@ -21,7 +21,7 @@ import org.hyperledger.besu.ethereum.p2p.discovery.discv4.internal.DiscoveryPeer
 import org.hyperledger.besu.ethereum.p2p.peers.EnodeURLImpl;
 import org.hyperledger.besu.ethereum.rlp.RLPInput;
 import org.hyperledger.besu.ethereum.rlp.RLPOutput;
-import org.hyperledger.besu.plugin.data.EnodeURL;
+import org.hyperledger.besu.plugin.data.NodeURL;
 import org.hyperledger.besu.util.IllegalPortException;
 import org.hyperledger.besu.util.Preconditions;
 
@@ -53,7 +53,7 @@ public class Endpoint {
     this.tcpPort = tcpPort;
   }
 
-  public static Endpoint fromEnode(final EnodeURL enode) {
+  public static Endpoint fromEnode(final NodeURL enode) {
     Optional<Integer> discoveryPort = enode.getDiscoveryPort();
 
     if (discoveryPort.isEmpty()) {
@@ -66,7 +66,7 @@ public class Endpoint {
     return new Endpoint(enode.getIp().getHostAddress(), discoveryPort.get(), listeningPort);
   }
 
-  public EnodeURL toEnode(final Bytes nodeId) {
+  public NodeURL toEnode(final Bytes nodeId) {
     return EnodeURLImpl.builder()
         .nodeId(nodeId)
         .ipAddress(host.orElse(""))
