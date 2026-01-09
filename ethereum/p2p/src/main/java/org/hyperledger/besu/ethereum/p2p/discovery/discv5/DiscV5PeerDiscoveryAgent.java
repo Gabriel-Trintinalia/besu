@@ -17,8 +17,8 @@ package org.hyperledger.besu.ethereum.p2p.discovery.discv5;
 import org.hyperledger.besu.crypto.SignatureAlgorithmFactory;
 import org.hyperledger.besu.ethereum.p2p.config.NetworkingConfiguration;
 import org.hyperledger.besu.ethereum.p2p.discovery.DiscoveryPeer;
+import org.hyperledger.besu.ethereum.p2p.discovery.DiscoveryPeerFactory;
 import org.hyperledger.besu.ethereum.p2p.discovery.PeerDiscoveryAgent;
-import org.hyperledger.besu.ethereum.p2p.discovery.PeerDiscoveryStatus;
 import org.hyperledger.besu.ethereum.p2p.peers.EnodeURLImpl;
 import org.hyperledger.besu.ethereum.p2p.peers.Peer;
 import org.hyperledger.besu.ethereum.p2p.peers.PeerId;
@@ -142,8 +142,7 @@ public final class DiscV5PeerDiscoveryAgent implements PeerDiscoveryAgent {
       LOG.debug("Error creating EnodeURL from NodeRecord: {}", e.getMessage());
       return Optional.empty();
     }
-    DiscoveryPeer peer = DiscoveryPeer.fromEnode(peerEnode);
-    peer.setStatus(PeerDiscoveryStatus.BONDED);
+    DiscoveryPeer peer = DiscoveryPeerFactory.fromEnode(peerEnode);
     return Optional.of(peer);
   }
 }
