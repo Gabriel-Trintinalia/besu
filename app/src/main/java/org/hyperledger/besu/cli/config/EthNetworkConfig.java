@@ -17,7 +17,7 @@ package org.hyperledger.besu.cli.config;
 import org.hyperledger.besu.config.GenesisConfig;
 import org.hyperledger.besu.config.GenesisConfigOptions;
 import org.hyperledger.besu.config.NetworkDefinition;
-import org.hyperledger.besu.ethereum.p2p.peers.EnodeURLImpl;
+import org.hyperledger.besu.ethereum.p2p.peers.NodeURLFactory;
 import org.hyperledger.besu.plugin.data.EnodeURL;
 
 import java.io.IOException;
@@ -76,7 +76,7 @@ public record EthNetworkConfig(
         rawBootNodes
             .map(
                 strings ->
-                    strings.stream().map(EnodeURLImpl::fromString).collect(Collectors.toList()))
+                    strings.stream().map(NodeURLFactory::fromString).collect(Collectors.toList()))
             .orElse(Collections.emptyList());
 
     return new EthNetworkConfig(

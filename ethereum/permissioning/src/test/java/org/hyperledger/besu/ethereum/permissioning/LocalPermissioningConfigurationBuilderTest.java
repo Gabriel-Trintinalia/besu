@@ -20,8 +20,8 @@ import static org.assertj.core.api.Assertions.assertThatThrownBy;
 import static org.assertj.core.api.Assertions.catchThrowable;
 import static org.hyperledger.besu.ethereum.p2p.peers.EnodeDnsConfiguration.dnsDisabled;
 
-import org.hyperledger.besu.ethereum.p2p.peers.EnodeURLImpl;
 import org.hyperledger.besu.ethereum.p2p.peers.ImmutableEnodeDnsConfiguration;
+import org.hyperledger.besu.ethereum.p2p.peers.NodeURLFactory;
 
 import java.io.IOException;
 import java.net.URL;
@@ -72,7 +72,7 @@ public class LocalPermissioningConfigurationBuilderTest {
         .containsExactly("0x0000000000000000000000000000000000000009");
     assertThat(permissioningConfiguration.isNodeAllowlistEnabled()).isTrue();
     assertThat(permissioningConfiguration.getNodeAllowlist())
-        .containsExactly(EnodeURLImpl.fromString(uri), EnodeURLImpl.fromString(uri2));
+        .containsExactly(NodeURLFactory.fromString(uri), NodeURLFactory.fromString(uri2));
   }
 
   @Test
@@ -93,7 +93,7 @@ public class LocalPermissioningConfigurationBuilderTest {
     assertThat(permissioningConfiguration.isAccountAllowlistEnabled()).isFalse();
     assertThat(permissioningConfiguration.isNodeAllowlistEnabled()).isTrue();
     assertThat(permissioningConfiguration.getNodeAllowlist())
-        .containsExactly(EnodeURLImpl.fromString(uri));
+        .containsExactly(NodeURLFactory.fromString(uri));
   }
 
   @Test
@@ -115,7 +115,7 @@ public class LocalPermissioningConfigurationBuilderTest {
     assertThat(permissioningConfiguration.isAccountAllowlistEnabled()).isFalse();
     assertThat(permissioningConfiguration.isNodeAllowlistEnabled()).isTrue();
     assertThat(permissioningConfiguration.getNodeAllowlist())
-        .containsExactly(EnodeURLImpl.fromString(uri));
+        .containsExactly(NodeURLFactory.fromString(uri));
   }
 
   @Test

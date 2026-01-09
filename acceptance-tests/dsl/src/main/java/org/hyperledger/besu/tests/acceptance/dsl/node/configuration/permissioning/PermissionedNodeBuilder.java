@@ -19,7 +19,7 @@ import static java.util.stream.Collectors.toList;
 
 import org.hyperledger.besu.ethereum.api.jsonrpc.JsonRpcConfiguration;
 import org.hyperledger.besu.ethereum.api.jsonrpc.RpcApis;
-import org.hyperledger.besu.ethereum.p2p.peers.EnodeURLImpl;
+import org.hyperledger.besu.ethereum.p2p.peers.NodeURLFactory;
 import org.hyperledger.besu.ethereum.permissioning.AllowlistPersistor;
 import org.hyperledger.besu.ethereum.permissioning.AllowlistPersistor.ALLOWLIST_TYPE;
 import org.hyperledger.besu.ethereum.permissioning.LocalPermissioningConfiguration;
@@ -185,7 +185,7 @@ public class PermissionedNodeBuilder {
 
       final List<EnodeURL> nodeAllowList =
           localConfigPermittedNodes.stream()
-              .map(EnodeURLImpl::fromURI)
+              .map(NodeURLFactory::fromURI)
               .collect(Collectors.toList());
 
       initPermissioningConfigurationFile(

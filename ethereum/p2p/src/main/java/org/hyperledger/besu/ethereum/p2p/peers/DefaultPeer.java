@@ -17,7 +17,6 @@ package org.hyperledger.besu.ethereum.p2p.peers;
 import org.hyperledger.besu.ethereum.forkid.ForkId;
 import org.hyperledger.besu.plugin.data.EnodeURL;
 
-import java.net.URI;
 import java.util.Objects;
 import java.util.Optional;
 
@@ -44,18 +43,7 @@ public class DefaultPeer extends DefaultPeerId implements Peer {
    * @see <a href="https://github.com/ethereum/wiki/wiki/enode-url-format">enode URL format</a>
    */
   public static DefaultPeer fromURI(final String uri) {
-    return new DefaultPeer(EnodeURLImpl.fromString(uri));
-  }
-
-  /**
-   * Creates a {@link DefaultPeer} instance from an URI object that follows the enode URL format.
-   *
-   * @param uri The enode URI.
-   * @return The Peer instance.
-   * @see <a href="https://github.com/ethereum/wiki/wiki/enode-url-format">enode URL format</a>
-   */
-  public static DefaultPeer fromURI(final URI uri) {
-    return new DefaultPeer(EnodeURLImpl.fromURI(uri));
+    return new DefaultPeer(NodeURLFactory.fromString(uri));
   }
 
   @Override

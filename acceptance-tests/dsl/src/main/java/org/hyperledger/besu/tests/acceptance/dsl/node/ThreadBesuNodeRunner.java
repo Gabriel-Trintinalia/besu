@@ -54,7 +54,7 @@ import org.hyperledger.besu.ethereum.eth.transactions.BlobCacheModule;
 import org.hyperledger.besu.ethereum.eth.transactions.ImmutableTransactionPoolConfiguration;
 import org.hyperledger.besu.ethereum.eth.transactions.TransactionPoolConfiguration;
 import org.hyperledger.besu.ethereum.mainnet.ProtocolSchedule;
-import org.hyperledger.besu.ethereum.p2p.peers.EnodeURLImpl;
+import org.hyperledger.besu.ethereum.p2p.peers.NodeURLFactory;
 import org.hyperledger.besu.ethereum.storage.keyvalue.KeyValueStorageProvider;
 import org.hyperledger.besu.ethereum.storage.keyvalue.KeyValueStorageProviderBuilder;
 import org.hyperledger.besu.ethereum.transaction.TransactionSimulator;
@@ -165,7 +165,7 @@ public class ThreadBesuNodeRunner implements BesuNodeRunner {
     final ObservableMetricsSystem metricsSystem =
         (ObservableMetricsSystem) component.getMetricsSystem();
     final List<EnodeURL> bootnodes =
-        node.getConfiguration().getBootnodes().stream().map(EnodeURLImpl::fromURI).toList();
+        node.getConfiguration().getBootnodes().stream().map(NodeURLFactory::fromURI).toList();
 
     final EthNetworkConfig.Builder networkConfigBuilder = component.ethNetworkConfigBuilder();
     networkConfigBuilder.setBootNodes(bootnodes);
@@ -212,7 +212,7 @@ public class ThreadBesuNodeRunner implements BesuNodeRunner {
         .metricsConfiguration(node.getMetricsConfiguration())
         .p2pEnabled(node.isP2pEnabled())
         .graphQLConfiguration(GraphQLConfiguration.createDefault())
-        .staticNodes(node.getStaticNodes().stream().map(EnodeURLImpl::fromString).toList())
+        .staticNodes(node.getStaticNodes().stream().map(NodeURLFactory::fromString).toList())
         .besuPluginContext(besuPluginContext)
         .autoLogBloomCaching(false)
         .storageProvider(besuController.getStorageProvider())

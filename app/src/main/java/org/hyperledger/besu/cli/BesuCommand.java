@@ -129,7 +129,7 @@ import org.hyperledger.besu.ethereum.mainnet.BalConfiguration;
 import org.hyperledger.besu.ethereum.p2p.config.DiscoveryConfiguration;
 import org.hyperledger.besu.ethereum.p2p.discovery.P2PDiscoveryConfiguration;
 import org.hyperledger.besu.ethereum.p2p.peers.EnodeDnsConfiguration;
-import org.hyperledger.besu.ethereum.p2p.peers.EnodeURLImpl;
+import org.hyperledger.besu.ethereum.p2p.peers.NodeURLFactory;
 import org.hyperledger.besu.ethereum.p2p.peers.StaticNodesParser;
 import org.hyperledger.besu.ethereum.permissioning.LocalPermissioningConfiguration;
 import org.hyperledger.besu.ethereum.permissioning.PermissioningConfiguration;
@@ -2559,7 +2559,7 @@ public class BesuCommand implements DefaultCommandValues, Runnable {
       final List<String> bootNodes, final EnodeDnsConfiguration enodeDnsConfiguration) {
     return bootNodes.stream()
         .filter(bootNode -> !bootNode.isEmpty())
-        .map(bootNode -> EnodeURLImpl.fromString(bootNode, enodeDnsConfiguration))
+        .map(bootNode -> NodeURLFactory.fromString(bootNode, enodeDnsConfiguration))
         .collect(Collectors.toList());
   }
 

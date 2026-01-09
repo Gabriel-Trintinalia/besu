@@ -15,6 +15,7 @@
 package org.hyperledger.besu.ethereum.permissioning;
 
 import org.hyperledger.besu.ethereum.p2p.peers.EnodeURLImpl;
+import org.hyperledger.besu.ethereum.p2p.peers.NodeURLFactory;
 import org.hyperledger.besu.ethereum.permissioning.AllowlistPersistor.ALLOWLIST_TYPE;
 import org.hyperledger.besu.ethereum.permissioning.node.NodeAllowlistUpdatedEvent;
 import org.hyperledger.besu.metrics.BesuMetricCategory;
@@ -115,7 +116,7 @@ public class NodeLocalConfigPermissioningController implements NodeConnectionPer
     }
     final List<EnodeURL> peers =
         enodeURLs.stream()
-            .map(url -> EnodeURLImpl.fromString(url, configuration.getEnodeDnsConfiguration()))
+            .map(url -> NodeURLFactory.fromString(url, configuration.getEnodeDnsConfiguration()))
             .collect(Collectors.toList());
 
     for (EnodeURL peer : peers) {
@@ -149,7 +150,7 @@ public class NodeLocalConfigPermissioningController implements NodeConnectionPer
     }
     final List<EnodeURL> peers =
         enodeURLs.stream()
-            .map(url -> EnodeURLImpl.fromString(url, configuration.getEnodeDnsConfiguration()))
+            .map(url -> NodeURLFactory.fromString(url, configuration.getEnodeDnsConfiguration()))
             .collect(Collectors.toList());
 
     boolean anyBootnode = peers.stream().anyMatch(fixedNodes::contains);
@@ -234,7 +235,8 @@ public class NodeLocalConfigPermissioningController implements NodeConnectionPer
   }
 
   public boolean isPermitted(final String enodeURL) {
-    return isPermitted(EnodeURLImpl.fromString(enodeURL, configuration.getEnodeDnsConfiguration()));
+    return isPermitted(
+        NodeURLFactory.fromString(enodeURL, configuration.getEnodeDnsConfiguration()));
   }
 
   public boolean isPermitted(final EnodeURL node) {

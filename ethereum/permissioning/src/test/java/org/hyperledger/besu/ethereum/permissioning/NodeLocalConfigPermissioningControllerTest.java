@@ -28,8 +28,8 @@ import static org.mockito.Mockito.verifyNoMoreInteractions;
 import static org.mockito.Mockito.when;
 
 import org.hyperledger.besu.ethereum.p2p.peers.EnodeDnsConfiguration;
-import org.hyperledger.besu.ethereum.p2p.peers.EnodeURLImpl;
 import org.hyperledger.besu.ethereum.p2p.peers.ImmutableEnodeDnsConfiguration;
+import org.hyperledger.besu.ethereum.p2p.peers.NodeURLFactory;
 import org.hyperledger.besu.ethereum.permissioning.NodeLocalConfigPermissioningController.NodesAllowlistResult;
 import org.hyperledger.besu.ethereum.permissioning.node.NodeAllowlistUpdatedEvent;
 import org.hyperledger.besu.metrics.BesuMetricCategory;
@@ -67,7 +67,7 @@ public class NodeLocalConfigPermissioningControllerTest {
   private final String enode2 =
       "enode://5f8a80d14311c39f35f516fa664deaaaa13e85b2f7493f37f6144d86991ec012937307647bd3b9a82abe2974e1407241d54947bbb39763a4cac9f77166ad92a0@192.168.0.10:4567";
   private final EnodeURL selfEnode =
-      EnodeURLImpl.fromString(
+      NodeURLFactory.fromString(
           "enode://5f8a80d14311c39f35f516fa664deaaaa13e85b2f7493f37f6144d86991ec012937307647bd3b9a82abe2974e1407241d54947bbb39763a4cac9f77166ad92a0@192.168.0.10:1111");
   private final String enodeDns =
       "enode://6f8a80d14311c39f35f516fa664deaaaa13e85b2f7493f37f6144d86991ec012937307647bd3b9a82abe2974e1407241d54947bbb39763a4cac9f77166ad92a0@localhost:4567";
@@ -233,7 +233,7 @@ public class NodeLocalConfigPermissioningControllerTest {
 
     assertThat(
             controller.isConnectionPermitted(
-                EnodeURLImpl.fromString(peer2), EnodeURLImpl.fromString(peer1)))
+                NodeURLFactory.fromString(peer2), NodeURLFactory.fromString(peer1)))
         .isFalse();
 
     verifyCountersUnpermitted();
@@ -334,12 +334,12 @@ public class NodeLocalConfigPermissioningControllerTest {
 
     verifyCountersUntouched();
 
-    assertThat(controller.isConnectionPermitted(EnodeURLImpl.fromString(enode1), selfEnode))
+    assertThat(controller.isConnectionPermitted(NodeURLFactory.fromString(enode1), selfEnode))
         .isTrue();
 
     verifyCountersPermitted();
 
-    assertThat(controller.isConnectionPermitted(selfEnode, EnodeURLImpl.fromString(enode1)))
+    assertThat(controller.isConnectionPermitted(selfEnode, NodeURLFactory.fromString(enode1)))
         .isTrue();
   }
 
@@ -396,8 +396,8 @@ public class NodeLocalConfigPermissioningControllerTest {
   @Test
   public void stateShouldRevertIfAllowlistPersistFails()
       throws IOException, AllowlistFileSyncException {
-    List<String> newNode1 = singletonList(EnodeURLImpl.fromString(enode1).toString());
-    List<String> newNode2 = singletonList(EnodeURLImpl.fromString(enode2).toString());
+    List<String> newNode1 = singletonList(NodeURLFactory.fromString(enode1).toString());
+    List<String> newNode2 = singletonList(NodeURLFactory.fromString(enode2).toString());
 
     assertThat(controller.getNodesAllowlist().size()).isEqualTo(0);
 
@@ -427,7 +427,7 @@ public class NodeLocalConfigPermissioningControllerTest {
         .thenReturn(permissionsFile.toAbsolutePath().toString());
     when(permissioningConfig.isNodeAllowlistEnabled()).thenReturn(true);
     when(permissioningConfig.getNodeAllowlist())
-        .thenReturn(singletonList(EnodeURLImpl.fromString(expectedEnodeURL)));
+        .thenReturn(singletonList(NodeURLFactory.fromString(expectedEnodeURL)));
     when(permissioningConfig.getEnodeDnsConfiguration())
         .thenReturn(EnodeDnsConfiguration.dnsDisabled());
 
@@ -450,7 +450,7 @@ public class NodeLocalConfigPermissioningControllerTest {
     when(permissioningConfig.getNodePermissioningConfigFilePath()).thenReturn("foo");
     when(permissioningConfig.isNodeAllowlistEnabled()).thenReturn(true);
     when(permissioningConfig.getNodeAllowlist())
-        .thenReturn(singletonList(EnodeURLImpl.fromString(expectedEnodeURI)));
+        .thenReturn(singletonList(NodeURLFactory.fromString(expectedEnodeURI)));
     controller =
         new NodeLocalConfigPermissioningController(
             permissioningConfig, bootnodesList, selfEnode.getNodeId(), metricsSystem);
@@ -471,7 +471,7 @@ public class NodeLocalConfigPermissioningControllerTest {
     final Consumer<NodeAllowlistUpdatedEvent> consumer = mock(Consumer.class);
     final NodeAllowlistUpdatedEvent expectedEvent =
         new NodeAllowlistUpdatedEvent(
-            Lists.newArrayList(EnodeURLImpl.fromString(enode1)), Collections.emptyList());
+            Lists.newArrayList(NodeURLFactory.fromString(enode1)), Collections.emptyList());
 
     controller.subscribeToListUpdatedEvent(consumer);
     controller.addNodes(Lists.newArrayList(enode1));
@@ -502,7 +502,7 @@ public class NodeLocalConfigPermissioningControllerTest {
     final Consumer<NodeAllowlistUpdatedEvent> consumer = mock(Consumer.class);
     final NodeAllowlistUpdatedEvent expectedEvent =
         new NodeAllowlistUpdatedEvent(
-            Collections.emptyList(), Lists.newArrayList(EnodeURLImpl.fromString(enode1)));
+            Collections.emptyList(), Lists.newArrayList(NodeURLFactory.fromString(enode1)));
 
     controller.subscribeToListUpdatedEvent(consumer);
     controller.removeNodes(Lists.newArrayList(enode1));
@@ -526,7 +526,7 @@ public class NodeLocalConfigPermissioningControllerTest {
   public void whenRemovingBootnodeShouldReturnRemoveBootnodeError() {
     NodesAllowlistResult expected =
         new NodesAllowlistResult(AllowlistOperationResult.ERROR_FIXED_NODE_CANNOT_BE_REMOVED);
-    bootnodesList.add(EnodeURLImpl.fromString(enode1));
+    bootnodesList.add(NodeURLFactory.fromString(enode1));
     controller.addNodes(Lists.newArrayList(enode1, enode2));
 
     NodesAllowlistResult actualResult = controller.removeNodes(Lists.newArrayList(enode1));
@@ -547,14 +547,14 @@ public class NodeLocalConfigPermissioningControllerTest {
     final Consumer<NodeAllowlistUpdatedEvent> consumer = mock(Consumer.class);
     final NodeAllowlistUpdatedEvent expectedEvent =
         new NodeAllowlistUpdatedEvent(
-            Lists.newArrayList(EnodeURLImpl.fromString(enode2)),
-            Lists.newArrayList(EnodeURLImpl.fromString(enode1)));
+            Lists.newArrayList(NodeURLFactory.fromString(enode2)),
+            Lists.newArrayList(NodeURLFactory.fromString(enode1)));
 
     when(permissioningConfig.getNodePermissioningConfigFilePath())
         .thenReturn(permissionsFile.toAbsolutePath().toString());
     when(permissioningConfig.isNodeAllowlistEnabled()).thenReturn(true);
     when(permissioningConfig.getNodeAllowlist())
-        .thenReturn(singletonList(EnodeURLImpl.fromString(enode1)));
+        .thenReturn(singletonList(NodeURLFactory.fromString(enode1)));
     when(permissioningConfig.getEnodeDnsConfiguration())
         .thenReturn(EnodeDnsConfiguration.dnsDisabled());
 
@@ -581,7 +581,7 @@ public class NodeLocalConfigPermissioningControllerTest {
         .thenReturn(permissionsFile.toAbsolutePath().toString());
     when(permissioningConfig.isNodeAllowlistEnabled()).thenReturn(true);
     when(permissioningConfig.getNodeAllowlist())
-        .thenReturn(singletonList(EnodeURLImpl.fromString(enode1)));
+        .thenReturn(singletonList(NodeURLFactory.fromString(enode1)));
     when(permissioningConfig.getEnodeDnsConfiguration())
         .thenReturn(EnodeDnsConfiguration.dnsDisabled());
 
@@ -608,7 +608,7 @@ public class NodeLocalConfigPermissioningControllerTest {
         .thenReturn(permissionsFile.toAbsolutePath().toString());
     when(permissioningConfig.isNodeAllowlistEnabled()).thenReturn(true);
     when(permissioningConfig.getNodeAllowlist())
-        .thenReturn(singletonList(EnodeURLImpl.fromString(enodeDns, enodeDnsConfiguration)));
+        .thenReturn(singletonList(NodeURLFactory.fromString(enodeDns, enodeDnsConfiguration)));
     controller =
         new NodeLocalConfigPermissioningController(
             permissioningConfig, bootnodesList, selfEnode.getNodeId(), metricsSystem);
@@ -631,7 +631,7 @@ public class NodeLocalConfigPermissioningControllerTest {
         .thenReturn(permissionsFile.toAbsolutePath().toString());
     when(permissioningConfig.isNodeAllowlistEnabled()).thenReturn(true);
     when(permissioningConfig.getNodeAllowlist())
-        .thenReturn(singletonList(EnodeURLImpl.fromString(enodeDns, enodeDnsConfiguration)));
+        .thenReturn(singletonList(NodeURLFactory.fromString(enodeDns, enodeDnsConfiguration)));
     controller =
         new NodeLocalConfigPermissioningController(
             permissioningConfig, bootnodesList, selfEnode.getNodeId(), metricsSystem);

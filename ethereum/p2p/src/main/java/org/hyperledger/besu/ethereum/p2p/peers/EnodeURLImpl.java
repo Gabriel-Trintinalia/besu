@@ -27,20 +27,14 @@ import java.util.Locale;
 import java.util.Objects;
 import java.util.Optional;
 import java.util.OptionalInt;
-import java.util.regex.Matcher;
-import java.util.regex.Pattern;
 
 import com.google.common.net.InetAddresses;
-import com.google.common.primitives.Ints;
 import org.apache.tuweni.bytes.Bytes;
 
 public class EnodeURLImpl implements EnodeURL {
 
   public static final int DEFAULT_LISTENING_PORT = 30303;
   public static final int NODE_ID_SIZE = 64;
-  private static final Pattern DISCPORT_QUERY_STRING_REGEX =
-      Pattern.compile("^discport=([0-9]{1,5})$");
-  private static final Pattern NODE_ID_PATTERN = Pattern.compile("^[0-9a-fA-F]{128}$");
 
   private final Bytes nodeId;
   private InetAddress ip;
@@ -69,81 +63,6 @@ public class EnodeURLImpl implements EnodeURL {
 
   public static Builder builder() {
     return new Builder();
-  }
-
-  public static EnodeURL fromString(final String value) {
-    return fromString(value, EnodeDnsConfiguration.dnsDisabled());
-  }
-
-  public static EnodeURL fromString(
-      final String value, final EnodeDnsConfiguration enodeDnsConfiguration) {
-    try {
-      checkStringArgumentNotEmpty(value, "Invalid empty value.");
-      return fromURI(URI.create(value), enodeDnsConfiguration);
-    } catch (final IllegalArgumentException e) {
-      String message = "";
-      if (enodeDnsConfiguration.dnsEnabled() && !enodeDnsConfiguration.updateEnabled()) {
-        message =
-            String.format(
-                "Invalid IP address '%s' (or DNS query resolved an invalid IP). --Xdns-enabled is true but --Xdns-update-enabled flag is false.",
-                value);
-      } else {
-        message =
-            String.format(
-                "Invalid enode URL syntax '%s'. Enode URL should have the following format 'enode://<node_id>@<ip>:<listening_port>[?discport=<discovery_port>]'.",
-                value);
-        if (e.getMessage() != null) {
-          message += " " + e.getMessage();
-        }
-      }
-
-      throw new IllegalArgumentException(message, e);
-    }
-  }
-
-  public static EnodeURL fromURI(final URI uri) {
-    return fromURI(uri, EnodeDnsConfiguration.dnsDisabled());
-  }
-
-  public static EnodeURL fromURI(final URI uri, final EnodeDnsConfiguration enodeDnsConfiguration) {
-    checkArgument(uri != null, "URI cannot be null");
-    checkStringArgumentNotEmpty(uri.getScheme(), "Missing 'enode' scheme.");
-    checkStringArgumentNotEmpty(uri.getHost(), "Missing or invalid host or ip address.");
-    checkStringArgumentNotEmpty(uri.getUserInfo(), "Missing node ID.");
-
-    checkArgument(
-        uri.getScheme().equalsIgnoreCase("enode"), "Invalid URI scheme (must equal \"enode\").");
-    checkArgument(
-        NODE_ID_PATTERN.matcher(uri.getUserInfo()).matches(),
-        "Invalid node ID: node ID must have exactly 128 hexadecimal characters and should not include any '0x' hex prefix.");
-
-    final Bytes id = Bytes.fromHexString(uri.getUserInfo());
-    String host = uri.getHost();
-    int tcpPort = uri.getPort();
-
-    // Parse discport if it exists
-    Optional<Integer> discoveryPort = Optional.empty();
-    String query = uri.getQuery();
-    if (query != null) {
-      final Matcher discPortMatcher = DISCPORT_QUERY_STRING_REGEX.matcher(query);
-      if (discPortMatcher.matches()) {
-        discoveryPort = Optional.ofNullable(Ints.tryParse(discPortMatcher.group(1)));
-      }
-      checkArgument(discoveryPort.isPresent(), "Invalid discovery port: '" + query + "'.");
-    } else {
-      discoveryPort = Optional.of(tcpPort);
-    }
-
-    return builder()
-        .ipAddress(host, enodeDnsConfiguration)
-        .nodeId(id)
-        .listeningPort(tcpPort)
-        .discoveryPort(discoveryPort)
-        .build();
-  }
-
-  private static void checkStringArgumentNotEmpty(final String argument, final String message) {
-    checkArgument(argument != null && !argument.trim().isEmpty(), message);
   }
 
   public static boolean sameListeningEndpoint(final EnodeURL enodeA, final EnodeURL enodeB) {
@@ -210,14 +129,6 @@ public class EnodeURLImpl implements EnodeURL {
     return OptionalInt.of(discoveryPort);
   }
 
-  public static URI asURI(final String url) {
-    return asURI(url, EnodeDnsConfiguration.dnsDisabled());
-  }
-
-  public static URI asURI(final String url, final EnodeDnsConfiguration enodeDnsConfiguration) {
-    return fromString(url, enodeDnsConfiguration).toURI();
-  }
-
   @Override
   public Bytes getNodeId() {
     return nodeId;
@@ -256,33 +167,13 @@ public class EnodeURLImpl implements EnodeURL {
   }
 
   @Override
-  public boolean isListening() {
-    return listeningPort.isPresent();
-  }
-
-  @Override
-  public boolean isRunningDiscovery() {
-    return discoveryPort.isPresent();
-  }
-
-  @Override
   public Optional<Integer> getListeningPort() {
     return listeningPort;
   }
 
   @Override
-  public int getListeningPortOrZero() {
-    return listeningPort.orElse(0);
-  }
-
-  @Override
   public Optional<Integer> getDiscoveryPort() {
     return discoveryPort;
-  }
-
-  @Override
-  public int getDiscoveryPortOrZero() {
-    return discoveryPort.orElse(0);
   }
 
   @Override

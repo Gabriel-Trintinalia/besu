@@ -20,7 +20,7 @@ import org.hyperledger.besu.ethereum.api.jsonrpc.internal.response.JsonRpcSucces
 import org.hyperledger.besu.ethereum.p2p.network.P2PNetwork;
 import org.hyperledger.besu.ethereum.p2p.peers.DefaultPeer;
 import org.hyperledger.besu.ethereum.p2p.peers.EnodeDnsConfiguration;
-import org.hyperledger.besu.ethereum.p2p.peers.EnodeURLImpl;
+import org.hyperledger.besu.ethereum.p2p.peers.NodeURLFactory;
 import org.hyperledger.besu.plugin.data.EnodeURL;
 
 import java.util.Optional;
@@ -47,8 +47,8 @@ public class AdminRemovePeer extends AdminModifyPeer {
     LOG.debug("Remove ({}) from peer cache", enode);
     final EnodeURL enodeURL =
         this.enodeDnsConfiguration.isEmpty()
-            ? EnodeURLImpl.fromString(enode)
-            : EnodeURLImpl.fromString(enode, enodeDnsConfiguration.get());
+            ? NodeURLFactory.fromString(enode)
+            : NodeURLFactory.fromString(enode, enodeDnsConfiguration.get());
     final boolean result =
         peerNetwork.removeMaintainedConnectionPeer(DefaultPeer.fromEnodeURL(enodeURL));
     return new JsonRpcSuccessResponse(id, result);

@@ -85,7 +85,7 @@ public class EnodeURLImplTest {
     final String enodeURLString =
         "enode://" + VALID_NODE_ID + "@" + IPV4_ADDRESS + ":" + P2P_PORT + "?" + DISCOVERY_QUERY;
 
-    final EnodeURL enodeURL = EnodeURLImpl.fromString(enodeURLString);
+    final EnodeURL enodeURL = NodeURLFactory.fromString(enodeURLString);
 
     assertThat(enodeURL).isEqualTo(expectedEnodeURL);
     assertThat(enodeURL.toString()).isEqualTo(enodeURLString);
@@ -101,7 +101,7 @@ public class EnodeURLImplTest {
             .build();
     final String enodeURLString = "enode://" + VALID_NODE_ID + "@" + IPV4_ADDRESS + ":" + P2P_PORT;
 
-    final EnodeURL enodeURL = EnodeURLImpl.fromString(enodeURLString);
+    final EnodeURL enodeURL = NodeURLFactory.fromString(enodeURLString);
 
     assertThat(enodeURL).isEqualTo(expectedEnodeURL);
     assertThat(enodeURL.toString()).isEqualTo(enodeURLString);
@@ -126,7 +126,7 @@ public class EnodeURLImplTest {
             + "?"
             + DISCOVERY_QUERY;
 
-    final EnodeURL enodeURL = EnodeURLImpl.fromString(enodeURLString);
+    final EnodeURL enodeURL = NodeURLFactory.fromString(enodeURLString);
 
     assertThat(enodeURL).isEqualTo(expectedEnodeURL);
   }
@@ -150,7 +150,7 @@ public class EnodeURLImplTest {
             + "?"
             + DISCOVERY_QUERY;
 
-    final EnodeURL enodeURL = EnodeURLImpl.fromString(enodeURLString);
+    final EnodeURL enodeURL = NodeURLFactory.fromString(enodeURLString);
 
     assertThat(enodeURL).isEqualTo(expectedEnodeURL);
     assertThat(enodeURL.toString()).isEqualTo(enodeURLString);
@@ -162,7 +162,7 @@ public class EnodeURLImplTest {
     final String enodeURLString =
         "enode://" + VALID_NODE_ID + "@" + IPV6_COMPACT_ADDRESS + ":" + P2P_PORT + "?" + query;
 
-    EnodeURL enodeURL = EnodeURLImpl.fromString(enodeURLString);
+    EnodeURL enodeURL = NodeURLFactory.fromString(enodeURLString);
     assertThat(enodeURL.getNodeId().toUnprefixedHexString()).isEqualTo(VALID_NODE_ID);
     assertThat("[" + enodeURL.getIpAsString() + "]").isEqualTo(IPV6_FULL_ADDRESS);
     assertThat(enodeURL.getListeningPort()).isEqualTo(Optional.of(P2P_PORT));
@@ -177,7 +177,7 @@ public class EnodeURLImplTest {
   public void fromString_with0ValuedListeningPort() {
     final String enodeURLString = "enode://" + VALID_NODE_ID + "@" + IPV4_ADDRESS + ":" + 0;
 
-    EnodeURL enodeURL = EnodeURLImpl.fromString(enodeURLString);
+    EnodeURL enodeURL = NodeURLFactory.fromString(enodeURLString);
     assertThat(enodeURL.getNodeId().toUnprefixedHexString()).isEqualTo(VALID_NODE_ID);
     assertThat(enodeURL.getIpAsString()).isEqualTo(IPV4_ADDRESS);
     assertThat(enodeURL.getListeningPortOrZero()).isEqualTo(0);
@@ -194,7 +194,7 @@ public class EnodeURLImplTest {
     final String enodeURLString =
         "enode://" + VALID_NODE_ID + "@" + IPV4_ADDRESS + ":" + 0 + "?" + query;
 
-    EnodeURL enodeURL = EnodeURLImpl.fromString(enodeURLString);
+    EnodeURL enodeURL = NodeURLFactory.fromString(enodeURLString);
     assertThat(enodeURL.getNodeId().toUnprefixedHexString()).isEqualTo(VALID_NODE_ID);
     assertThat(enodeURL.getIpAsString()).isEqualTo(IPV4_ADDRESS);
     assertThat(enodeURL.getListeningPortOrZero()).isEqualTo(0);
@@ -206,7 +206,7 @@ public class EnodeURLImplTest {
   @Test
   public void fromString_withoutNodeIdShouldFail() {
     final String enodeURLString = "enode://@" + IPV4_ADDRESS + ":" + P2P_PORT;
-    final Throwable thrown = catchThrowable(() -> EnodeURLImpl.fromString(enodeURLString));
+    final Throwable thrown = catchThrowable(() -> NodeURLFactory.fromString(enodeURLString));
 
     assertThat(thrown)
         .isInstanceOf(IllegalArgumentException.class)
@@ -216,7 +216,7 @@ public class EnodeURLImplTest {
   @Test
   public void fromString_withInvalidSizeNodeIdShouldFail() {
     final String enodeURLString = "enode://wrong_size_string@" + IPV4_ADDRESS + ":" + P2P_PORT;
-    final Throwable thrown = catchThrowable(() -> EnodeURLImpl.fromString(enodeURLString));
+    final Throwable thrown = catchThrowable(() -> NodeURLFactory.fromString(enodeURLString));
 
     assertThat(thrown)
         .isInstanceOf(IllegalArgumentException.class)
@@ -230,7 +230,7 @@ public class EnodeURLImplTest {
             + IPV4_ADDRESS
             + ":"
             + P2P_PORT;
-    final Throwable thrown = catchThrowable(() -> EnodeURLImpl.fromString(enodeURLString));
+    final Throwable thrown = catchThrowable(() -> NodeURLFactory.fromString(enodeURLString));
 
     assertThat(thrown)
         .isInstanceOf(IllegalArgumentException.class)
@@ -240,7 +240,7 @@ public class EnodeURLImplTest {
   @Test
   public void fromString_withoutIpShouldFail() {
     final String enodeURLString = "enode://" + VALID_NODE_ID + "@:" + P2P_PORT;
-    final Throwable thrown = catchThrowable(() -> EnodeURLImpl.fromString(enodeURLString));
+    final Throwable thrown = catchThrowable(() -> NodeURLFactory.fromString(enodeURLString));
 
     assertThat(thrown)
         .isInstanceOf(IllegalArgumentException.class)
@@ -250,7 +250,7 @@ public class EnodeURLImplTest {
   @Test
   public void fromString_withInvalidIpFormatShouldFail() {
     final String enodeURLString = "enode://" + VALID_NODE_ID + "@192.0.1:" + P2P_PORT;
-    final Throwable thrown = catchThrowable(() -> EnodeURLImpl.fromString(enodeURLString));
+    final Throwable thrown = catchThrowable(() -> NodeURLFactory.fromString(enodeURLString));
 
     assertThat(thrown)
         .isInstanceOf(IllegalArgumentException.class)
@@ -260,7 +260,7 @@ public class EnodeURLImplTest {
   @Test
   public void fromString_withoutListeningPortShouldFail() {
     final String enodeURLString = "enode://" + VALID_NODE_ID + "@" + IPV4_ADDRESS + ":";
-    final Throwable thrown = catchThrowable(() -> EnodeURLImpl.fromString(enodeURLString));
+    final Throwable thrown = catchThrowable(() -> NodeURLFactory.fromString(enodeURLString));
 
     assertThat(thrown).hasCauseInstanceOf(IllegalPortException.class);
   }
@@ -269,7 +269,7 @@ public class EnodeURLImplTest {
   public void fromString_withoutListeningPortAndWithDiscoveryPortShouldFail() {
     final String enodeURLString =
         "enode://" + VALID_NODE_ID + "@" + IPV4_ADDRESS + ":?discport=30301";
-    final Throwable thrown = catchThrowable(() -> EnodeURLImpl.fromString(enodeURLString));
+    final Throwable thrown = catchThrowable(() -> NodeURLFactory.fromString(enodeURLString));
 
     assertThat(thrown).hasCauseInstanceOf(IllegalPortException.class);
   }
@@ -277,7 +277,7 @@ public class EnodeURLImplTest {
   @Test
   public void fromString_withAboveRangeListeningPortShouldFail() {
     final String enodeURLString = "enode://" + VALID_NODE_ID + "@" + IPV4_ADDRESS + ":98765";
-    final Throwable thrown = catchThrowable(() -> EnodeURLImpl.fromString(enodeURLString));
+    final Throwable thrown = catchThrowable(() -> NodeURLFactory.fromString(enodeURLString));
 
     assertThat(thrown).hasCauseInstanceOf(IllegalPortException.class);
   }
@@ -286,7 +286,7 @@ public class EnodeURLImplTest {
   public void fromString_withAboveRangeDiscoveryPortShouldFail() {
     final String enodeURLString =
         "enode://" + VALID_NODE_ID + "@" + IPV4_ADDRESS + ":" + P2P_PORT + "?discport=98765";
-    final Throwable thrown = catchThrowable(() -> EnodeURLImpl.fromString(enodeURLString));
+    final Throwable thrown = catchThrowable(() -> NodeURLFactory.fromString(enodeURLString));
 
     assertThat(thrown).hasCauseInstanceOf(IllegalPortException.class);
   }
@@ -297,7 +297,7 @@ public class EnodeURLImplTest {
     final String enodeURLString =
         "enode://" + VALID_NODE_ID + "@" + IPV6_FULL_ADDRESS + ":" + P2P_PORT + "?" + query;
 
-    assertThatThrownBy(() -> EnodeURLImpl.fromString(enodeURLString))
+    assertThatThrownBy(() -> NodeURLFactory.fromString(enodeURLString))
         .isInstanceOf(IllegalArgumentException.class)
         .hasMessageContaining("Invalid discovery port: '" + query + "'");
   }
@@ -308,7 +308,7 @@ public class EnodeURLImplTest {
     final String enodeURLString =
         "enode://" + VALID_NODE_ID + "@" + IPV6_FULL_ADDRESS + ":" + P2P_PORT + "?" + query;
 
-    assertThatThrownBy(() -> EnodeURLImpl.fromString(enodeURLString))
+    assertThatThrownBy(() -> NodeURLFactory.fromString(enodeURLString))
         .isInstanceOf(IllegalArgumentException.class)
         .hasMessageContaining("Invalid discovery port: '" + query + "'");
   }
@@ -319,7 +319,7 @@ public class EnodeURLImplTest {
     final String enodeURLString =
         "enode://" + VALID_NODE_ID + "@" + IPV6_FULL_ADDRESS + ":" + P2P_PORT + "?" + query;
 
-    assertThatThrownBy(() -> EnodeURLImpl.fromString(enodeURLString))
+    assertThatThrownBy(() -> NodeURLFactory.fromString(enodeURLString))
         .isInstanceOf(IllegalArgumentException.class)
         .hasMessageContaining("Invalid discovery port: '" + query + "'");
   }
@@ -330,7 +330,7 @@ public class EnodeURLImplTest {
     final String enodeURLString =
         "enode://" + VALID_NODE_ID + "@" + IPV6_FULL_ADDRESS + ":" + P2P_PORT + "?" + query;
 
-    assertThatThrownBy(() -> EnodeURLImpl.fromString(enodeURLString))
+    assertThatThrownBy(() -> NodeURLFactory.fromString(enodeURLString))
         .isInstanceOf(IllegalArgumentException.class)
         .hasMessageContaining("Invalid discovery port: '" + query + "'");
   }
@@ -341,14 +341,14 @@ public class EnodeURLImplTest {
     final String enodeURLString =
         "enode://" + VALID_NODE_ID + "@" + IPV6_FULL_ADDRESS + ":" + P2P_PORT + "?" + query;
 
-    assertThatThrownBy(() -> EnodeURLImpl.fromString(enodeURLString))
+    assertThatThrownBy(() -> NodeURLFactory.fromString(enodeURLString))
         .isInstanceOf(IllegalArgumentException.class)
         .hasMessageContaining("Invalid discovery port: '" + query + "'");
   }
 
   @Test
   public void fromString_withNullEnodeURLShouldFail() {
-    final Throwable thrown = catchThrowable(() -> EnodeURLImpl.fromString(null));
+    final Throwable thrown = catchThrowable(() -> NodeURLFactory.fromString(null));
 
     assertThat(thrown)
         .isInstanceOf(IllegalArgumentException.class)
@@ -357,7 +357,7 @@ public class EnodeURLImplTest {
 
   @Test
   public void fromString_withEmptyEnodeURLShouldFail() {
-    final Throwable thrown = catchThrowable(() -> EnodeURLImpl.fromString(""));
+    final Throwable thrown = catchThrowable(() -> NodeURLFactory.fromString(""));
 
     assertThat(thrown)
         .isInstanceOf(IllegalArgumentException.class)
@@ -366,7 +366,7 @@ public class EnodeURLImplTest {
 
   @Test
   public void fromString_withWhitespaceEnodeURLShouldFail() {
-    final Throwable thrown = catchThrowable(() -> EnodeURLImpl.fromString(" "));
+    final Throwable thrown = catchThrowable(() -> NodeURLFactory.fromString(" "));
 
     assertThat(thrown)
         .isInstanceOf(IllegalArgumentException.class)
@@ -377,7 +377,7 @@ public class EnodeURLImplTest {
   public void fromStringInvalidNodeIdLengthHasDescriptiveMessage() {
     String invalidEnodeURL =
         String.format("enode://%s@%s:%d", VALID_NODE_ID.substring(1), IPV4_ADDRESS, P2P_PORT);
-    assertThatThrownBy(() -> EnodeURLImpl.fromString(invalidEnodeURL))
+    assertThatThrownBy(() -> NodeURLFactory.fromString(invalidEnodeURL))
         .isInstanceOf(IllegalArgumentException.class)
         .hasMessageEndingWith(
             "Invalid node ID: node ID must have exactly 128 hexadecimal characters and should not include any '0x' hex prefix.");
@@ -390,7 +390,7 @@ public class EnodeURLImplTest {
 
     assertThatThrownBy(
             () ->
-                EnodeURLImpl.fromString(
+                NodeURLFactory.fromString(
                     enodeURLString,
                     ImmutableEnodeDnsConfiguration.builder()
                         .dnsEnabled(false)
@@ -407,7 +407,7 @@ public class EnodeURLImplTest {
 
     assertThatThrownBy(
             () ->
-                EnodeURLImpl.fromString(
+                NodeURLFactory.fromString(
                     enodeURLString,
                     ImmutableEnodeDnsConfiguration.builder()
                         .dnsEnabled(false)
@@ -430,7 +430,7 @@ public class EnodeURLImplTest {
         "enode://" + VALID_NODE_ID + "@" + "localhost" + ":" + P2P_PORT + "?" + DISCOVERY_QUERY;
 
     final EnodeURL enodeURL =
-        EnodeURLImpl.fromString(
+        NodeURLFactory.fromString(
             enodeURLString,
             ImmutableEnodeDnsConfiguration.builder().dnsEnabled(true).updateEnabled(false).build());
     ;
@@ -451,7 +451,7 @@ public class EnodeURLImplTest {
         "enode://" + VALID_NODE_ID + "@" + "localhost" + ":" + P2P_PORT + "?" + DISCOVERY_QUERY;
 
     final EnodeURL enodeURL =
-        EnodeURLImpl.fromString(
+        NodeURLFactory.fromString(
             enodeURLString,
             ImmutableEnodeDnsConfiguration.builder().dnsEnabled(true).updateEnabled(false).build());
     ;
@@ -464,7 +464,7 @@ public class EnodeURLImplTest {
     final String enodeURLString =
         "enode://" + VALID_NODE_ID + "@" + IPV4_ADDRESS + ":" + P2P_PORT + "?" + DISCOVERY_QUERY;
     final URI expectedURI = URI.create(enodeURLString);
-    final URI createdURI = EnodeURLImpl.fromString(enodeURLString).toURI();
+    final URI createdURI = NodeURLFactory.fromString(enodeURLString).toURI();
 
     assertThat(createdURI).isEqualTo(expectedURI);
   }
@@ -473,7 +473,7 @@ public class EnodeURLImplTest {
   public void toURI_WithoutDiscoveryPortCreateExpectedURI() {
     final String enodeURLString = "enode://" + VALID_NODE_ID + "@" + IPV4_ADDRESS + ":" + P2P_PORT;
     final URI expectedURI = URI.create(enodeURLString);
-    final URI createdURI = EnodeURLImpl.fromString(enodeURLString).toURI();
+    final URI createdURI = NodeURLFactory.fromString(enodeURLString).toURI();
 
     assertThat(createdURI).isEqualTo(expectedURI);
   }
@@ -484,7 +484,7 @@ public class EnodeURLImplTest {
     final URI expectedURI =
         URI.create("enode://" + VALID_NODE_ID + "@" + "127.0.0.1" + ":" + P2P_PORT);
     final URI createdURI =
-        EnodeURLImpl.fromString(
+        NodeURLFactory.fromString(
                 enodeURLString,
                 ImmutableEnodeDnsConfiguration.builder()
                     .dnsEnabled(true)
@@ -510,7 +510,7 @@ public class EnodeURLImplTest {
             + P2P_PORT;
     final URI expectedURI = URI.create(enodeURLString);
     final URI createdURI =
-        EnodeURLImpl.fromString(
+        NodeURLFactory.fromString(
                 enodeURLString,
                 ImmutableEnodeDnsConfiguration.builder()
                     .dnsEnabled(true)
@@ -529,7 +529,7 @@ public class EnodeURLImplTest {
 
     assertThatThrownBy(
             () ->
-                EnodeURLImpl.fromURI(
+                NodeURLFactory.fromURI(
                     expectedURI,
                     ImmutableEnodeDnsConfiguration.builder()
                         .dnsEnabled(false)
@@ -554,7 +554,7 @@ public class EnodeURLImplTest {
     final URI expectedURI = URI.create(enodeURLString);
 
     final EnodeURL enodeURL =
-        EnodeURLImpl.fromURI(
+        NodeURLFactory.fromURI(
             expectedURI,
             ImmutableEnodeDnsConfiguration.builder().dnsEnabled(true).updateEnabled(false).build());
     assertThat(enodeURL).isEqualTo(expectedEnodeURL);
@@ -936,7 +936,7 @@ public class EnodeURLImplTest {
     String enodeString = String.format("enode://%s@%s:%d", VALID_NODE_ID, "127.0.0.1", 9999);
 
     final EnodeURL enodeA =
-        EnodeURLImpl.fromString(
+        NodeURLFactory.fromString(
             enodeString,
             ImmutableEnodeDnsConfiguration.builder().dnsEnabled(true).updateEnabled(true).build());
 
@@ -953,7 +953,7 @@ public class EnodeURLImplTest {
         String.format("enode://%s@%s:%d", VALID_NODE_ID, "besu-is-awesome.example.com", 9999);
 
     final EnodeURL enodeA =
-        EnodeURLImpl.fromString(
+        NodeURLFactory.fromString(
             enodeString,
             ImmutableEnodeDnsConfiguration.builder().dnsEnabled(true).updateEnabled(true).build());
 
@@ -966,7 +966,7 @@ public class EnodeURLImplTest {
     String enodeString = String.format("enode://%s@%s:%d", VALID_NODE_ID, "hyperledger.org", 9999);
 
     final EnodeURL enodeA =
-        EnodeURLImpl.fromString(
+        NodeURLFactory.fromString(
             enodeString,
             ImmutableEnodeDnsConfiguration.builder().dnsEnabled(true).updateEnabled(true).build());
 
@@ -1053,7 +1053,7 @@ public class EnodeURLImplTest {
     String site = "hyperledger.org";
     String enodeString = String.format("enode://%s@%s:%d", VALID_NODE_ID, site, 9999);
     final EnodeURL enode =
-        EnodeURLImpl.fromString(
+        NodeURLFactory.fromString(
             enodeString,
             ImmutableEnodeDnsConfiguration.builder().dnsEnabled(true).updateEnabled(true).build());
     assertEquals(site, enode.getHost());
@@ -1064,7 +1064,7 @@ public class EnodeURLImplTest {
     String site = "besu-is-awesome.example.com";
     String enodeString = String.format("enode://%s@%s:%d", VALID_NODE_ID, site, 9999);
     final EnodeURL enode =
-        EnodeURLImpl.fromString(
+        NodeURLFactory.fromString(
             enodeString,
             ImmutableEnodeDnsConfiguration.builder().dnsEnabled(true).updateEnabled(true).build());
     assertEquals("127.0.0.1", enode.getHost());

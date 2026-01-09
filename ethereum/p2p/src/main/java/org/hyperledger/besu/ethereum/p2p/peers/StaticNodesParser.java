@@ -80,7 +80,7 @@ public class StaticNodesParser {
   private static EnodeURL decodeString(
       final String input, final EnodeDnsConfiguration enodeDnsConfiguration) {
     try {
-      final EnodeURL enode = EnodeURLImpl.fromString(input, enodeDnsConfiguration);
+      final EnodeURL enode = NodeURLFactory.fromString(input, enodeDnsConfiguration);
       checkArgument(
           enode.isListening(), "Static node must be configured with a valid listening port.");
       return enode;

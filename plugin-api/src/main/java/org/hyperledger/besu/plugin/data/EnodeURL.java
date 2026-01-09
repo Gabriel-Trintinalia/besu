@@ -55,7 +55,9 @@ public interface EnodeURL {
    *
    * @return the listening port or zero
    */
-  int getListeningPortOrZero();
+  default int getListeningPortOrZero() {
+    return getListeningPort().orElse(0);
+  }
 
   /**
    * Enode To URI.
@@ -76,14 +78,18 @@ public interface EnodeURL {
    *
    * @return the boolean
    */
-  boolean isListening();
+  default boolean isListening() {
+    return getListeningPort().isPresent();
+  }
 
   /**
    * Is running discovery.
    *
    * @return the boolean
    */
-  boolean isRunningDiscovery();
+  default boolean isRunningDiscovery() {
+    return getDiscoveryPort().isPresent();
+  }
 
   /**
    * Gets ip as string.
@@ -97,7 +103,9 @@ public interface EnodeURL {
    *
    * @return the discovery port or zero
    */
-  int getDiscoveryPortOrZero();
+  default int getDiscoveryPortOrZero() {
+    return getDiscoveryPort().orElse(0);
+  }
 
   /**
    * Gets the host.
