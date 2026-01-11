@@ -15,6 +15,9 @@
 package org.hyperledger.besu.ethereum.p2p.discovery.dns;
 
 // Adapted from https://github.com/tmio/tuweni and licensed under Apache 2.0
+
+import org.ethereum.beacon.discovery.schema.NodeRecord;
+
 /**
  * Reads ENR (Ethereum Node Records) entries passed in from DNS. The visitor may decide to stop the
  * visit by returning false.
@@ -26,5 +29,5 @@ public interface DNSVisitor {
    * @param enr the ENR record read from DNS
    * @return true to continue visiting, false otherwise
    */
-  boolean visit(final EthereumNodeRecord enr);
+  boolean visit(final NodeRecord enr);
 }

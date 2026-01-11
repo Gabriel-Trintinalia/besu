@@ -18,8 +18,8 @@ import org.hyperledger.besu.cryptoservices.NodeKey;
 import org.hyperledger.besu.ethereum.chain.Blockchain;
 import org.hyperledger.besu.ethereum.forkid.ForkIdManager;
 import org.hyperledger.besu.ethereum.p2p.config.NetworkingConfiguration;
-import org.hyperledger.besu.ethereum.p2p.discovery.discv4.PeerDiscoveryAgentFactoryDiscv4;
-import org.hyperledger.besu.ethereum.p2p.discovery.discv5.PeerDiscoveryAgentFactoryDiscv5;
+import org.hyperledger.besu.ethereum.p2p.discovery.discv4.PeerDiscoveryAgentFactoryV4;
+import org.hyperledger.besu.ethereum.p2p.discovery.discv5.PeerDiscoveryAgentFactoryV5;
 import org.hyperledger.besu.ethereum.p2p.permissions.PeerPermissions;
 import org.hyperledger.besu.ethereum.p2p.rlpx.RlpxAgent;
 import org.hyperledger.besu.ethereum.storage.StorageProvider;
@@ -48,16 +48,17 @@ public class DefaultPeerDiscoveryAgentFactory implements PeerDiscoveryAgentFacto
       final List<Long> blockNumberForks,
       final List<Long> timestampForks) {
 
+    final ForkIdManager forkIdManager =
+        new ForkIdManager(blockchain, blockNumberForks, timestampForks);
+
     if (config.getDiscovery().isDiscoveryV5Enabled()) {
-      final ForkIdManager forkIdManager =
-          new ForkIdManager(blockchain, blockNumberForks, timestampForks);
       NodeRecordManager nodeRecordManager =
           new NodeRecordManager(storageProvider, nodeKey, forkIdManager, natService);
       this.delegate =
-          new PeerDiscoveryAgentFactoryDiscv5(vertx, nodeKey, config, nodeRecordManager);
+          new PeerDiscoveryAgentFactoryV5(vertx, nodeKey, config, nodeRecordManager, forkIdManager);
     } else {
       this.delegate =
-          new PeerDiscoveryAgentFactoryDiscv4(
+          new PeerDiscoveryAgentFactoryV4(
               vertx,
               nodeKey,
               config,
@@ -65,9 +66,7 @@ public class DefaultPeerDiscoveryAgentFactory implements PeerDiscoveryAgentFacto
               natService,
               metricsSystem,
               storageProvider,
-              blockchain,
-              blockNumberForks,
-              timestampForks);
+              forkIdManager);
     }
   }
 

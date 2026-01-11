@@ -16,6 +16,8 @@ package org.hyperledger.besu.ethereum.p2p.discovery.dns;
 
 import java.util.List;
 
+import org.ethereum.beacon.discovery.schema.NodeRecord;
+
 // Adapted from https://github.com/tmio/tuweni and licensed under Apache 2.0
 /** Callback listening to updates of the DNS records. */
 @FunctionalInterface
@@ -26,5 +28,5 @@ public interface DNSDaemonListener {
    * @param seq the update identifier of the records
    * @param records the records stored on the server
    */
-  void newRecords(long seq, List<EthereumNodeRecord> records);
+  void newRecords(long seq, List<NodeRecord> records);
 }

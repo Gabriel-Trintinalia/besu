@@ -1,2 +1,2 @@
 network="MAINNET"
-logging="DEBUG"
+logging="INFO"

@@ -72,7 +72,6 @@ public class NodeRecordManager implements NodeRecordListener {
 
   private Optional<DiscoveryPeerV4> localNode = Optional.empty();
   private String advertisedAddress;
-  private final NodeRecordFactory factory = NodeRecordFactory.DEFAULT;
   private final SignatureAlgorithm signatureAlgorithm = SIGNATURE_ALGORITHM.get();
 
   /**
@@ -223,8 +222,6 @@ public class NodeRecordManager implements NodeRecordListener {
         createNodeRecord(factory, sequence, ipAddressBytes, discoveryPort, listeningPort, forkId);
     record.setSignature(
         nodeKey.sign(Hash.keccak256(record.serializeNoSignature())).encodedBytes().slice(0, 64));
-
-    LOG.info("Writing node record to disk. {}", record);
 
     final var updater = variablesStorage.updater();
     updater.setLocalEnrSeqno(record.serialize());

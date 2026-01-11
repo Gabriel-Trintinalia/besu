@@ -17,6 +17,7 @@ package org.hyperledger.besu.ethereum.p2p.network;
 import static com.google.common.base.Preconditions.checkNotNull;
 import static com.google.common.base.Preconditions.checkState;
 
+import org.ethereum.beacon.discovery.schema.NodeRecord;
 import org.hyperledger.besu.cryptoservices.NodeKey;
 import org.hyperledger.besu.ethereum.core.Util;
 import org.hyperledger.besu.ethereum.p2p.config.NetworkingConfiguration;
@@ -27,7 +28,6 @@ import org.hyperledger.besu.ethereum.p2p.discovery.PeerDiscoveryAgentFactory;
 import org.hyperledger.besu.ethereum.p2p.discovery.RlpxAgentFactory;
 import org.hyperledger.besu.ethereum.p2p.discovery.dns.DNSDaemon;
 import org.hyperledger.besu.ethereum.p2p.discovery.dns.DNSDaemonListener;
-import org.hyperledger.besu.ethereum.p2p.discovery.dns.EthereumNodeRecord;
 import org.hyperledger.besu.ethereum.p2p.peers.DefaultPeerPrivileges;
 import org.hyperledger.besu.ethereum.p2p.peers.EnodeURLImpl;
 import org.hyperledger.besu.ethereum.p2p.peers.MaintainedPeers;
@@ -331,7 +331,7 @@ public class DefaultP2PNetwork implements P2PNetwork {
       return false;
     }
     final boolean wasAdded = maintainedPeers.add(peer);
-    peerDiscoveryAgent.bond(peer);
+    peerDiscoveryAgent.addPeer(peer);
     rlpxAgent.connect(peer);
     return wasAdded;
   }
@@ -359,19 +359,11 @@ public class DefaultP2PNetwork implements P2PNetwork {
   DNSDaemonListener createDaemonListener() {
     return (seq, records) -> {
       final List<DiscoveryPeer> peers = new ArrayList<>();
-      for (final EthereumNodeRecord enr : records) {
-        final EnodeURL enodeURL =
-            EnodeURLImpl.builder()
-                .ipAddress(enr.ip())
-                .nodeId(enr.publicKey())
-                .discoveryPort(enr.udp())
-                .listeningPort(enr.tcp())
-                .build();
-        final DiscoveryPeer peer = DiscoveryPeerFactory.fromEnode(enodeURL);
-        peers.add(peer);
+      for (final NodeRecord nodeRecord : records) {
+        DiscoveryPeerFactory.fromNodeRecord(nodeRecord).ifPresent(peers::add);
       }
       if (!peers.isEmpty()) {
-        peers.forEach(peerDiscoveryAgent::bond);
+        peers.forEach(peerDiscoveryAgent::addPeer);
       }
     };
   }

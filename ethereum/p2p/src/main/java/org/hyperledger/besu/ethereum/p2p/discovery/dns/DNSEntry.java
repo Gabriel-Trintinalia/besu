@@ -27,6 +27,8 @@ import org.apache.tuweni.crypto.SECP256K1;
 import org.apache.tuweni.io.Base32;
 import org.apache.tuweni.io.Base64URLSafe;
 import org.bouncycastle.math.ec.ECPoint;
+import org.ethereum.beacon.discovery.schema.NodeRecord;
+import org.ethereum.beacon.discovery.schema.NodeRecordFactory;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
@@ -38,9 +40,9 @@ public interface DNSEntry {
   class ENRNode implements DNSEntry {
     private static final Logger LOG = LoggerFactory.getLogger(ENRNode.class);
 
-    private final EthereumNodeRecord nodeRecord;
+    private final NodeRecord nodeRecord;
 
-    private ENRNode(final EthereumNodeRecord nodeRecord) {
+    private ENRNode(final NodeRecord nodeRecord) {
       this.nodeRecord = nodeRecord;
     }
 
@@ -55,12 +57,12 @@ public interface DNSEntry {
         throw new IllegalArgumentException("ENRNode attributes cannot be null");
       }
       return Optional.ofNullable(attrs.get("enr"))
-          .map(ENRNode::decodeValue)
-          .map(EthereumNodeRecord::fromRLP)
+          .map(NodeRecordFactory.DEFAULT::fromEnr)
           .map(ENRNode::new)
           .orElse(null);
     }
 
+    @SuppressWarnings("UnusedMethod")
     private static Bytes decodeValue(final String enrValue) {
       try {
         return Bytes.wrap(Base64.getUrlDecoder().decode(enrValue));
@@ -75,7 +77,7 @@ public interface DNSEntry {
      *
      * @return the instance of EthereumNodeRecord
      */
-    public EthereumNodeRecord nodeRecord() {
+    public NodeRecord nodeRecord() {
       return nodeRecord;
     }
 

@@ -83,7 +83,7 @@ public interface PeerDiscoveryAgent {
    *
    * @param peer The peer to bond with.
    */
-  void bond(Peer peer);
+  void addPeer(Peer peer);
 
   /**
    * Retrieves a peer by its PeerId.

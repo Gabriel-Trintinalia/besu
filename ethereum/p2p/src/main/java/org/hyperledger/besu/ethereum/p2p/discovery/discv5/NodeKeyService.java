@@ -21,14 +21,13 @@ import org.hyperledger.besu.cryptoservices.NodeKey;
 
 import org.apache.tuweni.bytes.Bytes;
 import org.apache.tuweni.bytes.Bytes32;
-import org.ethereum.beacon.discovery.crypto.NodeKeyService;
 
-public class NodeKeyServiceDiscV5 implements NodeKeyService {
+public class NodeKeyService implements org.ethereum.beacon.discovery.crypto.NodeKeyService {
   private final SignatureAlgorithm signatureAlgorithm = SignatureAlgorithmFactory.getInstance();
 
   private final NodeKey nodeKey;
 
-  public NodeKeyServiceDiscV5(final NodeKey nodeKey) {
+  public NodeKeyService(final NodeKey nodeKey) {
     this.nodeKey = nodeKey;
   }
 
