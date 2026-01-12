@@ -107,6 +107,7 @@ public final class PeerDiscoveryAgentFactoryV5 implements PeerDiscoveryAgentFact
             .localNodeRecordListener(new NodeRecordListener(nodeRecordManager))
             .newAddressHandler(new NoopNewAddressHandler())
             .buildMutable();
+
     return new PeerDiscoveryAgentV5(
         discoverySystem,
         config,
