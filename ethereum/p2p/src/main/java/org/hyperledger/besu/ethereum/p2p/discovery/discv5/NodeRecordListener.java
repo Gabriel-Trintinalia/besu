@@ -36,7 +36,7 @@ public class NodeRecordListener
    *
    * @param nodeRecordManager the manager responsible for handling node record updates
    */
-  public NodeRecordListener(NodeRecordManager nodeRecordManager) {
+  public NodeRecordListener(final NodeRecordManager nodeRecordManager) {
     this.nodeRecordManager = nodeRecordManager;
   }
 
@@ -47,7 +47,7 @@ public class NodeRecordListener
    * @param updatedRecord the updated version of the node record
    */
   @Override
-  public void recordUpdated(NodeRecord previousRecord, NodeRecord updatedRecord) {
+  public void recordUpdated(final NodeRecord previousRecord, final NodeRecord updatedRecord) {
     nodeRecordManager.updateNodeRecord();
   }
 }

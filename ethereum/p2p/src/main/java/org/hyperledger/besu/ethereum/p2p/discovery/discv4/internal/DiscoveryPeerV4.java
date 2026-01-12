@@ -110,7 +110,7 @@ public class DiscoveryPeerV4 extends DiscoveryPeer {
 
   @Override
   public boolean isReady() {
-    return isBonded();
+    return this.isBonded();
   }
 
   public Endpoint getEndpoint() {

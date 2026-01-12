@@ -31,8 +31,6 @@ import org.ethereum.beacon.discovery.schema.NodeRecord;
  */
 public class NoopNewAddressHandler
     implements org.ethereum.beacon.discovery.storage.NewAddressHandler {
-  NodeRecordManager nodeRecordManager;
-
   /**
    * Ignores the newly observed address and returns the existing node record unchanged.
    *
@@ -41,7 +39,8 @@ public class NoopNewAddressHandler
    * @return the unmodified {@code oldRecord}
    */
   @Override
-  public Optional<NodeRecord> newAddress(NodeRecord oldRecord, InetSocketAddress newAddress) {
+  public Optional<NodeRecord> newAddress(
+      final NodeRecord oldRecord, final InetSocketAddress newAddress) {
     // TODO: integrate with NodeRecordManager to track addresses
     return Optional.of(oldRecord);
   }

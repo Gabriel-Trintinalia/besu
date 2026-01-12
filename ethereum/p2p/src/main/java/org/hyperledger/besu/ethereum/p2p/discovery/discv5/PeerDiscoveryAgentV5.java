@@ -23,80 +23,133 @@ import org.hyperledger.besu.ethereum.p2p.discovery.NodeRecordManager;
 import org.hyperledger.besu.ethereum.p2p.discovery.PeerDiscoveryAgent;
 import org.hyperledger.besu.ethereum.p2p.peers.Peer;
 import org.hyperledger.besu.ethereum.p2p.peers.PeerId;
+import org.hyperledger.besu.ethereum.p2p.rlpx.RlpxAgent;
 
+import java.time.Duration;
+import java.util.Objects;
 import java.util.Optional;
 import java.util.concurrent.CompletableFuture;
+import java.util.concurrent.Executors;
+import java.util.concurrent.ScheduledExecutorService;
+import java.util.concurrent.TimeUnit;
 import java.util.stream.Stream;
+import java.util.stream.StreamSupport;
 
 import org.ethereum.beacon.discovery.MutableDiscoverySystem;
+import org.ethereum.beacon.discovery.schema.NodeRecord;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
 /**
- * DiscV5 implementation of {@link PeerDiscoveryAgent} backed by a mutable Ethereum Discovery v5
- * {@link MutableDiscoverySystem}.
+ * DiscV5 implementation of {@link PeerDiscoveryAgent} that actively drives peer discovery and
+ * outbound RLPx connection attempts.
+ *
+ * <p>This agent owns the lifecycle of the DiscV5 {@link MutableDiscoverySystem} and executes
+ * periodic peer discovery using an adaptive cadence based on current peer connectivity.
+ *
+ * <p>Discovery cadence:
+ *
+ * <ul>
+ *   <li>Fast (1 second) while the node is under-connected
+ *   <li>Slow (30 seconds) once a sufficient number of peers has been reached
+ * </ul>
+ *
+ * <p>Discovered peers are filtered for readiness, fork compatibility, and reachability before
+ * connection attempts are delegated to the {@link RlpxAgent}.
  */
 public final class PeerDiscoveryAgentV5 implements PeerDiscoveryAgent {
+
   private static final Logger LOG = LoggerFactory.getLogger(PeerDiscoveryAgentV5.class);
 
+  /** Fast discovery interval used while peer count is below the configured threshold. */
+  private static final Duration FAST_INTERVAL = Duration.ofSeconds(1);
+
+  /** Slow discovery interval used once sufficient peers are connected. */
+  private static final Duration SLOW_INTERVAL = Duration.ofSeconds(30);
+
+  /** Minimum ratio of connected peers required to switch to slow discovery cadence. */
+  private static final double MINIMUM_PEER_RATIO = 0.5;
+
   private final MutableDiscoverySystem discoverySystem;
+  private final DiscoveryConfiguration discoveryConfig;
   private final ForkIdManager forkIdManager;
-
-  private boolean stopped = false;
-
-  private final DiscoveryConfiguration config;
   private final NodeRecordManager nodeRecordManager;
+  private final RlpxAgent rlpxAgent;
+
+  private final ScheduledExecutorService scheduler =
+      Executors.newSingleThreadScheduledExecutor(r -> new Thread(r, "discv5-peer-discovery"));
+
+  private volatile boolean running = false;
+  private volatile boolean stopped = false;
+  private volatile long lastExecutionMillis = 0;
 
   /**
    * Creates a new DiscV5 peer discovery agent.
    *
    * @param discoverySystem the underlying mutable DiscV5 discovery system
    * @param config the networking configuration
-   * @param forkIdManager manager used to validate peer fork compatibility
-   * @param nodeRecordManager manager responsible for local node record updates
+   * @param forkIdManager manager used to validate fork compatibility with peers
+   * @param nodeRecordManager manager responsible for maintaining the local node record
+   * @param rlpxAgent RLPx agent used to initiate outbound peer connections
    */
   public PeerDiscoveryAgentV5(
       final MutableDiscoverySystem discoverySystem,
       final NetworkingConfiguration config,
       final ForkIdManager forkIdManager,
-      final NodeRecordManager nodeRecordManager) {
-    this.discoverySystem = discoverySystem;
-    this.forkIdManager = forkIdManager;
-    this.config = config.getDiscovery();
-    this.nodeRecordManager = nodeRecordManager;
+      final NodeRecordManager nodeRecordManager,
+      final RlpxAgent rlpxAgent) {
+
+    this.discoverySystem =
+        Objects.requireNonNull(discoverySystem, "discoverySystem must not be null");
+    this.discoveryConfig = Objects.requireNonNull(config, "config must not be null").getDiscovery();
+    this.forkIdManager = Objects.requireNonNull(forkIdManager, "forkIdManager must not be null");
+    this.nodeRecordManager =
+        Objects.requireNonNull(nodeRecordManager, "nodeRecordManager must not be null");
+    this.rlpxAgent = Objects.requireNonNull(rlpxAgent, "rlpxAgent must not be null");
   }
 
+  /**
+   * Starts the DiscV5 discovery system and the adaptive discovery loop.
+   *
+   * @param tcpPort the local TCP port used for RLPx connections
+   * @return a future completed with the TCP port once discovery has started
+   */
   @Override
   public CompletableFuture<Integer> start(final int tcpPort) {
     if (!isEnabled()) {
       return CompletableFuture.completedFuture(0);
     }
     LOG.info("Starting DiscV5 Peer Discovery Agent on TCP port {}", tcpPort);
+
+    running = true;
+    scheduler.scheduleAtFixedRate(this::discoveryTick, 0, 1, TimeUnit.SECONDS);
     return discoverySystem.start().thenApply(v -> tcpPort);
   }
 
   /**
-   * Stops the DiscV5 discovery system.
+   * Stops peer discovery, terminates scheduled tasks, and shuts down the discovery system.
    *
-   * @return a completed future once the discovery system has been stopped
+   * @return a completed future once shutdown has completed
    */
   @Override
   public CompletableFuture<?> stop() {
     LOG.info("Stopping DiscV5 Peer Discovery Agent");
-    discoverySystem.stop();
+    running = false;
     stopped = true;
+    scheduler.shutdownNow();
+    discoverySystem.stop();
     return CompletableFuture.completedFuture(null);
   }
 
-  /**
-   * Updates the local node record if discovery is disabled.
-   *
-   * <p>When DiscV5 discovery is enabled, node record updates are handled internally by the
-   * discovery system.
-   */
+    /**
+     * Updates the local node record in the discovery system.
+     *
+     * <p>This method is typically called when network parameters change that affect the node record
+     * (e.g., advertised IP address or ports).
+     */
   @Override
   public void updateNodeRecord() {
-    if (isEnabled()) {
+    if (!isEnabled()) {
       return;
     }
     nodeRecordManager.updateNodeRecord();
@@ -105,8 +158,8 @@ public final class PeerDiscoveryAgentV5 implements PeerDiscoveryAgent {
   /**
    * Checks whether a discovered peer is compatible with the local fork ID.
    *
-   * @param peer the discovered peer to validate
-   * @return {@code true} if the peer is compatible or does not advertise a fork ID
+   * @param peer the discovered peer
+   * @return {@code true} if the peer is fork-compatible or does not advertise a fork ID
    */
   @Override
   public boolean checkForkId(final DiscoveryPeer peer) {
@@ -140,7 +193,7 @@ public final class PeerDiscoveryAgentV5 implements PeerDiscoveryAgent {
    */
   @Override
   public boolean isEnabled() {
-    return config.isEnabled();
+    return discoveryConfig.isEnabled();
   }
 
   /**
@@ -172,5 +225,49 @@ public final class PeerDiscoveryAgentV5 implements PeerDiscoveryAgent {
   @Override
   public Optional<Peer> getPeer(final PeerId peerId) {
     return discoverySystem.lookupNode(peerId.getId()).map(DiscoveryPeerFactory::fromNodeRecord);
+  }
+
+  /** Periodic discovery task that enforces adaptive cadence and triggers peer discovery. */
+  private void discoveryTick() {
+    if (!running) {
+      return;
+    }
+    final long now = System.currentTimeMillis();
+    final Duration interval = hasSufficientPeers() ? SLOW_INTERVAL : FAST_INTERVAL;
+    if (now - lastExecutionMillis < interval.toMillis()) {
+      return;
+    }
+    lastExecutionMillis = now;
+    discoverAndConnect();
+  }
+
+  /** Executes a DiscV5 peer search and attempts outbound connections to suitable peers. */
+  private void discoverAndConnect() {
+    discoverySystem
+        .searchForNewPeers()
+        .whenComplete(
+            (nodeRecords, error) -> {
+              if (error != null) {
+                LOG.debug("DiscV5 peer discovery failed", error);
+                return;
+              }
+              candidatePeers(nodeRecords).forEach(rlpxAgent::connect);
+            });
+  }
+
+  /** Determines whether the RLPx agent has reached a sufficient number of connected peers. */
+  private boolean hasSufficientPeers() {
+    return rlpxAgent.getConnectionCount() >= rlpxAgent.getMaxPeers() * MINIMUM_PEER_RATIO;
+  }
+
+  /** Builds a stream of candidate peers suitable for outbound connection attempts. */
+  private Stream<DiscoveryPeer> candidatePeers(final Iterable<NodeRecord> nodeRecords) {
+    return Stream.concat(
+            StreamSupport.stream(nodeRecords.spliterator(), false),
+            discoverySystem.streamLiveNodes())
+        .map(DiscoveryPeerFactory::fromNodeRecord)
+        .filter(DiscoveryPeer::isReady)
+        .filter(peer -> peer.getEnodeURL().isListening())
+        .filter(peer -> peer.getForkId().map(forkIdManager::peerCheck).orElse(true));
   }
 }

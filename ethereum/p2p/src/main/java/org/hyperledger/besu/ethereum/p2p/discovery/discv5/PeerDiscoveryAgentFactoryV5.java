@@ -14,8 +14,6 @@
  */
 package org.hyperledger.besu.ethereum.p2p.discovery.discv5;
 
-import org.hyperledger.besu.crypto.SignatureAlgorithm;
-import org.hyperledger.besu.crypto.SignatureAlgorithmFactory;
 import org.hyperledger.besu.cryptoservices.NodeKey;
 import org.hyperledger.besu.ethereum.forkid.ForkIdManager;
 import org.hyperledger.besu.ethereum.p2p.config.NetworkingConfiguration;
@@ -27,8 +25,6 @@ import org.hyperledger.besu.ethereum.p2p.rlpx.RlpxAgent;
 
 import java.util.List;
 
-import com.google.common.base.Supplier;
-import com.google.common.base.Suppliers;
 import org.ethereum.beacon.discovery.DiscoverySystemBuilder;
 import org.ethereum.beacon.discovery.MutableDiscoverySystem;
 import org.ethereum.beacon.discovery.schema.NodeRecord;
@@ -53,10 +49,6 @@ public final class PeerDiscoveryAgentFactoryV5 implements PeerDiscoveryAgentFact
   private final NetworkingConfiguration config;
 
   private final NodeRecordManager nodeRecordManager;
-
-  private static final Supplier<SignatureAlgorithm> SIGNATURE_ALGORITHM =
-      Suppliers.memoize(SignatureAlgorithmFactory::getInstance);
-
   private final NodeKey nodeKey;
   private final ForkIdManager forkIdManager;
 
@@ -86,12 +78,12 @@ public final class PeerDiscoveryAgentFactoryV5 implements PeerDiscoveryAgentFact
    * <p>The provided {@link RlpxAgent} is ignored, as DiscV5 discovery operates independently of the
    * RLPx transport layer.
    *
-   * @param ignored unused RLPx agent
+   * @param rlpxAgent unused RLPx agent
    * @return a fully configured DiscV5 peer discovery agent
    * @throws IllegalStateException if the local node record has not been initialized
    */
   @Override
-  public PeerDiscoveryAgent create(final RlpxAgent ignored) {
+  public PeerDiscoveryAgent create(final RlpxAgent rlpxAgent) {
 
     final DiscoverySystemBuilder discoverySystemBuilder = new DiscoverySystemBuilder();
     nodeRecordManager.initializeLocalNode(
@@ -113,10 +105,13 @@ public final class PeerDiscoveryAgentFactoryV5 implements PeerDiscoveryAgentFact
             .bootnodes(bootnodes)
             .localNodeRecord(localNodeRecord)
             .localNodeRecordListener(new NodeRecordListener(nodeRecordManager))
-            .addressAccessPolicy(new PermissiveAddressAccessPolicy())
             .newAddressHandler(new NoopNewAddressHandler())
             .buildMutable();
-
-    return new PeerDiscoveryAgentV5(discoverySystem, config, forkIdManager, nodeRecordManager);
+    return new PeerDiscoveryAgentV5(
+        discoverySystem,
+        config,
+        forkIdManager,
+        nodeRecordManager,
+        rlpxAgent);
   }
 }
