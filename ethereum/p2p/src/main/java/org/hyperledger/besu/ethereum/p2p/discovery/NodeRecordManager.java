@@ -39,7 +39,6 @@ import org.ethereum.beacon.discovery.schema.EnrField;
 import org.ethereum.beacon.discovery.schema.IdentitySchema;
 import org.ethereum.beacon.discovery.schema.NodeRecord;
 import org.ethereum.beacon.discovery.schema.NodeRecordFactory;
-import org.ethereum.beacon.discovery.storage.NodeRecordListener;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
@@ -57,7 +56,7 @@ import org.slf4j.LoggerFactory;
  *
  * <p>The ENR is only rewritten when one or more relevant fields change.
  */
-public class NodeRecordManager implements NodeRecordListener {
+public class NodeRecordManager {
   private static final Logger LOG = LoggerFactory.getLogger(NodeRecordManager.class);
   private static final Supplier<SignatureAlgorithm> SIGNATURE_ALGORITHM =
       Suppliers.memoize(SignatureAlgorithmFactory::getInstance);
@@ -72,7 +71,6 @@ public class NodeRecordManager implements NodeRecordListener {
 
   private Optional<DiscoveryPeerV4> localNode = Optional.empty();
   private String advertisedAddress;
-  private final SignatureAlgorithm signatureAlgorithm = SIGNATURE_ALGORITHM.get();
 
   /**
    * Creates a new {@link NodeRecordManager}.
@@ -218,25 +216,8 @@ public class NodeRecordManager implements NodeRecordListener {
       final List<Bytes> forkId) {
 
     final UInt64 sequence = existingRecord.map(NodeRecord::getSeq).orElse(UInt64.ZERO).add(1);
-    final NodeRecord record =
-        createNodeRecord(factory, sequence, ipAddressBytes, discoveryPort, listeningPort, forkId);
-    record.setSignature(
-        nodeKey.sign(Hash.keccak256(record.serializeNoSignature())).encodedBytes().slice(0, 64));
 
-    final var updater = variablesStorage.updater();
-    updater.setLocalEnrSeqno(record.serialize());
-    updater.commit();
-
-    return record;
-  }
-
-  private NodeRecord createNodeRecord(
-      final NodeRecordFactory factory,
-      final UInt64 sequence,
-      final Bytes ipAddressBytes,
-      final int discoveryPort,
-      final int listeningPort,
-      final List<Bytes> forkId) {
+    final SignatureAlgorithm signatureAlgorithm = SIGNATURE_ALGORITHM.get();
 
     final NodeRecord record =
         factory.createFromValues(
@@ -260,10 +241,5 @@ public class NodeRecordManager implements NodeRecordListener {
     updater.commit();
 
     return record;
-  }
-
-  @Override
-  public void recordUpdated(final NodeRecord nodeRecord, final NodeRecord nodeRecord1) {
-    updateNodeRecord();
   }
 }

@@ -44,7 +44,6 @@ public class DefaultRlpxAgentFactory implements RlpxAgentFactory {
       final MetricsSystem metricsSystem,
       final Supplier<Stream<PeerConnection>> allConnectionsSupplier,
       final Supplier<Stream<PeerConnection>> allActiveConnectionsSupplier) {
-
     this.nodeKey = nodeKey;
     this.config = config;
     this.peerPermissions = peerPermissions;

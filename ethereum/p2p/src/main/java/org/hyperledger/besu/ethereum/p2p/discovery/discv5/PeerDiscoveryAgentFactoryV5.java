@@ -82,7 +82,7 @@ public final class PeerDiscoveryAgentFactoryV5 implements PeerDiscoveryAgentFact
             .listen(config.getDiscovery().getBindHost(), config.getDiscovery().getBindPort())
             .bootnodes(bootnodes)
             // .newAddressHandler(maybeUpdateNodeRecordHandler)
-            .localNodeRecordListener(nodeRecordManager)
+            .localNodeRecordListener(new NodeRecordListener(nodeRecordManager))
             .localNodeRecord(localNodeRecord)
             .nodeKeyService(nodeKeyService)
 

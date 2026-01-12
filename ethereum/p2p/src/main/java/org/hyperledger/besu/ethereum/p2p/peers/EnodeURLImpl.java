@@ -164,7 +164,7 @@ public class EnodeURLImpl implements EnodeURL {
     checkArgument(
         nodeId.length() == expectedSize,
         "Expected " + EnodeURLImpl.NODE_ID_SIZE + " bytes in " + nodeId);
-    return Bytes.fromHexString(nodeId);
+    return Bytes.fromHexString(nodeId, NODE_ID_SIZE);
   }
 
   @Override
