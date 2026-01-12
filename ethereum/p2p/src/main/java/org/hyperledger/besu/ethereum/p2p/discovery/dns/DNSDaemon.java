@@ -18,7 +18,6 @@ import java.util.List;
 import java.util.Optional;
 
 import io.vertx.core.AbstractVerticle;
-import org.ethereum.beacon.discovery.schema.NodeRecord;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
@@ -98,9 +97,12 @@ public class DNSDaemon extends AbstractVerticle {
   void refreshENRRecords(final Long taskId) {
     LOG.debug("Refreshing DNS records");
     final long startTime = System.nanoTime();
-    final List<NodeRecord> ethereumNodeRecords = dnsResolver.collectAll();
-    final long endTime = System.nanoTime();
-    LOG.debug("Time taken to DNSResolver.collectAll: {} ms", (endTime - startTime) / 1_000_000);
+    final List<EthereumNodeRecord> ethereumNodeRecords = dnsResolver.collectAll();
+    final long durationMs = (System.nanoTime() - startTime) / 1_000_000;
+    LOG.debug(
+        "Refreshed ENR DNS records: collected {} record(s) in {} ms",
+        ethereumNodeRecords.size(),
+        durationMs);
     listener.ifPresent(it -> it.newRecords(dnsResolver.sequence(), ethereumNodeRecords));
   }
 }

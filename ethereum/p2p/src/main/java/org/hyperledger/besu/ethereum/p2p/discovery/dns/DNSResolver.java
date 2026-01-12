@@ -16,7 +16,6 @@ package org.hyperledger.besu.ethereum.p2p.discovery.dns;
 
 import static org.hyperledger.besu.ethereum.p2p.discovery.dns.KVReader.readKV;
 
-import org.ethereum.beacon.discovery.schema.NodeRecord;
 import org.hyperledger.besu.crypto.Hash;
 import org.hyperledger.besu.ethereum.p2p.discovery.dns.DNSEntry.ENRNode;
 import org.hyperledger.besu.ethereum.p2p.discovery.dns.DNSEntry.ENRTreeLink;
@@ -87,8 +86,8 @@ public class DNSResolver {
    *
    * @return all ENRs collected
    */
-  public List<NodeRecord> collectAll() {
-    final List<NodeRecord> nodes = new ArrayList<>();
+  public List<EthereumNodeRecord> collectAll() {
+    final List<EthereumNodeRecord> nodes = new ArrayList<>();
     final DNSVisitor visitor = nodes::add;
     visitTree(new ENRTreeLink(enrLink), visitor);
     if (!nodes.isEmpty()) {

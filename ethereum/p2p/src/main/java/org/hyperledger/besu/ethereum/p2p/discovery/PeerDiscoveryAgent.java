@@ -79,7 +79,7 @@ public interface PeerDiscoveryAgent {
   boolean isStopped();
 
   /**
-   * Bonds with the specified peer to establish a connection.
+   * Adds a peer to the discovery service.
    *
    * @param peer The peer to bond with.
    */

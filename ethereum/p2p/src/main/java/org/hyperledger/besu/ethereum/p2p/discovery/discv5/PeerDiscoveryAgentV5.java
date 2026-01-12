@@ -44,10 +44,10 @@ public final class PeerDiscoveryAgentV5 implements PeerDiscoveryAgent {
   private final NodeRecordManager nodeRecordManager;
 
   public PeerDiscoveryAgentV5(
-    final MutableDiscoverySystem discoverySystem,
-    final NetworkingConfiguration config,
-    final ForkIdManager forkIdManager,
-    final NodeRecordManager nodeRecordManager) {
+      final MutableDiscoverySystem discoverySystem,
+      final NetworkingConfiguration config,
+      final ForkIdManager forkIdManager,
+      final NodeRecordManager nodeRecordManager) {
     this.discoverySystem = discoverySystem;
     this.forkIdManager = forkIdManager;
     this.config = config.getDiscovery();
@@ -86,9 +86,7 @@ public final class PeerDiscoveryAgentV5 implements PeerDiscoveryAgent {
 
   @Override
   public Stream<DiscoveryPeer> streamDiscoveredPeers() {
-    return discoverySystem.streamLiveNodes()
-      .map(DiscoveryPeerFactory::fromNodeRecord)
-      .flatMap(Optional::stream);
+    return discoverySystem.streamLiveNodes().map(DiscoveryPeerFactory::fromNodeRecord);
   }
 
   @Override
@@ -113,7 +111,6 @@ public final class PeerDiscoveryAgentV5 implements PeerDiscoveryAgent {
 
   @Override
   public Optional<Peer> getPeer(final PeerId peerId) {
-    return discoverySystem.lookupNode(peerId.getId())
-      .flatMap(DiscoveryPeerFactory::fromNodeRecord);
+    return discoverySystem.lookupNode(peerId.getId()).map(DiscoveryPeerFactory::fromNodeRecord);
   }
 }

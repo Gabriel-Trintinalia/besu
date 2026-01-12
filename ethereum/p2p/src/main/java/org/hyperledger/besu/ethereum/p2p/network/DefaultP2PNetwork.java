@@ -17,7 +17,6 @@ package org.hyperledger.besu.ethereum.p2p.network;
 import static com.google.common.base.Preconditions.checkNotNull;
 import static com.google.common.base.Preconditions.checkState;
 
-import org.ethereum.beacon.discovery.schema.NodeRecord;
 import org.hyperledger.besu.cryptoservices.NodeKey;
 import org.hyperledger.besu.ethereum.core.Util;
 import org.hyperledger.besu.ethereum.p2p.config.NetworkingConfiguration;
@@ -55,7 +54,6 @@ import org.hyperledger.besu.plugin.data.EnodeURL;
 import org.hyperledger.besu.plugin.services.MetricsSystem;
 
 import java.time.Duration;
-import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.Collection;
 import java.util.Comparator;
@@ -357,15 +355,10 @@ public class DefaultP2PNetwork implements P2PNetwork {
 
   @VisibleForTesting
   DNSDaemonListener createDaemonListener() {
-    return (seq, records) -> {
-      final List<DiscoveryPeer> peers = new ArrayList<>();
-      for (final NodeRecord nodeRecord : records) {
-        DiscoveryPeerFactory.fromNodeRecord(nodeRecord).ifPresent(peers::add);
-      }
-      if (!peers.isEmpty()) {
-        peers.forEach(peerDiscoveryAgent::addPeer);
-      }
-    };
+    return (seq, records) ->
+        records.stream()
+            .map(DiscoveryPeerFactory::fromEthereumNodeRecord)
+            .forEach(peerDiscoveryAgent::addPeer);
   }
 
   @VisibleForTesting

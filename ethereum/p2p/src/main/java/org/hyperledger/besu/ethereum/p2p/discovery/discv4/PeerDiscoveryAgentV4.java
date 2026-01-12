@@ -354,10 +354,7 @@ public abstract class PeerDiscoveryAgentV4 implements PeerDiscoveryAgent {
 
   @Override
   public void addPeer(final Peer peer) {
-    controller.ifPresent(
-        c -> {
-          DiscoveryPeerV4.from(peer).ifPresent(c::handleBondingRequest);
-        });
+    controller.ifPresent(c -> DiscoveryPeerV4.from(peer).ifPresent(c::handleBondingRequest));
   }
 
   @VisibleForTesting
