@@ -18,16 +18,36 @@ import org.hyperledger.besu.ethereum.p2p.discovery.NodeRecordManager;
 
 import org.ethereum.beacon.discovery.schema.NodeRecord;
 
+/**
+ * A {@link org.ethereum.beacon.discovery.storage.NodeRecordListener} that forwards node record
+ * update events to the {@link NodeRecordManager}.
+ *
+ * <p>This listener acts as a bridge between the discv5 storage layer and Besu’s {@link
+ * NodeRecordManager}, ensuring that updates to {@link NodeRecord}s are propagated to the local node
+ * record management logic.
+ */
 public class NodeRecordListener
     implements org.ethereum.beacon.discovery.storage.NodeRecordListener {
   private final NodeRecordManager nodeRecordManager;
 
+  /**
+   * Creates a new listener that delegates node record updates to the given {@link
+   * NodeRecordManager}.
+   *
+   * @param nodeRecordManager the manager responsible for handling node record updates
+   */
   public NodeRecordListener(NodeRecordManager nodeRecordManager) {
     this.nodeRecordManager = nodeRecordManager;
   }
 
+  /**
+   * Notifies the {@link NodeRecordManager} that a node record has been updated.
+   *
+   * @param previousRecord the previous version of the node record
+   * @param updatedRecord the updated version of the node record
+   */
   @Override
-  public void recordUpdated(NodeRecord nodeRecord, NodeRecord nodeRecord1) {
+  public void recordUpdated(NodeRecord previousRecord, NodeRecord updatedRecord) {
     nodeRecordManager.updateNodeRecord();
   }
 }

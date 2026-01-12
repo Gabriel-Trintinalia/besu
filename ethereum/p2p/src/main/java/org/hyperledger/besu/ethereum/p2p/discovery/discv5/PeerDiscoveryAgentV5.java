@@ -32,6 +32,10 @@ import org.ethereum.beacon.discovery.MutableDiscoverySystem;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
+/**
+ * DiscV5 implementation of {@link PeerDiscoveryAgent} backed by a mutable Ethereum Discovery v5
+ * {@link MutableDiscoverySystem}.
+ */
 public final class PeerDiscoveryAgentV5 implements PeerDiscoveryAgent {
   private static final Logger LOG = LoggerFactory.getLogger(PeerDiscoveryAgentV5.class);
 
@@ -43,6 +47,14 @@ public final class PeerDiscoveryAgentV5 implements PeerDiscoveryAgent {
   private final DiscoveryConfiguration config;
   private final NodeRecordManager nodeRecordManager;
 
+  /**
+   * Creates a new DiscV5 peer discovery agent.
+   *
+   * @param discoverySystem the underlying mutable DiscV5 discovery system
+   * @param config the networking configuration
+   * @param forkIdManager manager used to validate peer fork compatibility
+   * @param nodeRecordManager manager responsible for local node record updates
+   */
   public PeerDiscoveryAgentV5(
       final MutableDiscoverySystem discoverySystem,
       final NetworkingConfiguration config,
@@ -63,6 +75,11 @@ public final class PeerDiscoveryAgentV5 implements PeerDiscoveryAgent {
     return discoverySystem.start().thenApply(v -> tcpPort);
   }
 
+  /**
+   * Stops the DiscV5 discovery system.
+   *
+   * @return a completed future once the discovery system has been stopped
+   */
   @Override
   public CompletableFuture<?> stop() {
     LOG.info("Stopping DiscV5 Peer Discovery Agent");
@@ -71,6 +88,12 @@ public final class PeerDiscoveryAgentV5 implements PeerDiscoveryAgent {
     return CompletableFuture.completedFuture(null);
   }
 
+  /**
+   * Updates the local node record if discovery is disabled.
+   *
+   * <p>When DiscV5 discovery is enabled, node record updates are handled internally by the
+   * discovery system.
+   */
   @Override
   public void updateNodeRecord() {
     if (isEnabled()) {
@@ -79,36 +102,73 @@ public final class PeerDiscoveryAgentV5 implements PeerDiscoveryAgent {
     nodeRecordManager.updateNodeRecord();
   }
 
+  /**
+   * Checks whether a discovered peer is compatible with the local fork ID.
+   *
+   * @param peer the discovered peer to validate
+   * @return {@code true} if the peer is compatible or does not advertise a fork ID
+   */
   @Override
   public boolean checkForkId(final DiscoveryPeer peer) {
     return peer.getForkId().map(forkIdManager::peerCheck).orElse(true);
   }
 
+  /**
+   * Streams peers discovered by the DiscV5 discovery system.
+   *
+   * @return a stream of discovered peers
+   */
   @Override
   public Stream<DiscoveryPeer> streamDiscoveredPeers() {
     return discoverySystem.streamLiveNodes().map(DiscoveryPeerFactory::fromNodeRecord);
   }
 
+  /**
+   * Removes a peer from the discovery system.
+   *
+   * @param peerId the identifier of the peer to drop
+   */
   @Override
   public void dropPeer(final PeerId peerId) {
     discoverySystem.deleteNodeRecord(peerId.getId());
   }
 
+  /**
+   * Indicates whether peer discovery is enabled via configuration.
+   *
+   * @return {@code true} if discovery is enabled
+   */
   @Override
   public boolean isEnabled() {
     return config.isEnabled();
   }
 
+  /**
+   * Indicates whether the discovery agent has been stopped.
+   *
+   * @return {@code true} if the agent has been stopped
+   */
   @Override
   public boolean isStopped() {
     return stopped;
   }
 
+  /**
+   * Adds a peer to the discovery system.
+   *
+   * @param peer the peer to add
+   */
   @Override
   public void addPeer(final Peer peer) {
     peer.getNodeRecord().ifPresent(discoverySystem::addNodeRecord);
   }
 
+  /**
+   * Looks up a peer by its identifier.
+   *
+   * @param peerId the peer identifier
+   * @return the peer if known to the discovery system
+   */
   @Override
   public Optional<Peer> getPeer(final PeerId peerId) {
     return discoverySystem.lookupNode(peerId.getId()).map(DiscoveryPeerFactory::fromNodeRecord);

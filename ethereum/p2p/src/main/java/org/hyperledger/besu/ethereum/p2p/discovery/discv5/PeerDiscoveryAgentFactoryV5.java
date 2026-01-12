@@ -29,13 +29,25 @@ import java.util.List;
 
 import com.google.common.base.Supplier;
 import com.google.common.base.Suppliers;
-import io.vertx.core.Vertx;
 import org.ethereum.beacon.discovery.DiscoverySystemBuilder;
 import org.ethereum.beacon.discovery.MutableDiscoverySystem;
 import org.ethereum.beacon.discovery.schema.NodeRecord;
 
-/** Minimal factory for DiscV5 PeerDiscoveryAgent using DiscoverySystemBuilder. */
-@SuppressWarnings("UnusedVariable")
+/**
+ * Factory for creating DiscV5 {@link PeerDiscoveryAgent} instances backed by the Ethereum Discovery
+ * v5 {@link DiscoverySystemBuilder}.
+ *
+ * <p>This factory is responsible for:
+ *
+ * <ul>
+ *   <li>Initializing the local {@link NodeRecord} via {@link NodeRecordManager}
+ *   <li>Configuring and building a mutable DiscV5 discovery system
+ *   <li>Wiring Besu-specific components such as fork ID handling and node key services
+ * </ul>
+ *
+ * <p>The resulting {@link PeerDiscoveryAgent} integrates DiscV5 discovery with Besu’s P2P
+ * networking stack.
+ */
 public final class PeerDiscoveryAgentFactoryV5 implements PeerDiscoveryAgentFactory {
   private final List<NodeRecord> bootnodes;
   private final NetworkingConfiguration config;
@@ -48,8 +60,15 @@ public final class PeerDiscoveryAgentFactoryV5 implements PeerDiscoveryAgentFact
   private final NodeKey nodeKey;
   private final ForkIdManager forkIdManager;
 
+  /**
+   * Creates a new DiscV5 peer discovery agent factory.
+   *
+   * @param nodeKey the local node key used for identity and signing
+   * @param config the networking configuration
+   * @param nodeRecordManager manager responsible for local node record lifecycle
+   * @param forkIdManager manager providing fork ID information for peer compatibility
+   */
   public PeerDiscoveryAgentFactoryV5(
-      final Vertx vertx,
       final NodeKey nodeKey,
       final NetworkingConfiguration config,
       final NodeRecordManager nodeRecordManager,
@@ -61,6 +80,16 @@ public final class PeerDiscoveryAgentFactoryV5 implements PeerDiscoveryAgentFact
     this.bootnodes = BootnodesV5.getBootnodes();
   }
 
+  /**
+   * Creates and configures a DiscV5 {@link PeerDiscoveryAgent}.
+   *
+   * <p>The provided {@link RlpxAgent} is ignored, as DiscV5 discovery operates independently of the
+   * RLPx transport layer.
+   *
+   * @param ignored unused RLPx agent
+   * @return a fully configured DiscV5 peer discovery agent
+   * @throws IllegalStateException if the local node record has not been initialized
+   */
   @Override
   public PeerDiscoveryAgent create(final RlpxAgent ignored) {
 
@@ -80,17 +109,14 @@ public final class PeerDiscoveryAgentFactoryV5 implements PeerDiscoveryAgentFact
     final MutableDiscoverySystem discoverySystem =
         discoverySystemBuilder
             .listen(config.getDiscovery().getBindHost(), config.getDiscovery().getBindPort())
-            .bootnodes(bootnodes)
-            // .newAddressHandler(maybeUpdateNodeRecordHandler)
-            .localNodeRecordListener(new NodeRecordListener(nodeRecordManager))
-            .localNodeRecord(localNodeRecord)
             .nodeKeyService(nodeKeyService)
-
-            // .addressAccessPolicy(
-            //   discoConfig.areSiteLocalAddressesEnabled()
-            //    ? AddressAccessPolicy.ALLOW_ALL
-            //   : address -> !address.getAddress().isSiteLocalAddress())
+            .bootnodes(bootnodes)
+            .localNodeRecord(localNodeRecord)
+            .localNodeRecordListener(new NodeRecordListener(nodeRecordManager))
+            .addressAccessPolicy(new PermissiveAddressAccessPolicy())
+            .newAddressHandler(new NoopNewAddressHandler())
             .buildMutable();
+
     return new PeerDiscoveryAgentV5(discoverySystem, config, forkIdManager, nodeRecordManager);
   }
 }

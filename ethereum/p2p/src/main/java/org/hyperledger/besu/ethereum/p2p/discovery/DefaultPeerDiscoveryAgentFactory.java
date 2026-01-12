@@ -55,7 +55,7 @@ public class DefaultPeerDiscoveryAgentFactory implements PeerDiscoveryAgentFacto
       NodeRecordManager nodeRecordManager =
           new NodeRecordManager(storageProvider, nodeKey, forkIdManager, natService);
       this.delegate =
-          new PeerDiscoveryAgentFactoryV5(vertx, nodeKey, config, nodeRecordManager, forkIdManager);
+          new PeerDiscoveryAgentFactoryV5(nodeKey, config, nodeRecordManager, forkIdManager);
     } else {
       this.delegate =
           new PeerDiscoveryAgentFactoryV4(
