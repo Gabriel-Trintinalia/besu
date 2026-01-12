@@ -31,14 +31,15 @@ public class DiscoveryPeerFactory {
     return DiscoveryPeerV4.fromEnode(enode);
   }
 
+  public static DiscoveryPeer fromNodeRecord(final NodeRecord nodeRecord) {
+    EthereumNodeRecord enr = EthereumNodeRecord.fromNodeRecord(nodeRecord);
+    return fromEthereumNodeRecord(enr);
+  }
+
   public static DiscoveryPeer fromEthereumNodeRecord(final EthereumNodeRecord enr) {
     DiscoveryPeer peer = fromEnode(buildEnodeUrl(enr));
     peer.setNodeRecord(enr.nodeRecord());
     return peer;
-  }
-
-  public static DiscoveryPeer fromNodeRecord(final NodeRecord nodeRecord) {
-    return fromEthereumNodeRecord(EthereumNodeRecord.fromEnr(nodeRecord.asEnr()));
   }
 
   private static EnodeURL buildEnodeUrl(final EthereumNodeRecord enr) {
