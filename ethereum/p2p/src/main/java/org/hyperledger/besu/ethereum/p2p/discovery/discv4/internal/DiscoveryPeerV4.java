@@ -38,7 +38,7 @@ public class DiscoveryPeerV4 extends DiscoveryPeer {
   // Timestamps.
   private final AtomicLong firstDiscovered = new AtomicLong(0L);
 
-  protected DiscoveryPeerV4(final EnodeURL enode, final Endpoint endpoint) {
+  private DiscoveryPeerV4(final EnodeURL enode, final Endpoint endpoint) {
     super(enode);
     this.endpoint = endpoint;
   }
@@ -110,7 +110,7 @@ public class DiscoveryPeerV4 extends DiscoveryPeer {
 
   @Override
   public boolean isReady() {
-    return this.isBonded();
+    return isBonded();
   }
 
   public Endpoint getEndpoint() {
