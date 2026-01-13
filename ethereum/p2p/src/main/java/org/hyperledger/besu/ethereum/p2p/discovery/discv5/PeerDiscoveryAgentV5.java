@@ -26,6 +26,8 @@ import org.hyperledger.besu.ethereum.p2p.peers.PeerId;
 import org.hyperledger.besu.ethereum.p2p.rlpx.RlpxAgent;
 
 import java.time.Duration;
+import java.util.Collection;
+import java.util.List;
 import java.util.Objects;
 import java.util.Optional;
 import java.util.concurrent.CompletableFuture;
@@ -61,12 +63,6 @@ public final class PeerDiscoveryAgentV5 implements PeerDiscoveryAgent {
 
   private static final Logger LOG = LoggerFactory.getLogger(PeerDiscoveryAgentV5.class);
 
-  /** Fast discovery interval used while peer count is below the configured threshold. */
-  private static final Duration FAST_INTERVAL = Duration.ofSeconds(1);
-
-  /** Slow discovery interval used once sufficient peers are connected. */
-  private static final Duration SLOW_INTERVAL = Duration.ofSeconds(30);
-
   /** Minimum ratio of connected peers required to switch to slow discovery cadence. */
   private static final double MINIMUM_PEER_RATIO = 0.5;
 
@@ -81,7 +77,6 @@ public final class PeerDiscoveryAgentV5 implements PeerDiscoveryAgent {
 
   private volatile boolean running = false;
   private volatile boolean stopped = false;
-  private volatile long lastExecutionMillis = 0;
 
   /**
    * Creates a new DiscV5 peer discovery agent.
@@ -227,17 +222,21 @@ public final class PeerDiscoveryAgentV5 implements PeerDiscoveryAgent {
     return discoverySystem.lookupNode(peerId.getId()).map(DiscoveryPeerFactory::fromNodeRecord);
   }
 
+  /** Determines whether the RLPx agent has reached a sufficient number of connected peers. */
+  private boolean hasSufficientPeers() {
+    LOG.info(
+        "Current peer count: {}, max peers {}, required for sufficient: {}",
+        rlpxAgent.getConnectionCount(),
+        rlpxAgent.getMaxPeers(),
+        (int) (rlpxAgent.getMaxPeers() * MINIMUM_PEER_RATIO));
+    return rlpxAgent.getConnectionCount() >= rlpxAgent.getMaxPeers() * MINIMUM_PEER_RATIO;
+  }
+
   /** Periodic discovery task that enforces adaptive cadence and triggers peer discovery. */
   private void discoveryTick() {
-    if (!running) {
+    if (!running || hasSufficientPeers()) {
       return;
     }
-    final long now = System.currentTimeMillis();
-    final Duration interval = hasSufficientPeers() ? SLOW_INTERVAL : FAST_INTERVAL;
-    if (now - lastExecutionMillis < interval.toMillis()) {
-      return;
-    }
-    lastExecutionMillis = now;
     discoverAndConnect();
   }
 
@@ -255,19 +254,23 @@ public final class PeerDiscoveryAgentV5 implements PeerDiscoveryAgent {
             });
   }
 
-  /** Determines whether the RLPx agent has reached a sufficient number of connected peers. */
-  private boolean hasSufficientPeers() {
-    return rlpxAgent.getConnectionCount() >= rlpxAgent.getMaxPeers() * MINIMUM_PEER_RATIO;
-  }
-
   /** Builds a stream of candidate peers suitable for outbound connection attempts. */
-  private Stream<DiscoveryPeer> candidatePeers(final Iterable<NodeRecord> nodeRecords) {
-    return Stream.concat(
-            StreamSupport.stream(nodeRecords.spliterator(), false),
-            discoverySystem.streamLiveNodes())
+  private Stream<DiscoveryPeer> candidatePeers(final Collection<NodeRecord> nodeRecords) {
+    final long discoveredCount = nodeRecords.size();
+    LOG.debug("Discovered {} new peers", discoveredCount);
+
+    final Stream<NodeRecord> discoveredPeers = nodeRecords.stream();
+    final Stream<NodeRecord> knownPeers = discoverySystem.streamLiveNodes();
+
+    final List<DiscoveryPeer> candidates =
+      Stream.concat(discoveredPeers, knownPeers)
+        .distinct()
         .map(DiscoveryPeerFactory::fromNodeRecord)
-        .filter(DiscoveryPeer::isReady)
         .filter(peer -> peer.getEnodeURL().isListening())
-        .filter(peer -> peer.getForkId().map(forkIdManager::peerCheck).orElse(true));
+        .filter(peer -> peer.getForkId().map(forkIdManager::peerCheck).orElse(true))
+        .toList();
+
+    LOG.debug("Total unique peers eligible for connection: {}", candidates.size());
+    return candidates.stream();
   }
 }

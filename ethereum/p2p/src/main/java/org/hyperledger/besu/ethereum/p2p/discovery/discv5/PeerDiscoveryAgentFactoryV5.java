@@ -47,7 +47,7 @@ import org.ethereum.beacon.discovery.schema.NodeRecord;
  * networking stack.
  */
 public final class PeerDiscoveryAgentFactoryV5 implements PeerDiscoveryAgentFactory {
-  private final List<NodeRecord> bootnodes;
+  //private final List<NodeRecord> bootnodes;
   private final NetworkingConfiguration config;
 
   private final NodeRecordManager nodeRecordManager;
@@ -71,7 +71,7 @@ public final class PeerDiscoveryAgentFactoryV5 implements PeerDiscoveryAgentFact
     this.nodeKey = nodeKey;
     this.forkIdManager = forkIdManager;
     this.nodeRecordManager = nodeRecordManager;
-    this.bootnodes = BootnodesV5.getBootnodes();
+    //this.bootnodes = BootnodesV5.getBootnodes();
   }
 
   /**
@@ -104,7 +104,7 @@ public final class PeerDiscoveryAgentFactoryV5 implements PeerDiscoveryAgentFact
         discoverySystemBuilder
             .listen(config.getDiscovery().getBindHost(), config.getDiscovery().getBindPort())
             .nodeKeyService(nodeKeyService)
-            .bootnodes(bootnodes)
+//            .bootnodes(bootnodes)
             .localNodeRecord(localNodeRecord)
             .localNodeRecordListener((previous, updated) -> nodeRecordManager.updateNodeRecord())
             .newAddressHandler((nodeRecord, newAddress) -> Optional.of(nodeRecord))
