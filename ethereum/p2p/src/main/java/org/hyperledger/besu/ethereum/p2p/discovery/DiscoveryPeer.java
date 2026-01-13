@@ -62,4 +62,8 @@ public class DiscoveryPeer extends DefaultPeer {
   public boolean isReady() {
     return true;
   }
+
+  public boolean isListening() {
+    return getEnodeURL().isListening();
+  }
 }
