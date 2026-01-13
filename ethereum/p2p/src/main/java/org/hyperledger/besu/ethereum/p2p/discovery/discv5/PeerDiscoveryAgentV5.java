@@ -25,7 +25,6 @@ import org.hyperledger.besu.ethereum.p2p.peers.Peer;
 import org.hyperledger.besu.ethereum.p2p.peers.PeerId;
 import org.hyperledger.besu.ethereum.p2p.rlpx.RlpxAgent;
 
-import java.time.Duration;
 import java.util.Collection;
 import java.util.List;
 import java.util.Objects;
@@ -35,7 +34,6 @@ import java.util.concurrent.Executors;
 import java.util.concurrent.ScheduledExecutorService;
 import java.util.concurrent.TimeUnit;
 import java.util.stream.Stream;
-import java.util.stream.StreamSupport;
 
 import org.ethereum.beacon.discovery.MutableDiscoverySystem;
 import org.ethereum.beacon.discovery.schema.NodeRecord;
@@ -263,12 +261,12 @@ public final class PeerDiscoveryAgentV5 implements PeerDiscoveryAgent {
     final Stream<NodeRecord> knownPeers = discoverySystem.streamLiveNodes();
 
     final List<DiscoveryPeer> candidates =
-      Stream.concat(discoveredPeers, knownPeers)
-        .distinct()
-        .map(DiscoveryPeerFactory::fromNodeRecord)
-        .filter(peer -> peer.getEnodeURL().isListening())
-        .filter(peer -> peer.getForkId().map(forkIdManager::peerCheck).orElse(true))
-        .toList();
+        Stream.concat(discoveredPeers, knownPeers)
+            .distinct()
+            .map(DiscoveryPeerFactory::fromNodeRecord)
+            .filter(peer -> peer.getEnodeURL().isListening())
+            .filter(peer -> peer.getForkId().map(forkIdManager::peerCheck).orElse(true))
+            .toList();
 
     LOG.debug("Total unique peers eligible for connection: {}", candidates.size());
     return candidates.stream();

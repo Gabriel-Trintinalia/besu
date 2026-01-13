@@ -22,27 +22,53 @@ import org.hyperledger.besu.cryptoservices.NodeKey;
 import org.apache.tuweni.bytes.Bytes;
 import org.apache.tuweni.bytes.Bytes32;
 
-public class NodeKeyService implements org.ethereum.beacon.discovery.crypto.NodeKeyService {
+/**
+ * An implementation of the {@link org.ethereum.beacon.discovery.crypto.Signer} interface that uses
+ * a local {@link NodeKey} for signing and key agreement.
+ */
+public class LocalNodeKeySigner implements org.ethereum.beacon.discovery.crypto.Signer {
   private final SignatureAlgorithm signatureAlgorithm = SignatureAlgorithmFactory.getInstance();
 
   private final NodeKey nodeKey;
 
-  public NodeKeyService(final NodeKey nodeKey) {
+  /**
+   * Creates a new LocalNodeKeySigner.
+   *
+   * @param nodeKey the node key to use for signing and key agreement
+   */
+  public LocalNodeKeySigner(final NodeKey nodeKey) {
     this.nodeKey = nodeKey;
   }
 
+  /**
+   * Derives a shared secret using ECDH with the given peer public key.
+   *
+   * @param destPubKey the destination peer's public key
+   * @return the derived shared secret
+   */
   @Override
-  public Bytes deriveECDHKeyAgreement(final Bytes bytes) {
-    SECPPublicKey publicKey = signatureAlgorithm.createPublicKey(bytes);
+  public Bytes deriveECDHKeyAgreement(final Bytes destPubKey) {
+    SECPPublicKey publicKey = signatureAlgorithm.createPublicKey(destPubKey);
     return nodeKey.calculateECDHKeyAgreement(publicKey);
   }
 
+  /**
+   * Creates a signature of message `x`.
+   *
+   * @param messageHash message, hashed
+   * @return ECDSA signature with properties merged together: r || s
+   */
   @Override
-  public Bytes sign(final Bytes32 bytes32) {
-    Bytes signature = nodeKey.sign(bytes32).encodedBytes();
+  public Bytes sign(final Bytes32 messageHash) {
+    Bytes signature = nodeKey.sign(messageHash).encodedBytes();
     return signature.slice(0, 64);
   }
 
+  /**
+   * Derives the compressed public key corresponding to the private key held by this module.
+   *
+   * @return the compressed public key
+   */
   @Override
   public Bytes deriveCompressedPublicKeyFromPrivate() {
     return Bytes.wrap(

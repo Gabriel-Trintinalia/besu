@@ -23,7 +23,6 @@ import org.hyperledger.besu.ethereum.p2p.discovery.PeerDiscoveryAgent;
 import org.hyperledger.besu.ethereum.p2p.discovery.PeerDiscoveryAgentFactory;
 import org.hyperledger.besu.ethereum.p2p.rlpx.RlpxAgent;
 
-import java.util.List;
 import java.util.Optional;
 
 import org.ethereum.beacon.discovery.AddressAccessPolicy;
@@ -47,7 +46,6 @@ import org.ethereum.beacon.discovery.schema.NodeRecord;
  * networking stack.
  */
 public final class PeerDiscoveryAgentFactoryV5 implements PeerDiscoveryAgentFactory {
-  //private final List<NodeRecord> bootnodes;
   private final NetworkingConfiguration config;
 
   private final NodeRecordManager nodeRecordManager;
@@ -71,7 +69,6 @@ public final class PeerDiscoveryAgentFactoryV5 implements PeerDiscoveryAgentFact
     this.nodeKey = nodeKey;
     this.forkIdManager = forkIdManager;
     this.nodeRecordManager = nodeRecordManager;
-    //this.bootnodes = BootnodesV5.getBootnodes();
   }
 
   /**
@@ -99,12 +96,10 @@ public final class PeerDiscoveryAgentFactoryV5 implements PeerDiscoveryAgentFact
             .flatMap(DiscoveryPeer::getNodeRecord)
             .orElseThrow(() -> new IllegalStateException("Local node record not initialized"));
 
-    NodeKeyService nodeKeyService = new NodeKeyService(nodeKey);
     final MutableDiscoverySystem discoverySystem =
         discoverySystemBuilder
             .listen(config.getDiscovery().getBindHost(), config.getDiscovery().getBindPort())
-            .nodeKeyService(nodeKeyService)
-//            .bootnodes(bootnodes)
+            .signer(new LocalNodeKeySigner(nodeKey))
             .localNodeRecord(localNodeRecord)
             .localNodeRecordListener((previous, updated) -> nodeRecordManager.updateNodeRecord())
             .newAddressHandler((nodeRecord, newAddress) -> Optional.of(nodeRecord))
