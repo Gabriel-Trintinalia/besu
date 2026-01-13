@@ -47,7 +47,6 @@ public class PeerDiscoveryAgentFactoryV4 implements PeerDiscoveryAgentFactory {
       final MetricsSystem metricsSystem,
       final StorageProvider storageProvider,
       final ForkIdManager forkIdManager) {
-
     this.vertx = vertx;
     this.nodeKey = nodeKey;
     this.config = config;
@@ -60,7 +59,6 @@ public class PeerDiscoveryAgentFactoryV4 implements PeerDiscoveryAgentFactory {
 
   @Override
   public PeerDiscoveryAgent create(final RlpxAgent rlpxAgent) {
-
     return VertxPeerDiscoveryAgent.create(
         vertx,
         nodeKey,

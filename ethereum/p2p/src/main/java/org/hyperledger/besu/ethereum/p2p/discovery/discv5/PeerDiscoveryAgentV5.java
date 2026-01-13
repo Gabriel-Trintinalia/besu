@@ -141,12 +141,12 @@ public final class PeerDiscoveryAgentV5 implements PeerDiscoveryAgent {
     return CompletableFuture.completedFuture(null);
   }
 
-    /**
-     * Updates the local node record in the discovery system.
-     *
-     * <p>This method is typically called when network parameters change that affect the node record
-     * (e.g., advertised IP address or ports).
-     */
+  /**
+   * Updates the local node record in the discovery system.
+   *
+   * <p>This method is typically called when network parameters change that affect the node record
+   * (e.g., advertised IP address or ports).
+   */
   @Override
   public void updateNodeRecord() {
     if (!isEnabled()) {

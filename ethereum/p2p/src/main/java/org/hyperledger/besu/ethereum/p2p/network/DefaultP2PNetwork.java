@@ -383,7 +383,6 @@ public class DefaultP2PNetwork implements P2PNetwork {
     LOG.trace("Initiating connections to discovered peers.");
     final Stream<DiscoveryPeer> toTry =
         streamDiscoveredPeers()
-            .filter(p -> p.getEnodeURL().isListening())
             .filter(DiscoveryPeer::isReady)
             .filter(DiscoveryPeer::isListening)
             .filter(peerDiscoveryAgent::checkForkId)

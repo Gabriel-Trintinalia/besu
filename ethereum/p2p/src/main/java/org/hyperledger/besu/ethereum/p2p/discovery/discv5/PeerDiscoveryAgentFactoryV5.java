@@ -24,7 +24,9 @@ import org.hyperledger.besu.ethereum.p2p.discovery.PeerDiscoveryAgentFactory;
 import org.hyperledger.besu.ethereum.p2p.rlpx.RlpxAgent;
 
 import java.util.List;
+import java.util.Optional;
 
+import org.ethereum.beacon.discovery.AddressAccessPolicy;
 import org.ethereum.beacon.discovery.DiscoverySystemBuilder;
 import org.ethereum.beacon.discovery.MutableDiscoverySystem;
 import org.ethereum.beacon.discovery.schema.NodeRecord;
@@ -104,15 +106,13 @@ public final class PeerDiscoveryAgentFactoryV5 implements PeerDiscoveryAgentFact
             .nodeKeyService(nodeKeyService)
             .bootnodes(bootnodes)
             .localNodeRecord(localNodeRecord)
-            .localNodeRecordListener(new NodeRecordListener(nodeRecordManager))
-            .newAddressHandler(new NoopNewAddressHandler())
+            .localNodeRecordListener((previous, updated) -> nodeRecordManager.updateNodeRecord())
+            .newAddressHandler((nodeRecord, newAddress) -> Optional.of(nodeRecord))
+            // TODO Integrate address filtering based on peer permissions
+            .addressAccessPolicy(AddressAccessPolicy.ALLOW_ALL)
             .buildMutable();
 
     return new PeerDiscoveryAgentV5(
-        discoverySystem,
-        config,
-        forkIdManager,
-        nodeRecordManager,
-        rlpxAgent);
+        discoverySystem, config, forkIdManager, nodeRecordManager, rlpxAgent);
   }
 }
