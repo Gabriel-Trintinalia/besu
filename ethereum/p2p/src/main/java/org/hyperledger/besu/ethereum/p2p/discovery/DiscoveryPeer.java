@@ -59,8 +59,13 @@ public class DiscoveryPeer extends DefaultPeer {
     this.forkId = Optional.ofNullable(forkId);
   }
 
-  public boolean isReady() {
-    return true;
+  /**
+   * Indicates whether the peer is ready to accept RLPx connections.
+   *
+   * @return true if the peer is ready for connections, false otherwise
+   */
+  public boolean isReadyForConnections() {
+    return isListening();
   }
 
   public boolean isListening() {

@@ -289,8 +289,8 @@ public final class DefaultP2PNetworkTest {
   @Test
   public void attemptPeerConnections_notListening() {
     final DiscoveryPeerV4 discoPeer = mock(DiscoveryPeerV4.class);
-    when(discoPeer.isReady()).thenReturn(true);
     when(discoPeer.isListening()).thenReturn(false);
+    when(discoPeer.isReadyForConnections()).thenCallRealMethod();
     final Stream<DiscoveryPeerV4> peerStream = Stream.of(discoPeer);
     when(discoveryAgent.streamDiscoveredPeers()).thenReturn(peerStream);
 
