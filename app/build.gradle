@@ -108,8 +108,6 @@ dependencies {
   testImplementation 'org.junit.jupiter:junit-jupiter'
   testImplementation 'org.mockito:mockito-core'
   testImplementation 'tech.pegasys.discovery:discovery'
-  //implementation files('/Users/gtrintinalia/.m2/repository/tech/pegasys/discovery/discovery/develop/discovery-develop.jar')
-
   testImplementation 'com.google.dagger:dagger'
 
   annotationProcessor 'com.google.dagger:dagger-compiler'
