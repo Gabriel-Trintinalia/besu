@@ -33,6 +33,7 @@ import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.Executors;
 import java.util.concurrent.ScheduledExecutorService;
 import java.util.concurrent.TimeUnit;
+import java.util.concurrent.atomic.AtomicBoolean;
 import java.util.stream.Stream;
 
 import org.ethereum.beacon.discovery.MutableDiscoverySystem;
@@ -62,7 +63,9 @@ public final class PeerDiscoveryAgentV5 implements PeerDiscoveryAgent {
   private static final Logger LOG = LoggerFactory.getLogger(PeerDiscoveryAgentV5.class);
 
   /** Minimum ratio of connected peers required to switch to slow discovery cadence. */
-  private static final double MINIMUM_PEER_RATIO = 0.5;
+  private static final double MINIMUM_PEER_RATIO = 0.8;
+
+  public static final int DISCOVERY_TIMEOUT = 30;
 
   private final MutableDiscoverySystem discoverySystem;
   private final DiscoveryConfiguration discoveryConfig;
@@ -75,6 +78,7 @@ public final class PeerDiscoveryAgentV5 implements PeerDiscoveryAgent {
 
   private volatile boolean running = false;
   private volatile boolean stopped = false;
+  private final AtomicBoolean discoveryInProgress = new AtomicBoolean(false);
 
   /**
    * Creates a new DiscV5 peer discovery agent.
@@ -222,11 +226,6 @@ public final class PeerDiscoveryAgentV5 implements PeerDiscoveryAgent {
 
   /** Determines whether the RLPx agent has reached a sufficient number of connected peers. */
   private boolean hasSufficientPeers() {
-    LOG.info(
-        "Current peer count: {}, max peers {}, required for sufficient: {}",
-        rlpxAgent.getConnectionCount(),
-        rlpxAgent.getMaxPeers(),
-        (int) (rlpxAgent.getMaxPeers() * MINIMUM_PEER_RATIO));
     return rlpxAgent.getConnectionCount() >= rlpxAgent.getMaxPeers() * MINIMUM_PEER_RATIO;
   }
 
@@ -240,15 +239,24 @@ public final class PeerDiscoveryAgentV5 implements PeerDiscoveryAgent {
 
   /** Executes a DiscV5 peer search and attempts outbound connections to suitable peers. */
   private void discoverAndConnect() {
+    if (!discoveryInProgress.compareAndSet(false, true)) {
+      LOG.trace("DiscV5 discovery already in progress, skipping tick");
+      return;
+    }
     discoverySystem
         .searchForNewPeers()
+        .orTimeout(DISCOVERY_TIMEOUT, TimeUnit.SECONDS)
         .whenComplete(
             (nodeRecords, error) -> {
-              if (error != null) {
-                LOG.debug("DiscV5 peer discovery failed", error);
-                return;
+              try {
+                if (error != null) {
+                  LOG.debug("DiscV5 peer discovery failed", error);
+                  return;
+                }
+                candidatePeers(nodeRecords).forEach(rlpxAgent::connect);
+              } finally {
+                discoveryInProgress.set(false);
               }
-              candidatePeers(nodeRecords).forEach(rlpxAgent::connect);
             });
   }
 
