@@ -24,7 +24,6 @@ import org.hyperledger.besu.ethereum.chain.MutableBlockchain;
 import org.hyperledger.besu.ethereum.core.Block;
 import org.hyperledger.besu.ethereum.core.BlockHeader;
 import org.hyperledger.besu.ethereum.core.BlockImporter;
-import org.hyperledger.besu.ethereum.core.ConsensusContextFixture;
 import org.hyperledger.besu.ethereum.core.MiningConfiguration;
 import org.hyperledger.besu.ethereum.core.MutableWorldState;
 import org.hyperledger.besu.ethereum.core.Transaction;
@@ -58,7 +57,6 @@ import org.hyperledger.besu.evm.account.AccountState;
 import org.hyperledger.besu.evm.internal.EvmConfiguration.WorldUpdaterMode;
 import org.hyperledger.besu.testutil.JsonTestParameters;
 
-import java.io.IOException;
 import java.time.Clock;
 import java.util.Arrays;
 import java.util.Collection;
@@ -118,9 +116,6 @@ public class BlockchainReferenceTestTools {
         params.ignore(
                 "UncleFromSideChain_(Merge|Paris|Shanghai|Cancun|Prague|Osaka|Amsterdam|Bogota|Polis|Bangkok)");
 
-        // EOF tests don't have Prague stuff like deposits right now
-        params.ignore("/stEOF/");
-
         // These are for the older reference tests but EIP-2537 is covered by eip2537_bls_12_381_precompiles in the execution-spec-tests
         params.ignore("/stEIP2537/");
     }
@@ -135,8 +130,9 @@ public class BlockchainReferenceTestTools {
 
     @SuppressWarnings("java:S5960") // this is actually test code
     public static void executeTest(final String name, final BlockchainReferenceTestCaseSpec spec) {
-        final BlockHeader genesisBlockHeader = spec.getGenesisBlockHeader();
-        final ProtocolContext protocolContext = spec.buildProtocolContext();
+      final MutableBlockchain blockchain = spec.buildBlockchain();
+      final BlockHeader genesisBlockHeader = spec.getGenesisBlockHeader();
+        final ProtocolContext protocolContext = spec.buildProtocolContext(blockchain);
         final WorldStateArchive worldStateArchive = protocolContext.getWorldStateArchive();
         final MutableWorldState worldState =
                 worldStateArchive
@@ -144,8 +140,6 @@ public class BlockchainReferenceTestTools {
                         .orElseThrow();
 
         final ProtocolSchedule schedule = PROTOCOL_SCHEDULES.getByName(spec.getNetwork());
-
-        final MutableBlockchain blockchain = spec.getBlockchain();
 
         try (BlockCreationFixture blockCreation =
                      BlockCreationFixture.create(schedule, protocolContext, blockchain)) {
@@ -298,6 +292,7 @@ public class BlockchainReferenceTestTools {
               metricsSystem,
               syncState,
               TransactionPoolConfiguration.DEFAULT,
+              EthProtocolConfiguration.DEFAULT,
               new BlobCache(),
               MiningConfiguration.newDefault());
 

@@ -46,8 +46,7 @@ public class PathBasedExtraStorageOptions
       description =
           "Limit of historical layers that can be loaded with BONSAI (default: ${DEFAULT-VALUE}). When using "
               + LIMIT_TRIE_LOGS_ENABLED
-              + " it will also be used as the number of layers of trie logs to retain.",
-      arity = "1")
+              + " it will also be used as the number of layers of trie logs to retain.")
   private Long maxLayersToLoad = DEFAULT_MAX_LAYERS_TO_LOAD;
 
   /** The bonsai limit trie logs enabled option name */
@@ -75,13 +74,8 @@ public class PathBasedExtraStorageOptions
           "The max number of blocks to load and prune trie logs for at startup. (default: ${DEFAULT-VALUE})")
   private Integer trieLogPruningWindowSize = DEFAULT_TRIE_LOG_PRUNING_WINDOW_SIZE;
 
-  // TODO --Xbonsai-parallel-tx-processing-enabled is deprecated, remove in a future release
-  @SuppressWarnings("ExperimentalCliOptionMustBeCorrectlyDisplayed")
   @Option(
-      names = {
-        PARALLEL_TX_PROCESSING_ENABLED,
-        "--Xbonsai-parallel-tx-processing-enabled" // deprecated
-      },
+      names = {PARALLEL_TX_PROCESSING_ENABLED},
       arity = "1",
       description =
           "Enables parallelization of transactions to optimize processing speed by concurrently loading and executing necessary data in advance. Will be ignored if --data-storage-format is not bonsai (default: ${DEFAULT-VALUE})")

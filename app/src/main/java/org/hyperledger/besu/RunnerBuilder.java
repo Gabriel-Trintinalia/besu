@@ -21,8 +21,8 @@ import static java.util.function.Predicate.not;
 import static org.hyperledger.besu.controller.BesuController.CACHE_PATH;
 
 import org.hyperledger.besu.cli.config.EthNetworkConfig;
-import org.hyperledger.besu.cli.config.NetworkName;
 import org.hyperledger.besu.cli.options.EthstatsOptions;
+import org.hyperledger.besu.config.NetworkDefinition;
 import org.hyperledger.besu.controller.BesuController;
 import org.hyperledger.besu.cryptoservices.NodeKey;
 import org.hyperledger.besu.ethereum.ProtocolContext;
@@ -70,11 +70,16 @@ import org.hyperledger.besu.ethereum.core.Synchronizer;
 import org.hyperledger.besu.ethereum.eth.manager.EthPeers;
 import org.hyperledger.besu.ethereum.eth.manager.EthScheduler;
 import org.hyperledger.besu.ethereum.eth.transactions.TransactionPool;
+import org.hyperledger.besu.ethereum.mainnet.BalConfiguration;
 import org.hyperledger.besu.ethereum.mainnet.ProtocolSchedule;
 import org.hyperledger.besu.ethereum.p2p.config.DiscoveryConfiguration;
 import org.hyperledger.besu.ethereum.p2p.config.NetworkingConfiguration;
 import org.hyperledger.besu.ethereum.p2p.config.RlpxConfiguration;
 import org.hyperledger.besu.ethereum.p2p.config.SubProtocolConfiguration;
+import org.hyperledger.besu.ethereum.p2p.discovery.DefaultPeerDiscoveryAgentFactory;
+import org.hyperledger.besu.ethereum.p2p.discovery.DefaultRlpxAgentFactory;
+import org.hyperledger.besu.ethereum.p2p.discovery.PeerDiscoveryAgentFactory;
+import org.hyperledger.besu.ethereum.p2p.discovery.RlpxAgentFactory;
 import org.hyperledger.besu.ethereum.p2p.network.DefaultP2PNetwork;
 import org.hyperledger.besu.ethereum.p2p.network.NetworkRunner;
 import org.hyperledger.besu.ethereum.p2p.network.NetworkRunner.NetworkBuilder;
@@ -170,6 +175,7 @@ public class RunnerBuilder {
   private WebSocketConfiguration webSocketConfiguration;
   private InProcessRpcConfiguration inProcessRpcConfiguration;
   private ApiConfiguration apiConfiguration;
+  private BalConfiguration balConfiguration = BalConfiguration.DEFAULT;
   private Path dataDir;
   private Optional<Path> pidPath = Optional.empty();
   private MetricsConfiguration metricsConfiguration;
@@ -394,6 +400,17 @@ public class RunnerBuilder {
   }
 
   /**
+   * Sets the block access list configuration.
+   *
+   * @param balConfiguration the BAL configuration
+   * @return the runner builder
+   */
+  public RunnerBuilder balConfiguration(final BalConfiguration balConfiguration) {
+    this.balConfiguration = balConfiguration;
+    return this;
+  }
+
+  /**
    * Add Permissioning configuration.
    *
    * @param permissioningConfiguration the permissioning configuration
@@ -612,7 +629,7 @@ public class RunnerBuilder {
     if (discoveryEnabled) {
       final List<EnodeURL> bootstrap;
       if (ethNetworkConfig.bootNodes() == null) {
-        bootstrap = EthNetworkConfig.getNetworkConfig(NetworkName.MAINNET).bootNodes();
+        bootstrap = EthNetworkConfig.getNetworkConfig(NetworkDefinition.MAINNET).bootNodes();
       } else {
         bootstrap = ethNetworkConfig.bootNodes();
       }
@@ -684,25 +701,44 @@ public class RunnerBuilder {
     final NatService natService = new NatService(buildNatManager(natMethod), fallbackEnabled);
     final NetworkBuilder inactiveNetwork = caps -> new NoopP2PNetwork();
 
+    PeerDiscoveryAgentFactory peerDiscoveryAgentFactory =
+        DefaultPeerDiscoveryAgentFactory.builder()
+            .vertx(vertx)
+            .nodeKey(nodeKey)
+            .config(networkingConfiguration)
+            .peerPermissions(peerPermissions)
+            .natService(natService)
+            .metricsSystem(metricsSystem)
+            .storageProvider(storageProvider)
+            .blockchain(context.getBlockchain())
+            .blockNumberForks(besuController.getGenesisConfigOptions().getForkBlockNumbers())
+            .timestampForks(besuController.getGenesisConfigOptions().getForkBlockTimestamps())
+            .build();
+
+    RlpxAgentFactory rlpxAgentFactory =
+        DefaultRlpxAgentFactory.builder()
+            .nodeKey(nodeKey)
+            .config(networkingConfiguration)
+            .peerPermissions(peerPermissions)
+            .metricsSystem(metricsSystem)
+            .allConnectionsSupplier(ethPeers::streamAllConnections)
+            .allActiveConnectionsSupplier(ethPeers::streamAllActiveConnections)
+            .maxPeers(ethPeers.getMaxPeers())
+            .build();
+
     final NetworkBuilder activeNetwork =
-        caps -> {
-          return DefaultP2PNetwork.builder()
-              .vertx(vertx)
-              .nodeKey(nodeKey)
-              .config(networkingConfiguration)
-              .peerPermissions(peerPermissions)
-              .metricsSystem(metricsSystem)
-              .supportedCapabilities(caps)
-              .natService(natService)
-              .storageProvider(storageProvider)
-              .blockchain(context.getBlockchain())
-              .blockNumberForks(besuController.getGenesisConfigOptions().getForkBlockNumbers())
-              .timestampForks(besuController.getGenesisConfigOptions().getForkBlockTimestamps())
-              .allConnectionsSupplier(ethPeers::streamAllConnections)
-              .allActiveConnectionsSupplier(ethPeers::streamAllActiveConnections)
-              .maxPeers(ethPeers.getMaxPeers())
-              .build();
-        };
+        caps ->
+            DefaultP2PNetwork.builder()
+                .vertx(vertx)
+                .nodeKey(nodeKey)
+                .config(networkingConfiguration)
+                .peerPermissions(peerPermissions)
+                .metricsSystem(metricsSystem)
+                .supportedCapabilities(caps)
+                .natService(natService)
+                .peerDiscoveryAgentFactory(peerDiscoveryAgentFactory)
+                .rlpxAgentFactory(rlpxAgentFactory)
+                .build();
 
     final NetworkRunner networkRunner =
         NetworkRunner.builder()
@@ -716,7 +752,8 @@ public class RunnerBuilder {
     ethPeers.setRlpxAgent(networkRunner.getRlpxAgent());
 
     final P2PNetwork network = networkRunner.getNetwork();
-    // ForkId in Ethereum Node Record needs updating when we transition to a new protocol spec
+    // ForkId in Ethereum Node Record needs updating when we transition to a new
+    // protocol spec
     context
         .getBlockchain()
         .observeBlockAdded(
@@ -798,7 +835,7 @@ public class RunnerBuilder {
               metricsConfiguration,
               graphQLConfiguration,
               natService,
-              besuPluginContext.getNamedPlugins(),
+              besuPluginContext.getPluginsByName(),
               dataDir,
               rpcEndpointServiceImpl,
               transactionSimulator,
@@ -819,6 +856,16 @@ public class RunnerBuilder {
 
     final SubscriptionManager subscriptionManager =
         createSubscriptionManager(vertx, transactionPool, blockchainQueries);
+
+    if (webSocketConfiguration.isEnabled()
+        || (jsonRpcIpcConfiguration != null && jsonRpcIpcConfiguration.isEnabled())) {
+      createLogsSubscriptionService(context.getBlockchain(), subscriptionManager);
+
+      createNewBlockHeadersSubscriptionService(
+          context.getBlockchain(), blockchainQueries, subscriptionManager);
+
+      createSyncingSubscriptionService(synchronizer, subscriptionManager);
+    }
 
     Optional<EngineJsonRpcService> engineJsonRpcService = Optional.empty();
     if (engineJsonRpcConfiguration.isPresent() && engineJsonRpcConfiguration.get().isEnabled()) {
@@ -844,7 +891,7 @@ public class RunnerBuilder {
               metricsConfiguration,
               graphQLConfiguration,
               natService,
-              besuPluginContext.getNamedPlugins(),
+              besuPluginContext.getPluginsByName(),
               dataDir,
               rpcEndpointServiceImpl,
               transactionSimulator,
@@ -940,18 +987,11 @@ public class RunnerBuilder {
               metricsConfiguration,
               graphQLConfiguration,
               natService,
-              besuPluginContext.getNamedPlugins(),
+              besuPluginContext.getPluginsByName(),
               dataDir,
               rpcEndpointServiceImpl,
               transactionSimulator,
               besuController.getProtocolManager().ethContext().getScheduler());
-
-      createLogsSubscriptionService(context.getBlockchain(), subscriptionManager);
-
-      createNewBlockHeadersSubscriptionService(
-          context.getBlockchain(), blockchainQueries, subscriptionManager);
-
-      createSyncingSubscriptionService(synchronizer, subscriptionManager);
 
       webSocketService =
           Optional.of(
@@ -1015,18 +1055,22 @@ public class RunnerBuilder {
               metricsConfiguration,
               graphQLConfiguration,
               natService,
-              besuPluginContext.getNamedPlugins(),
+              besuPluginContext.getPluginsByName(),
               dataDir,
               rpcEndpointServiceImpl,
               transactionSimulator,
               besuController.getProtocolManager().ethContext().getScheduler());
+
+      final WebSocketMethodsFactory ipcMethodsFactory =
+          new WebSocketMethodsFactory(subscriptionManager, ipcMethods);
 
       jsonRpcIpcService =
           Optional.of(
               new JsonRpcIpcService(
                   vertx,
                   jsonRpcIpcConfiguration.getPath(),
-                  new JsonRpcExecutor(new BaseJsonRpcProcessor(), ipcMethods)));
+                  new JsonRpcExecutor(new BaseJsonRpcProcessor(), ipcMethodsFactory.methods()),
+                  Optional.of(subscriptionManager)));
     } else {
       jsonRpcIpcService = Optional.empty();
     }
@@ -1055,7 +1099,7 @@ public class RunnerBuilder {
               metricsConfiguration,
               graphQLConfiguration,
               natService,
-              besuPluginContext.getNamedPlugins(),
+              besuPluginContext.getPluginsByName(),
               dataDir,
               rpcEndpointServiceImpl,
               transactionSimulator,
@@ -1260,6 +1304,7 @@ public class RunnerBuilder {
                 besuController.getProtocolManager().ethContext().getEthPeers(),
                 consensusEngineServer,
                 apiConfiguration,
+                balConfiguration,
                 enodeDnsConfiguration,
                 transactionSimulator,
                 ethScheduler);

@@ -36,7 +36,6 @@ import org.hyperledger.besu.chainimport.Era1BlockImporter;
 import org.hyperledger.besu.chainimport.JsonBlockImporter;
 import org.hyperledger.besu.chainimport.RlpBlockImporter;
 import org.hyperledger.besu.cli.config.EthNetworkConfig;
-import org.hyperledger.besu.cli.config.NetworkName;
 import org.hyperledger.besu.cli.options.EthProtocolOptions;
 import org.hyperledger.besu.cli.options.EthstatsOptions;
 import org.hyperledger.besu.cli.options.MiningOptions;
@@ -47,6 +46,7 @@ import org.hyperledger.besu.cli.options.TransactionPoolOptions;
 import org.hyperledger.besu.cli.options.storage.DataStorageOptions;
 import org.hyperledger.besu.components.BesuComponent;
 import org.hyperledger.besu.config.GenesisConfigOptions;
+import org.hyperledger.besu.config.NetworkDefinition;
 import org.hyperledger.besu.controller.BesuController;
 import org.hyperledger.besu.controller.BesuControllerBuilder;
 import org.hyperledger.besu.controller.NoopPluginServiceFactory;
@@ -112,13 +112,13 @@ import java.util.concurrent.atomic.AtomicBoolean;
 import java.util.function.BiFunction;
 import java.util.function.Function;
 import java.util.function.Supplier;
-import javax.annotation.Nonnull;
 
 import io.opentelemetry.api.GlobalOpenTelemetry;
 import io.vertx.core.Vertx;
 import io.vertx.core.VertxOptions;
 import io.vertx.core.json.JsonObject;
 import jakarta.validation.constraints.NotEmpty;
+import jakarta.validation.constraints.NotNull;
 import org.apache.commons.net.util.SubnetUtils.SubnetInfo;
 import org.apache.commons.text.StringEscapeUtils;
 import org.apache.tuweni.bytes.Bytes;
@@ -310,6 +310,7 @@ public abstract class CommandTestAbstract {
     when(mockControllerBuilder.maxRemotelyInitiatedPeers(anyInt()))
         .thenReturn(mockControllerBuilder);
     when(mockControllerBuilder.besuComponent(any())).thenReturn(mockControllerBuilder);
+    when(mockControllerBuilder.balConfiguration(any())).thenReturn(mockControllerBuilder);
     when(mockControllerBuilder.cacheLastBlocks(any())).thenReturn(mockControllerBuilder);
     when(mockControllerBuilder.cacheLastBlockHeaders(any())).thenReturn(mockControllerBuilder);
     when(mockControllerBuilder.isCacheLastBlockHeadersPreloadEnabled(any()))
@@ -358,6 +359,7 @@ public abstract class CommandTestAbstract {
     when(mockRunnerBuilder.permissioningService(any())).thenReturn(mockRunnerBuilder);
     when(mockRunnerBuilder.transactionValidatorService(any())).thenReturn(mockRunnerBuilder);
     when(mockRunnerBuilder.metricsConfiguration(any())).thenReturn(mockRunnerBuilder);
+    when(mockRunnerBuilder.balConfiguration(any())).thenReturn(mockRunnerBuilder);
     when(mockRunnerBuilder.staticNodes(any())).thenReturn(mockRunnerBuilder);
     when(mockRunnerBuilder.identityString(any())).thenReturn(mockRunnerBuilder);
     when(mockRunnerBuilder.besuPluginContext(any())).thenReturn(mockRunnerBuilder);
@@ -484,7 +486,7 @@ public abstract class CommandTestAbstract {
     return besuCommand;
   }
 
-  @Nonnull
+  @NotNull
   private static Path determineDataDir(final List<String> argsList) {
     // Look for --data-path in the arguments
     for (int i = 0; i < argsList.size() - 1; i++) {
@@ -496,7 +498,7 @@ public abstract class CommandTestAbstract {
     return DefaultCommandValues.getDefaultBesuDataPath(null);
   }
 
-  @Nonnull
+  @NotNull
   private static List<String> constructArgsWithTmpDataPathIfNotSpecified(final String[] args) {
     final List<String> argsList = new ArrayList<>(Arrays.asList(args));
 
@@ -598,7 +600,7 @@ public abstract class CommandTestAbstract {
         final Function<BesuController, JsonBlockImporter> jsonBlockImporterFactory,
         final Supplier<Era1BlockImporter> era1BlockImporter,
         final Function<Blockchain, RlpBlockExporter> rlpBlockExporterFactory,
-        final BiFunction<Blockchain, NetworkName, Era1BlockExporter> era1BlockExporterFactory,
+        final BiFunction<Blockchain, NetworkDefinition, Era1BlockExporter> era1BlockExporterFactory,
         final RunnerBuilder mockRunnerBuilder,
         final BesuController.Builder controllerBuilderFactory,
         final BesuPluginContextImpl besuPluginContext,
@@ -640,13 +642,12 @@ public abstract class CommandTestAbstract {
       return vertx;
     }
 
-    @Override
-    public GenesisConfigOptions getGenesisConfigOptions() {
-      return super.getGenesisConfigOptions();
-    }
-
     public CommandSpec getSpec() {
       return spec;
+    }
+
+    public Supplier<GenesisConfigOptions> getGenesisConfigOptionsSupplier() {
+      return genesisConfigOptionsSupplier;
     }
 
     public NetworkingOptions getNetworkingOptions() {
@@ -698,7 +699,7 @@ public abstract class CommandTestAbstract {
         final Function<BesuController, JsonBlockImporter> jsonBlockImporterFactory,
         final Supplier<Era1BlockImporter> era1BlockImporter,
         final Function<Blockchain, RlpBlockExporter> rlpBlockExporterFactory,
-        final BiFunction<Blockchain, NetworkName, Era1BlockExporter> era1BlockExporterFactory,
+        final BiFunction<Blockchain, NetworkDefinition, Era1BlockExporter> era1BlockExporterFactory,
         final RunnerBuilder mockRunnerBuilder,
         final BesuController.Builder controllerBuilderFactory,
         final BesuPluginContextImpl besuPluginContext,
@@ -734,7 +735,7 @@ public abstract class CommandTestAbstract {
         final Function<BesuController, JsonBlockImporter> jsonBlockImporterFactory,
         final Supplier<Era1BlockImporter> era1BlockImporter,
         final Function<Blockchain, RlpBlockExporter> rlpBlockExporterFactory,
-        final BiFunction<Blockchain, NetworkName, Era1BlockExporter> era1BlockExporterFactory,
+        final BiFunction<Blockchain, NetworkDefinition, Era1BlockExporter> era1BlockExporterFactory,
         final RunnerBuilder mockRunnerBuilder,
         final BesuController.Builder controllerBuilderFactory,
         final BesuPluginContextImpl besuPluginContext,
