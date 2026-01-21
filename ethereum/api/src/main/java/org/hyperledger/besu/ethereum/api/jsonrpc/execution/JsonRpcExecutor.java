@@ -25,6 +25,7 @@ import org.hyperledger.besu.ethereum.api.jsonrpc.internal.response.JsonRpcErrorR
 import org.hyperledger.besu.ethereum.api.jsonrpc.internal.response.JsonRpcNoResponse;
 import org.hyperledger.besu.ethereum.api.jsonrpc.internal.response.JsonRpcResponse;
 import org.hyperledger.besu.ethereum.api.jsonrpc.internal.response.RpcErrorType;
+import org.hyperledger.besu.ethereum.api.jsonrpc.internal.response.UncompressedJsonRpcResponse;
 
 import java.util.Map;
 import java.util.Optional;
@@ -86,11 +87,11 @@ public class JsonRpcExecutor {
         span.setStatus(StatusCode.ERROR, "method unavailable");
         return new JsonRpcErrorResponse(id, unavailableMethod.get());
       }
-
       final JsonRpcMethod method = rpcMethods.get(requestBody.getMethod());
-
-      return rpcProcessor.process(
-          id, method, span, new JsonRpcRequestContext(requestBody, optionalUser, alive));
+      final JsonRpcResponse response =
+          rpcProcessor.process(
+              id, method, span, new JsonRpcRequestContext(requestBody, optionalUser, alive));
+      return method.disableCompression() ? new UncompressedJsonRpcResponse(response) : response;
     } catch (final IllegalArgumentException e) {
       try {
         final Integer id = jsonRpcRequest.getInteger("id", null);

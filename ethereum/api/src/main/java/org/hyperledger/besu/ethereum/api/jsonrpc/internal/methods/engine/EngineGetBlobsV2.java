@@ -175,4 +175,9 @@ public class EngineGetBlobsV2 extends ExecutionEngineJsonRpcMethod {
   protected ValidationResult<RpcErrorType> validateForkSupported(final long currentTimestamp) {
     return ForkSupportHelper.validateForkSupported(OSAKA, osakaMilestone, currentTimestamp);
   }
+
+  @Override
+  public boolean disableCompression() {
+    return true;
+  }
 }

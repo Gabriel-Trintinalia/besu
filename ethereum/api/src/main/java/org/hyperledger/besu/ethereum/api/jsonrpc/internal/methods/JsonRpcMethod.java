@@ -51,4 +51,8 @@ public interface JsonRpcMethod {
     permissions.add(this.getName().replace('_', ':'));
     return permissions;
   }
+
+  default boolean disableCompression() {
+    return false;
+  }
 }
