@@ -14,7 +14,7 @@
  */
 package org.hyperledger.besu.services;
 
-import static com.google.common.base.Preconditions.checkArgument;
+import static java.util.Objects.requireNonNullElse;
 
 import org.hyperledger.besu.ethereum.ProtocolContext;
 import org.hyperledger.besu.ethereum.api.query.BlockchainQueries;
@@ -25,28 +25,12 @@ import org.hyperledger.besu.ethereum.core.MutableWorldState;
 import org.hyperledger.besu.ethereum.mainnet.BlockProcessor;
 import org.hyperledger.besu.ethereum.mainnet.ProtocolSchedule;
 import org.hyperledger.besu.ethereum.trie.pathbased.common.provider.WorldStateQueryParams;
-import org.hyperledger.besu.evm.worldstate.WorldUpdater;
 import org.hyperledger.besu.plugin.data.BlockProcessingResult;
 import org.hyperledger.besu.plugin.services.BlockReplayService;
 import org.hyperledger.besu.plugin.services.tracer.BlockAwareOperationTracer;
 
-import java.util.ArrayList;
-import java.util.List;
-import java.util.function.Consumer;
-import java.util.stream.LongStream;
-
-import org.slf4j.Logger;
-import org.slf4j.LoggerFactory;
-
-/**
- * Default implementation of {@link BlockReplayService}.
- *
- * <p>Supports replaying and tracing block execution across a range of block numbers.
- */
+/** Default {@link BlockReplayService} implementation. */
 public class BlockReplayServiceImpl implements BlockReplayService {
-
-  private static final Logger LOG = LoggerFactory.getLogger(BlockReplayServiceImpl.class);
-
   private final BlockchainQueries blockchainQueries;
   private final ProtocolSchedule protocolSchedule;
   private final ProtocolContext protocolContext;
@@ -62,101 +46,41 @@ public class BlockReplayServiceImpl implements BlockReplayService {
 
   @Override
   public BlockProcessingResult replay(
-      final long blockNumber,
-      final Consumer<WorldUpdater> beforeTracing,
-      final Consumer<WorldUpdater> afterTracing,
-      final BlockAwareOperationTracer tracer) {
-
-    final List<BlockProcessingResult> results =
-        replay(blockNumber, blockNumber, beforeTracing, afterTracing, tracer);
-    return results.isEmpty() ? null : results.getFirst();
-  }
-
-  @Override
-  public List<BlockProcessingResult> replay(
-      final long fromBlockNumber,
-      final long toBlockNumber,
-      final Consumer<WorldUpdater> beforeTracing,
-      final Consumer<WorldUpdater> afterTracing,
-      final BlockAwareOperationTracer tracer) {
-
-    checkArgument(tracer != null, "Tracer must not be null");
-    checkArgument(fromBlockNumber <= toBlockNumber, "Invalid block range: from > to");
-
-    LOG.debug("Replaying from block {} to block {}", fromBlockNumber, toBlockNumber);
-
+      final long blockNumber, final BlockAwareOperationTracer tracer) {
     final Blockchain blockchain = blockchainQueries.getBlockchain();
-    final List<Block> blocks = getBlocks(blockchain, fromBlockNumber, toBlockNumber);
-
-    if (blocks.isEmpty()) {
-      LOG.info("No blocks to replay in range {}–{}", fromBlockNumber, toBlockNumber);
-      return List.of();
+    final Block block = blockchain.getBlockByNumber(blockNumber).orElse(null);
+    if (block == null) {
+      return null;
     }
 
-    final MutableWorldState worldState = getParentWorldState(blockchain, blocks.getFirst());
-    final WorldUpdater updater = worldState.updater();
+    final BlockProcessor processor =
+        protocolSchedule.getByBlockHeader(block.getHeader()).getBlockProcessor();
 
-    beforeTracing.accept(updater);
-    final List<BlockProcessingResult> results = processBlocks(blocks, worldState, tracer);
-    afterTracing.accept(updater);
-
-    return results;
+    return processor.processBlock(
+        protocolContext,
+        blockchain,
+        parentWorldState(blockchain, block),
+        block,
+        requireNonNullElse(tracer, BlockAwareOperationTracer.NO_TRACING));
   }
 
-  private List<Block> getBlocks(final Blockchain blockchain, final long from, final long to) {
-    return LongStream.rangeClosed(from, to)
-        .mapToObj(
-            number ->
-                blockchain
-                    .getBlockByNumber(number)
-                    .orElseThrow(() -> new IllegalArgumentException("Block not found: " + number)))
-        .toList();
-  }
-
-  private MutableWorldState getParentWorldState(
-      final Blockchain blockchain, final Block firstBlock) {
+  private MutableWorldState parentWorldState(final Blockchain blockchain, final Block block) {
 
     final BlockHeader parentHeader =
         blockchain
-            .getBlockByHash(firstBlock.getHeader().getParentHash())
+            .getBlockByHash(block.getHeader().getParentHash())
             .map(Block::getHeader)
             .orElseThrow(
                 () ->
                     new IllegalArgumentException(
-                        "Parent block not found for: " + firstBlock.getHeader().toLogString()));
-
-    return getWorldState(parentHeader);
-  }
-
-  private List<BlockProcessingResult> processBlocks(
-      final List<Block> blocks,
-      final MutableWorldState worldState,
-      final BlockAwareOperationTracer tracer) {
-
-    final Blockchain blockchain = blockchainQueries.getBlockchain();
-    final List<BlockProcessingResult> results = new ArrayList<>(blocks.size());
-
-    for (final Block block : blocks) {
-      final BlockProcessor processor =
-          protocolSchedule.getByBlockHeader(block.getHeader()).getBlockProcessor();
-      final BlockProcessingResult result =
-          processor.processBlock(protocolContext, blockchain, worldState, block, tracer);
-      results.add(result);
-    }
-
-    return results;
-  }
-
-  private MutableWorldState getWorldState(final BlockHeader header) {
-    final WorldStateQueryParams params =
-        WorldStateQueryParams.withBlockHeaderAndNoUpdateNodeHead(header);
+                        "Parent block not found for: " + block.getHeader().toLogString()));
 
     return protocolContext
         .getWorldStateArchive()
-        .getWorldState(params)
+        .getWorldState(WorldStateQueryParams.withBlockHeaderAndNoUpdateNodeHead(parentHeader))
         .orElseThrow(
             () ->
                 new IllegalArgumentException(
-                    "World state not available for block: " + header.toLogString()));
+                    "World state not available for block: " + parentHeader.toLogString()));
   }
 }
