@@ -16,8 +16,10 @@ package org.hyperledger.besu.ethereum.p2p.discovery;
 
 import org.hyperledger.besu.cryptoservices.NodeKey;
 import org.hyperledger.besu.ethereum.chain.Blockchain;
+import org.hyperledger.besu.ethereum.forkid.ForkIdManager;
 import org.hyperledger.besu.ethereum.p2p.config.NetworkingConfiguration;
-import org.hyperledger.besu.ethereum.p2p.discovery.discv4.PeerDiscoveryAgentFactoryDiscv4;
+import org.hyperledger.besu.ethereum.p2p.discovery.discv4.PeerDiscoveryAgentFactoryV4;
+import org.hyperledger.besu.ethereum.p2p.discovery.discv5.PeerDiscoveryAgentFactoryV5;
 import org.hyperledger.besu.ethereum.p2p.permissions.PeerPermissions;
 import org.hyperledger.besu.ethereum.p2p.rlpx.RlpxAgent;
 import org.hyperledger.besu.ethereum.storage.StorageProvider;
@@ -45,8 +47,12 @@ public class DefaultPeerDiscoveryAgentFactory implements PeerDiscoveryAgentFacto
       final Blockchain blockchain,
       final List<Long> blockNumberForks,
       final List<Long> timestampForks) {
+
+    final ForkIdManager forkIdManager =
+        new ForkIdManager(blockchain, blockNumberForks, timestampForks);
+
     this.delegate =
-        new PeerDiscoveryAgentFactoryDiscv4(
+        createPeerDiscoveryAgentFactory(
             vertx,
             nodeKey,
             config,
@@ -54,9 +60,31 @@ public class DefaultPeerDiscoveryAgentFactory implements PeerDiscoveryAgentFacto
             natService,
             metricsSystem,
             storageProvider,
-            blockchain,
-            blockNumberForks,
-            timestampForks);
+            forkIdManager);
+  }
+
+  private static PeerDiscoveryAgentFactory createPeerDiscoveryAgentFactory(
+      final Vertx vertx,
+      final NodeKey nodeKey,
+      final NetworkingConfiguration config,
+      final PeerPermissions peerPermissions,
+      final NatService natService,
+      final MetricsSystem metricsSystem,
+      final StorageProvider storageProvider,
+      final ForkIdManager forkIdManager) {
+    if (config.getDiscovery().isDiscoveryV5Enabled()) {
+      return new PeerDiscoveryAgentFactoryV5(
+          nodeKey, config, natService, storageProvider, forkIdManager);
+    }
+    return new PeerDiscoveryAgentFactoryV4(
+        vertx,
+        nodeKey,
+        config,
+        peerPermissions,
+        natService,
+        metricsSystem,
+        storageProvider,
+        forkIdManager);
   }
 
   @Override
