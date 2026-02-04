@@ -94,6 +94,7 @@ public final class PeerDiscoveryAgentFactoryV5 implements PeerDiscoveryAgentFact
 
     final MutableDiscoverySystem discoverySystem =
         new DiscoverySystemBuilder()
+            .bootnodes(BootnodesSupplier.get(config.getDiscovery()))
             .listen(config.getDiscovery().getBindHost(), config.getDiscovery().getBindPort())
             .signer(new LocalNodeKeySigner(nodeKey))
             .localNodeRecord(localNodeRecord)
