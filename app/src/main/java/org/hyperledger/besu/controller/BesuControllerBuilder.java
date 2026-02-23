@@ -57,6 +57,8 @@ import org.hyperledger.besu.ethereum.eth.manager.EthProtocolManager;
 import org.hyperledger.besu.ethereum.eth.manager.EthScheduler;
 import org.hyperledger.besu.ethereum.eth.manager.MergePeerFilter;
 import org.hyperledger.besu.ethereum.eth.manager.MonitoredExecutors;
+import org.hyperledger.besu.ethereum.eth.manager.peertask.ClusteredPeerTaskExecutor;
+import org.hyperledger.besu.ethereum.eth.manager.peertask.PeerClusterManager;
 import org.hyperledger.besu.ethereum.eth.manager.peertask.PeerTaskExecutor;
 import org.hyperledger.besu.ethereum.eth.manager.peertask.PeerTaskRequestSender;
 import org.hyperledger.besu.ethereum.eth.manager.snap.SnapProtocolManager;
@@ -740,11 +742,10 @@ public abstract class BesuControllerBuilder implements MiningConfigurationOverri
                   .build());
     }
 
+    final PeerClusterManager peerClusterManager = new PeerClusterManager(ethPeers);
     final PeerTaskExecutor peerTaskExecutor =
-        new PeerTaskExecutor(
-            ethPeers,
-            new PeerTaskRequestSender(networkingConfiguration.p2pPeerTaskTimeout()),
-            metricsSystem);
+        new ClusteredPeerTaskExecutor(
+            ethPeers, new PeerTaskRequestSender(), metricsSystem, peerClusterManager);
     final EthContext ethContext =
         new EthContext(ethPeers, ethMessages, snapMessages, scheduler, peerTaskExecutor);
     final boolean fullSyncDisabled = !SyncMode.isFullSync(syncConfig.getSyncMode());
