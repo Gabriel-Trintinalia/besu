@@ -194,7 +194,8 @@ public final class PeerDiscoveryAgentFactoryV5 implements PeerDiscoveryAgentFact
    *
    * <p>The {@code allow(NodeRecord)} method first checks the node record's addresses via the same
    * IP-level permissions, then creates a {@link DiscoveryPeer} from the ENR and checks full {@link
-   * PeerPermissions} including node ID-based and enode-based rules.
+   * PeerPermissions} including node ID-based and enode-based rules. ENRs with no advertised
+   * addresses are allowed through.
    *
    * @return the address access policy
    */
@@ -226,10 +227,10 @@ public final class PeerDiscoveryAgentFactoryV5 implements PeerDiscoveryAgentFact
           return false;
         }
 
-        // Reject NodeRecords with no advertised addresses — they cannot be
-        // converted to a DiscoveryPeer for identity-based permission checks.
+        // ENRs without any advertised endpoints pass the address should pass validation, since
+        // there are no IPs/ports to apply subnet filtering to
         if (udp.isEmpty() && udp6.isEmpty() && tcp.isEmpty() && tcp6.isEmpty()) {
-          return false;
+          return true;
         }
 
         try {

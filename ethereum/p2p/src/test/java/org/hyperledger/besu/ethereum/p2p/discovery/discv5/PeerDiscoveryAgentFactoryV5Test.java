@@ -142,19 +142,19 @@ class PeerDiscoveryAgentFactoryV5Test {
   }
 
   @Test
-  void rejectNodeRecordWithNoAddressWhenSubnetsConfigured() {
+  void allowNodeRecordWithNoAddresses() {
     final PeerPermissions permissions = subnetPermissions("10.0.0.0/8");
     final AddressAccessPolicy policy = createFactory(permissions).createAddressAccessPolicy();
 
-    // A NodeRecord with no advertised addresses is rejected early,
-    // before attempting DiscoveryPeer conversion or identity checks.
+    // A NodeRecord with no advertised addresses passes the address check, since
+    // there is nothing to subnet-block and the UDP source was already validated upstream.
     final NodeRecord noAddressRecord = mock(NodeRecord.class);
     when(noAddressRecord.getUdpAddress()).thenReturn(Optional.empty());
     when(noAddressRecord.getUdp6Address()).thenReturn(Optional.empty());
     when(noAddressRecord.getTcpAddress()).thenReturn(Optional.empty());
     when(noAddressRecord.getTcp6Address()).thenReturn(Optional.empty());
 
-    assertThat(policy.allow(noAddressRecord)).isFalse();
+    assertThat(policy.allow(noAddressRecord)).isTrue();
   }
 
   @Test
