@@ -27,6 +27,7 @@ import org.hyperledger.besu.ethereum.p2p.discovery.NodeRecordManager;
 import org.hyperledger.besu.ethereum.p2p.discovery.PeerDiscoveryAgent;
 import org.hyperledger.besu.ethereum.p2p.discovery.PeerDiscoveryAgentFactory;
 import org.hyperledger.besu.ethereum.p2p.discovery.dns.EthereumNodeRecord;
+import org.hyperledger.besu.ethereum.p2p.peers.DefaultPeerId;
 import org.hyperledger.besu.ethereum.p2p.peers.Peer;
 import org.hyperledger.besu.ethereum.p2p.permissions.PeerPermissions;
 import org.hyperledger.besu.ethereum.p2p.rlpx.RlpxAgent;
@@ -194,8 +195,7 @@ public final class PeerDiscoveryAgentFactoryV5 implements PeerDiscoveryAgentFact
    *
    * <p>The {@code allow(NodeRecord)} method first checks the node record's addresses via the same
    * IP-level permissions, then creates a {@link DiscoveryPeer} from the ENR and checks full {@link
-   * PeerPermissions} including node ID-based and enode-based rules. ENRs with no advertised
-   * addresses are allowed through.
+   * PeerPermissions} including node ID-based and enode-based rules.
    *
    * @return the address access policy
    */
@@ -227,27 +227,41 @@ public final class PeerDiscoveryAgentFactoryV5 implements PeerDiscoveryAgentFact
           return false;
         }
 
-        // ENRs without any advertised endpoints pass the address should pass validation, since
-        // there are no IPs/ports to apply subnet filtering to
+        final Peer localNode =
+            nodeRecordManager
+                .getLocalNode()
+                .map(Peer.class::cast)
+                // Defensive: in practice the local node is always initialized before the
+                // discovery system starts (see PeerDiscoveryAgentV5.initializeLocalNodeRecord),
+                // so this branch should never execute. Reject rather than bypass identity
+                // checks — the peer will be re-discovered on the next FINDNODE round.
+                .orElse(null);
+        if (localNode == null) {
+          return false;
+        }
+
         if (udp.isEmpty() && udp6.isEmpty() && tcp.isEmpty() && tcp6.isEmpty()) {
-          return true;
+          // No address to build a full DiscoveryPeer — fall back to node-ID-only check.
+          // Implementations that need an IP (e.g. subnet filters) default to true since
+          // there is nothing to filter on; only ID-based checks (e.g. denylists) fire.
+          try {
+            final Bytes publicKey = EthereumNodeRecord.uncompressedPublicKey(record);
+            return peerPermissions.isPermitted(
+                localNode,
+                new DefaultPeerId(publicKey),
+                PeerPermissions.Action.DISCOVERY_ALLOW_IN_PEER_TABLE);
+          } catch (final RuntimeException e) {
+            LOG.debug("DiscV5: Rejecting peer with missing or malformed secp256k1 key", e);
+            return false;
+          }
         }
 
         try {
-          // .map(Peer.class::cast) widens Optional<DiscoveryPeerV4> to Optional<Peer>
-          final Optional<Peer> localNode = nodeRecordManager.getLocalNode().map(Peer.class::cast);
-          if (localNode.isEmpty()) {
-            // Defensive: in practice the local node is always initialized before the
-            // discovery system starts (see PeerDiscoveryAgentV5.initializeLocalNodeRecord),
-            // so this branch should never execute. Reject rather than bypass identity
-            // checks — the peer will be re-discovered on the next FINDNODE round.
-            return false;
-          }
           final DiscoveryPeer remotePeer =
               DiscoveryPeerFactory.fromNodeRecord(
                   record, config.discoveryConfiguration().isPreferIpv6Outbound());
           return peerPermissions.isPermitted(
-              localNode.get(), remotePeer, PeerPermissions.Action.DISCOVERY_ALLOW_IN_PEER_TABLE);
+              localNode, remotePeer, PeerPermissions.Action.DISCOVERY_ALLOW_IN_PEER_TABLE);
         } catch (final RuntimeException e) {
           LOG.debug("DiscV5: Rejecting peer with malformed NodeRecord", e);
           return false;
