@@ -19,6 +19,7 @@ import org.hyperledger.besu.ethereum.ProtocolContext;
 import org.hyperledger.besu.ethereum.api.ApiConfiguration;
 import org.hyperledger.besu.ethereum.api.graphql.GraphQLConfiguration;
 import org.hyperledger.besu.ethereum.api.jsonrpc.JsonRpcConfiguration;
+import org.hyperledger.besu.ethereum.api.jsonrpc.internal.cache.ExecutionWitnessCache;
 import org.hyperledger.besu.ethereum.api.jsonrpc.internal.filter.FilterManager;
 import org.hyperledger.besu.ethereum.api.jsonrpc.internal.methods.JsonRpcMethod;
 import org.hyperledger.besu.ethereum.api.jsonrpc.internal.methods.RpcModules;
@@ -92,6 +93,8 @@ public class JsonRpcMethodsFactory {
     if (!rpcApis.isEmpty()) {
       final JsonRpcMethod modules = new RpcModules(rpcApis);
       enabled.put(modules.getName(), modules);
+      final ExecutionWitnessCache executionWitnessCache =
+          new ExecutionWitnessCache(ExecutionWitnessCache.DEFAULT_MAX_BYTES);
       final List<JsonRpcMethods> availableApiGroups =
           List.of(
               new AdminJsonRpcMethods(
@@ -113,7 +116,8 @@ public class JsonRpcMethodsFactory {
                   transactionPool,
                   synchronizer,
                   dataDir,
-                  transactionSimulator),
+                  transactionSimulator,
+                  executionWitnessCache),
               new ExecutionEngineJsonRpcMethods(
                   miningCoordinator,
                   protocolSchedule,
@@ -123,7 +127,8 @@ public class JsonRpcMethodsFactory {
                   clientVersion,
                   commit,
                   transactionPool,
-                  metricsSystem),
+                  metricsSystem,
+                  executionWitnessCache),
               new EthJsonRpcMethods(
                   blockchainQueries,
                   synchronizer,

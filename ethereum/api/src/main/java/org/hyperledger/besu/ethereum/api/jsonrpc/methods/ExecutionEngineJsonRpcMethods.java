@@ -22,6 +22,7 @@ import static org.hyperledger.besu.datatypes.HardforkId.MainnetHardforkId.PRAGUE
 import org.hyperledger.besu.consensus.merge.blockcreation.MergeMiningCoordinator;
 import org.hyperledger.besu.ethereum.ProtocolContext;
 import org.hyperledger.besu.ethereum.api.jsonrpc.RpcApis;
+import org.hyperledger.besu.ethereum.api.jsonrpc.internal.cache.ExecutionWitnessCache;
 import org.hyperledger.besu.ethereum.api.jsonrpc.internal.methods.JsonRpcMethod;
 import org.hyperledger.besu.ethereum.api.jsonrpc.internal.methods.engine.EngineExchangeCapabilities;
 import org.hyperledger.besu.ethereum.api.jsonrpc.internal.methods.engine.EngineExchangeTransitionConfiguration;
@@ -48,6 +49,7 @@ import org.hyperledger.besu.ethereum.api.jsonrpc.internal.methods.engine.EngineN
 import org.hyperledger.besu.ethereum.api.jsonrpc.internal.methods.engine.EngineNewPayloadV3;
 import org.hyperledger.besu.ethereum.api.jsonrpc.internal.methods.engine.EngineNewPayloadV4;
 import org.hyperledger.besu.ethereum.api.jsonrpc.internal.methods.engine.EngineNewPayloadV5;
+import org.hyperledger.besu.ethereum.api.jsonrpc.internal.methods.engine.EngineNewPayloadWithWitnessV1;
 import org.hyperledger.besu.ethereum.api.jsonrpc.internal.methods.engine.EnginePreparePayloadDebug;
 import org.hyperledger.besu.ethereum.api.jsonrpc.internal.methods.engine.EngineQosTimer;
 import org.hyperledger.besu.ethereum.api.jsonrpc.internal.results.BlockResultFactory;
@@ -78,6 +80,7 @@ public class ExecutionEngineJsonRpcMethods extends ApiGroupJsonRpcMethods {
   private final String commit;
   private final TransactionPool transactionPool;
   private final MetricsSystem metricsSystem;
+  private final ExecutionWitnessCache executionWitnessCache;
 
   ExecutionEngineJsonRpcMethods(
       final MiningCoordinator miningCoordinator,
@@ -88,7 +91,8 @@ public class ExecutionEngineJsonRpcMethods extends ApiGroupJsonRpcMethods {
       final String clientVersion,
       final String commit,
       final TransactionPool transactionPool,
-      final MetricsSystem metricsSystem) {
+      final MetricsSystem metricsSystem,
+      final ExecutionWitnessCache executionWitnessCache) {
     this.mergeCoordinator =
         Optional.ofNullable(miningCoordinator)
             .filter(mc -> mc.isCompatibleWithEngineApi())
@@ -101,6 +105,7 @@ public class ExecutionEngineJsonRpcMethods extends ApiGroupJsonRpcMethods {
     this.commit = commit;
     this.transactionPool = transactionPool;
     this.metricsSystem = metricsSystem;
+    this.executionWitnessCache = executionWitnessCache;
   }
 
   @Override
@@ -271,6 +276,16 @@ public class ExecutionEngineJsonRpcMethods extends ApiGroupJsonRpcMethods {
                 ethPeers,
                 engineQosTimer,
                 metricsSystem));
+        executionEngineApisSupported.add(
+            new EngineNewPayloadWithWitnessV1(
+                consensusEngineServer,
+                protocolSchedule,
+                protocolContext,
+                mergeCoordinator.get(),
+                ethPeers,
+                engineQosTimer,
+                metricsSystem,
+                executionWitnessCache));
         executionEngineApisSupported.add(
             new EngineForkchoiceUpdatedV4(
                 consensusEngineServer,
