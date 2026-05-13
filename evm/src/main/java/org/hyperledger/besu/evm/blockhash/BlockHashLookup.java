@@ -17,6 +17,7 @@ package org.hyperledger.besu.evm.blockhash;
 import org.hyperledger.besu.datatypes.Hash;
 import org.hyperledger.besu.evm.frame.MessageFrame;
 
+import java.util.Map;
 import java.util.function.BiFunction;
 
 /**
@@ -34,5 +35,32 @@ public interface BlockHashLookup extends BiFunction<MessageFrame, Long, Hash> {
    */
   default long getLookback() {
     return 256L;
+  }
+
+  /**
+   * Lookup to use for one parallel worker (e.g. parallel transaction execution). Each worker must
+   * hold an instance that does not share mutable traversal state with other workers.
+   *
+   * @return a {@link BlockHashLookup} safe to use from a single parallel worker thread
+   * @throws UnsupportedOperationException if this lookup does not support parallel forking
+   */
+  default BlockHashLookup forkForParallelWorker() {
+    throw new UnsupportedOperationException(
+        "This BlockHashLookup does not support parallel execution; "
+            + "override forkForParallelWorker() with a per-worker instance when used for parallel "
+            + "transaction processing.");
+  }
+
+  /**
+   * Block numbers (and their hashes) that this lookup resolved during the lifetime of one block's
+   * execution — at minimum the parent header (which lookups pre-populate at construction), plus any
+   * ancestor reached while serving {@code BLOCKHASH}. Used by EIP-8025 witness assembly to populate
+   * the {@code headers} list. Lookups that do not track this should leave the default and return an
+   * empty map.
+   *
+   * @return an unmodifiable view of accessed ancestors keyed by block number
+   */
+  default Map<Long, Hash> getAccessedAncestors() {
+    return Map.of();
   }
 }

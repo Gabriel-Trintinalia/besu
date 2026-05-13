@@ -17,9 +17,11 @@ package org.hyperledger.besu.ethereum.api.jsonrpc.methods;
 import org.hyperledger.besu.ethereum.ProtocolContext;
 import org.hyperledger.besu.ethereum.api.jsonrpc.RpcApis;
 import org.hyperledger.besu.ethereum.api.jsonrpc.internal.DebugReplayBlock;
+import org.hyperledger.besu.ethereum.api.jsonrpc.internal.cache.ExecutionWitnessCache;
 import org.hyperledger.besu.ethereum.api.jsonrpc.internal.methods.DebugAccountAt;
 import org.hyperledger.besu.ethereum.api.jsonrpc.internal.methods.DebugAccountRange;
 import org.hyperledger.besu.ethereum.api.jsonrpc.internal.methods.DebugBatchSendRawTransaction;
+import org.hyperledger.besu.ethereum.api.jsonrpc.internal.methods.DebugExecutionWitness;
 import org.hyperledger.besu.ethereum.api.jsonrpc.internal.methods.DebugGetBadBlocks;
 import org.hyperledger.besu.ethereum.api.jsonrpc.internal.methods.DebugGetRawBlock;
 import org.hyperledger.besu.ethereum.api.jsonrpc.internal.methods.DebugGetRawHeader;
@@ -63,6 +65,7 @@ public class DebugJsonRpcMethods extends ApiGroupJsonRpcMethods {
   private final Synchronizer synchronizer;
   private final Path dataDir;
   private final TransactionSimulator transactionSimulator;
+  private final ExecutionWitnessCache executionWitnessCache;
 
   DebugJsonRpcMethods(
       final BlockchainQueries blockchainQueries,
@@ -72,7 +75,8 @@ public class DebugJsonRpcMethods extends ApiGroupJsonRpcMethods {
       final TransactionPool transactionPool,
       final Synchronizer synchronizer,
       final Path dataDir,
-      final TransactionSimulator transactionSimulator) {
+      final TransactionSimulator transactionSimulator,
+      final ExecutionWitnessCache executionWitnessCache) {
     this.blockchainQueries = blockchainQueries;
     this.protocolContext = protocolContext;
     this.protocolSchedule = protocolSchedule;
@@ -81,6 +85,7 @@ public class DebugJsonRpcMethods extends ApiGroupJsonRpcMethods {
     this.synchronizer = synchronizer;
     this.dataDir = dataDir;
     this.transactionSimulator = transactionSimulator;
+    this.executionWitnessCache = executionWitnessCache;
   }
 
   @Override
@@ -116,6 +121,7 @@ public class DebugJsonRpcMethods extends ApiGroupJsonRpcMethods {
         new DebugGetRawBlock(blockchainQueries),
         new DebugGetRawReceipts(blockchainQueries),
         new DebugGetRawTransaction(blockchainQueries),
-        new DebugTraceCall(blockchainQueries, protocolSchedule, transactionSimulator));
+        new DebugTraceCall(blockchainQueries, protocolSchedule, transactionSimulator),
+        new DebugExecutionWitness(blockchainQueries, metricsSystem, executionWitnessCache));
   }
 }

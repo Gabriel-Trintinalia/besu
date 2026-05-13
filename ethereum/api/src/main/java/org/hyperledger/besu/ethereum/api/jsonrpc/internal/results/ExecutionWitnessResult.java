@@ -1,0 +1,73 @@
+/*
+ * Copyright contributors to Hyperledger Besu.
+ *
+ * Licensed under the Apache License, Version 2.0 (the "License"); you may not use this file except in compliance with
+ * the License. You may obtain a copy of the License at
+ *
+ * http://www.apache.org/licenses/LICENSE-2.0
+ *
+ * Unless required by applicable law or agreed to in writing, software distributed under the License is distributed on
+ * an "AS IS" BASIS, WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied. See the License for the
+ * specific language governing permissions and limitations under the License.
+ *
+ * SPDX-License-Identifier: Apache-2.0
+ */
+package org.hyperledger.besu.ethereum.api.jsonrpc.internal.results;
+
+import java.util.List;
+
+import com.fasterxml.jackson.annotation.JsonProperty;
+
+/**
+ * JSON result type for {@code debug_executionWitness} (EIP-8025).
+ *
+ * <ul>
+ *   <li>{@code state} — RLP-encoded trie nodes touched during block execution, sorted lex.
+ *   <li>{@code codes} — contract bytecodes accessed during block execution, sorted lex.
+ *   <li>{@code keys} — account addresses and unhashed storage slot keys read from the trie log,
+ *       sorted lex.
+ *   <li>{@code headers} — RLP-encoded ancestor block headers, ascending by block number (genesis
+ *       first).
+ * </ul>
+ */
+public class ExecutionWitnessResult {
+
+  @JsonProperty("state")
+  private final List<String> state;
+
+  @JsonProperty("codes")
+  private final List<String> codes;
+
+  @JsonProperty("keys")
+  private final List<String> keys;
+
+  @JsonProperty("headers")
+  private final List<String> headers;
+
+  public ExecutionWitnessResult(
+      final List<String> state,
+      final List<String> codes,
+      final List<String> keys,
+      final List<String> headers) {
+    this.state = state;
+    this.codes = codes;
+    this.keys = keys;
+    this.headers = headers;
+  }
+
+  public List<String> getState() {
+    return state;
+  }
+
+  public List<String> getCodes() {
+    return codes;
+  }
+
+  public List<String> getKeys() {
+    return keys;
+  }
+
+  public List<String> getHeaders() {
+    return headers;
+  }
+}

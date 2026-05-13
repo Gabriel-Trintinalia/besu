@@ -22,6 +22,7 @@ import static org.mockito.Mockito.when;
 import org.hyperledger.besu.consensus.merge.blockcreation.MergeMiningCoordinator;
 import org.hyperledger.besu.ethereum.ProtocolContext;
 import org.hyperledger.besu.ethereum.api.jsonrpc.RpcMethod;
+import org.hyperledger.besu.ethereum.api.jsonrpc.internal.cache.ExecutionWitnessCache;
 import org.hyperledger.besu.ethereum.api.jsonrpc.internal.methods.JsonRpcMethod;
 import org.hyperledger.besu.ethereum.blockcreation.MiningCoordinator;
 import org.hyperledger.besu.ethereum.eth.manager.EthPeers;
@@ -59,7 +60,8 @@ class ExecutionEngineJsonRpcMethodsTest {
             "testClient",
             "testCommit",
             mock(TransactionPool.class),
-            mock(MetricsSystem.class));
+            mock(MetricsSystem.class),
+            new ExecutionWitnessCache(ExecutionWitnessCache.DEFAULT_MAX_BYTES));
 
     Map<String, JsonRpcMethod> engineMethods = methods.create();
     List<String> expectedMethodNames =
