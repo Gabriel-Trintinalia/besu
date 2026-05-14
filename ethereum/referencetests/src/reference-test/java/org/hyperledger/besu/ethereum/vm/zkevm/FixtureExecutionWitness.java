@@ -18,16 +18,12 @@ import java.util.List;
 
 /** Per-block execution witness as specified by EIP-8025, present in zkevm fixtures. */
 public record FixtureExecutionWitness(
-    List<String> state, List<String> codes, List<String> keys, List<String> headers) {
+    List<String> state, List<String> codes, List<String> headers) {
 
   public FixtureExecutionWitness(
-      final List<String> state,
-      final List<String> codes,
-      final List<String> keys,
-      final List<String> headers) {
+      final List<String> state, final List<String> codes, final List<String> headers) {
     this.state = state != null ? state : List.of();
     this.codes = codes != null ? codes : List.of();
-    this.keys = keys != null ? keys : List.of();
     this.headers = headers != null ? headers : List.of();
   }
 }

@@ -22,7 +22,6 @@ import org.hyperledger.besu.ethereum.BlockProcessingOutputs;
 import org.hyperledger.besu.ethereum.BlockProcessingResult;
 import org.hyperledger.besu.ethereum.ProtocolContext;
 import org.hyperledger.besu.ethereum.api.jsonrpc.RpcMethod;
-import org.hyperledger.besu.ethereum.api.jsonrpc.internal.cache.ExecutionWitnessCache;
 import org.hyperledger.besu.ethereum.api.jsonrpc.internal.results.EnginePayloadWithWitnessResult;
 import org.hyperledger.besu.ethereum.api.jsonrpc.internal.results.ExecutionWitnessResult;
 import org.hyperledger.besu.ethereum.core.BlockHeader;
@@ -38,12 +37,13 @@ import io.vertx.core.Vertx;
 
 /**
  * Same params as {@code engine_newPayloadV5}; response additionally carries the EIP-8025 execution
- * witness for the imported block. Witness output is cached so that {@code debug_executionWitness}
- * can serve recent blocks without re-execution.
+ * witness for the imported block. The witness is built inline from the post-import trie log and the
+ * accessed-ancestor map captured during execution. The oldest-accessed-ancestor sidecar is written
+ * upstream by {@code MergeCoordinator.rememberBlock}, so {@code debug_executionWitness} can
+ * subsequently reconstruct the witness without re-executing the block.
  */
 public class EngineNewPayloadWithWitnessV1 extends EngineNewPayloadV5 {
 
-  private final ExecutionWitnessCache witnessCache;
   private final MetricsSystem witnessMetricsSystem;
 
   public EngineNewPayloadWithWitnessV1(
@@ -53,8 +53,7 @@ public class EngineNewPayloadWithWitnessV1 extends EngineNewPayloadV5 {
       final MergeMiningCoordinator mergeCoordinator,
       final EthPeers ethPeers,
       final EngineCallListener engineCallListener,
-      final MetricsSystem metricsSystem,
-      final ExecutionWitnessCache witnessCache) {
+      final MetricsSystem metricsSystem) {
     super(
         vertx,
         timestampSchedule,
@@ -63,7 +62,6 @@ public class EngineNewPayloadWithWitnessV1 extends EngineNewPayloadV5 {
         ethPeers,
         engineCallListener,
         metricsSystem);
-    this.witnessCache = witnessCache;
     this.witnessMetricsSystem = metricsSystem;
   }
 
@@ -75,11 +73,11 @@ public class EngineNewPayloadWithWitnessV1 extends EngineNewPayloadV5 {
   @Override
   protected Object buildValidPayloadResult(
       final Hash latestValidHash, final BlockProcessingResult executionResult) {
-    final ExecutionWitnessResult witness = buildAndCacheWitness(latestValidHash, executionResult);
+    final ExecutionWitnessResult witness = buildWitness(latestValidHash, executionResult);
     return new EnginePayloadWithWitnessResult(VALID, latestValidHash, Optional.empty(), witness);
   }
 
-  private ExecutionWitnessResult buildAndCacheWitness(
+  private ExecutionWitnessResult buildWitness(
       final Hash blockHash, final BlockProcessingResult executionResult) {
     final Optional<BlockHeader> maybeBlock =
         protocolContext.getBlockchain().getBlockHeader(blockHash);
@@ -105,15 +103,7 @@ public class EngineNewPayloadWithWitnessV1 extends EngineNewPayloadV5 {
             protocolContext.getWorldStateArchive(),
             protocolContext.getBlockchain(),
             accessedAncestors)
-        .map(
-            built ->
-                new ExecutionWitnessResult(
-                    built.state(), built.codes(), built.keys(), built.headers()))
-        .map(
-            result -> {
-              witnessCache.put(blockHash, result);
-              return result;
-            })
+        .map(built -> new ExecutionWitnessResult(built.state(), built.codes(), built.headers()))
         .orElse(null);
   }
 }

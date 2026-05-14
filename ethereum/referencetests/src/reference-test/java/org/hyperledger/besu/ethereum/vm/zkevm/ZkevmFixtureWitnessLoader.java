@@ -85,7 +85,6 @@ public final class ZkevmFixtureWitnessLoader {
         new FixtureExecutionWitness(
             readStringList(node.get("state")),
             readStringList(node.get("codes")),
-            readStringList(node.get("keys")),
             readStringList(node.get("headers"))));
   }
 

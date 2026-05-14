@@ -24,8 +24,6 @@ import com.fasterxml.jackson.annotation.JsonProperty;
  * <ul>
  *   <li>{@code state} — RLP-encoded trie nodes touched during block execution, sorted lex.
  *   <li>{@code codes} — contract bytecodes accessed during block execution, sorted lex.
- *   <li>{@code keys} — account addresses and unhashed storage slot keys read from the trie log,
- *       sorted lex.
  *   <li>{@code headers} — RLP-encoded ancestor block headers, ascending by block number (genesis
  *       first).
  * </ul>
@@ -38,20 +36,13 @@ public class ExecutionWitnessResult {
   @JsonProperty("codes")
   private final List<String> codes;
 
-  @JsonProperty("keys")
-  private final List<String> keys;
-
   @JsonProperty("headers")
   private final List<String> headers;
 
   public ExecutionWitnessResult(
-      final List<String> state,
-      final List<String> codes,
-      final List<String> keys,
-      final List<String> headers) {
+      final List<String> state, final List<String> codes, final List<String> headers) {
     this.state = state;
     this.codes = codes;
-    this.keys = keys;
     this.headers = headers;
   }
 
@@ -61,10 +52,6 @@ public class ExecutionWitnessResult {
 
   public List<String> getCodes() {
     return codes;
-  }
-
-  public List<String> getKeys() {
-    return keys;
   }
 
   public List<String> getHeaders() {

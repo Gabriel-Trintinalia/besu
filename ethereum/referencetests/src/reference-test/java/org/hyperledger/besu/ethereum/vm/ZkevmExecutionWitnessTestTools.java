@@ -53,13 +53,14 @@ import java.util.Collection;
 import java.util.List;
 import java.util.Map;
 import java.util.Optional;
+import java.util.Set;
 
 import org.apache.tuweni.bytes.Bytes32;
 import org.assertj.core.api.Assertions;
 
 /**
  * Drives zkevm execution-spec-test fixtures through Besu's block processing and asserts that the
- * {@code debug_executionWitness} output (state, codes, keys, headers) matches the per-block
+ * {@code debug_executionWitness} output (state, codes, headers) matches the per-block
  * {@code executionWitness} field embedded in each fixture.
  *
  * <p>Blocks are always imported from the fixture RLP — no block re-building is performed.
@@ -68,6 +69,21 @@ public class ZkevmExecutionWitnessTestTools {
 
   private static final List<String> NETWORKS_TO_RUN;
   private static final ReferenceTestProtocolSchedules PROTOCOL_SCHEDULES;
+
+  // Tests whose fixture's executionWitness.headers list is intentionally not directly comparable to
+  // a canonical builder output. The validation_headers/* family ships deliberately-malformed
+  // witnesses (missing parent, wrong order, corrupt RLP, etc.) to exercise stateless-client
+  // rejection logic — Besu builds its own canonical witness so the comparison is meaningless.
+  // extra_unused_older_ancestor exercises an optional spec allowance to include older unused
+  // ancestors; Besu emits the strict minimum, which is also spec-valid.
+  private static final Set<String> HEADERS_COMPARISON_INCOMPATIBLE =
+      Set.of(
+          "test_validation_headers_empty_block_missing_mandatory_parent",
+          "test_validation_headers_non_contiguous_chain",
+          "test_validation_headers_malformed_rlp_header",
+          "test_validation_headers_missing_parent_header",
+          "test_validation_headers_missing_oldest_blockhash_ancestor",
+          "test_witness_headers_extra_unused_older_ancestor");
 
   static {
     final String networks =
@@ -184,6 +200,14 @@ public class ZkevmExecutionWitnessTestTools {
                     protocolContext
                         .getBlockchain()
                         .appendBlock(block, outputs.getReceipts(), outputs.getBlockAccessList());
+                    final long oldest =
+                        outputs.getAccessedAncestors().keySet().stream()
+                            .mapToLong(Long::longValue)
+                            .min()
+                            .orElseGet(() -> block.getHeader().getNumber() - 1L);
+                    protocolContext
+                        .getBlockchain()
+                        .storeOldestAccessedAncestor(block.getHash(), oldest);
                     protocolContext
                         .getWorldStateArchive()
                         .getWorldState(
@@ -237,10 +261,11 @@ public class ZkevmExecutionWitnessTestTools {
                 assertThat(got.codes())
                     .as("codes for block %s", block.getHash())
                     .isEqualTo(expected.codes());
-                // keys are not included in zkevm@v0.3.4 fixtures — skip comparison.
-                assertThat(got.headers())
-                    .as("headers for block %s", block.getHash())
-                    .isEqualTo(expected.headers());
+                if (!HEADERS_COMPARISON_INCOMPATIBLE.contains(extractTestFunctionName(testCase))) {
+                  assertThat(got.headers())
+                      .as("headers for block %s", block.getHash())
+                      .isEqualTo(expected.headers());
+                }
               });
         }
 
@@ -250,6 +275,19 @@ public class ZkevmExecutionWitnessTestTools {
     }
 
     Assertions.assertThat(blockchain.getChainHeadHash()).isEqualTo(spec.getLastBlockHash());
+  }
+
+  // Extracts the bare pytest function name from a fully-qualified fixture test id like
+  // "tests/.../test_witness_headers.py::test_witness_headers_extra_unused_older_ancestor[...]".
+  private static String extractTestFunctionName(final ZkevmTestCase testCase) {
+    final String testName = testCase.testName();
+    final int sep = testName.indexOf("::");
+    if (sep < 0) {
+      return testName;
+    }
+    final int after = sep + 2;
+    final int bracket = testName.indexOf('[', after);
+    return bracket < 0 ? testName.substring(after) : testName.substring(after, bracket);
   }
 
   private static void verifyJournaledEVMAccountCompatability(
