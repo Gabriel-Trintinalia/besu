@@ -67,6 +67,7 @@ public class KeyValueStoragePrefixedKeyBlockchainStorage implements BlockchainSt
   private static final Bytes TOTAL_DIFFICULTY_PREFIX = Bytes.of(6);
   private static final Bytes TRANSACTION_LOCATION_PREFIX = Bytes.of(7);
   private static final Bytes BLOCK_ACCESS_LIST_PREFIX = Bytes.of(8);
+  private static final Bytes OLDEST_ACCESSED_ANCESTOR_PREFIX = Bytes.of(9);
   private static final SimpleNoCopyRlpEncoder NO_COPY_RLP_ENCODER = new SimpleNoCopyRlpEncoder();
 
   final KeyValueStorage blockchainStorage;
@@ -152,6 +153,17 @@ public class KeyValueStoragePrefixedKeyBlockchainStorage implements BlockchainSt
   @Override
   public Optional<BlockAccessList> getBlockAccessList(final Hash blockHash) {
     return get(BLOCK_ACCESS_LIST_PREFIX, blockHash.getBytes()).map(this::rlpDecodeBlockAccessList);
+  }
+
+  @Override
+  public Optional<Long> getOldestAccessedAncestor(final Hash blockHash) {
+    return get(OLDEST_ACCESSED_ANCESTOR_PREFIX, blockHash.getBytes())
+        .filter(bytes -> bytes.size() == Long.BYTES)
+        .map(Bytes::toLong);
+  }
+
+  private static Bytes encodeLong(final long value) {
+    return Bytes.wrap(java.nio.ByteBuffer.allocate(Long.BYTES).putLong(value).array());
   }
 
   @Override
@@ -344,6 +356,21 @@ public class KeyValueStoragePrefixedKeyBlockchainStorage implements BlockchainSt
     }
 
     @Override
+    public void putSyncBlockAccessList(
+        final Hash blockHash, final SyncBlockAccessList syncBlockAccessList) {
+      set(BLOCK_ACCESS_LIST_PREFIX, blockHash.getBytes(), syncBlockAccessList.getRlp());
+    }
+
+    @Override
+    public void putOldestAccessedAncestor(
+        final Hash blockHash, final long oldestAccessedAncestor) {
+      set(
+          OLDEST_ACCESSED_ANCESTOR_PREFIX,
+          blockHash.getBytes(),
+          encodeLong(oldestAccessedAncestor));
+    }
+
+    @Override
     public void putTransactionLocation(
         final Hash transactionHash, final TransactionLocation transactionLocation) {
       set(
@@ -418,6 +445,11 @@ public class KeyValueStoragePrefixedKeyBlockchainStorage implements BlockchainSt
     @Override
     public void removeBlockAccessList(final Hash blockHash) {
       remove(BLOCK_ACCESS_LIST_PREFIX, blockHash.getBytes());
+    }
+
+    @Override
+    public void removeOldestAccessedAncestor(final Hash blockHash) {
+      remove(OLDEST_ACCESSED_ANCESTOR_PREFIX, blockHash.getBytes());
     }
 
     @Override

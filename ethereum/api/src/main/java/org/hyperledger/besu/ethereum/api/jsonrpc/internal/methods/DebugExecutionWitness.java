@@ -17,7 +17,6 @@ package org.hyperledger.besu.ethereum.api.jsonrpc.internal.methods;
 import org.hyperledger.besu.datatypes.Hash;
 import org.hyperledger.besu.ethereum.api.jsonrpc.RpcMethod;
 import org.hyperledger.besu.ethereum.api.jsonrpc.internal.JsonRpcRequestContext;
-import org.hyperledger.besu.ethereum.api.jsonrpc.internal.cache.ExecutionWitnessCache;
 import org.hyperledger.besu.ethereum.api.jsonrpc.internal.exception.InvalidJsonRpcParameters;
 import org.hyperledger.besu.ethereum.api.jsonrpc.internal.parameters.BlockParameterOrBlockHash;
 import org.hyperledger.besu.ethereum.api.jsonrpc.internal.parameters.JsonRpcParameter.JsonRpcParameterException;
@@ -25,25 +24,36 @@ import org.hyperledger.besu.ethereum.api.jsonrpc.internal.response.JsonRpcErrorR
 import org.hyperledger.besu.ethereum.api.jsonrpc.internal.response.RpcErrorType;
 import org.hyperledger.besu.ethereum.api.jsonrpc.internal.results.ExecutionWitnessResult;
 import org.hyperledger.besu.ethereum.api.query.BlockchainQueries;
+import org.hyperledger.besu.ethereum.chain.Blockchain;
 import org.hyperledger.besu.ethereum.core.BlockHeader;
 import org.hyperledger.besu.ethereum.trie.pathbased.bonsai.storage.BonsaiExecutionWitnessBuilder;
 import org.hyperledger.besu.plugin.services.MetricsSystem;
 
+import java.util.HashMap;
 import java.util.Map;
 import java.util.Optional;
 
+/**
+ * Reconstructs the EIP-8025 execution witness for a previously-imported block.
+ *
+ * <p>The {@code headers} list is recovered from the oldest-accessed-ancestor sidecar that was
+ * persisted at block import time (see {@code Blockchain.getOldestAccessedAncestor}). Walking the
+ * chain backward from the parent down to that block number materializes the contiguous ancestor
+ * range; {@code state}, {@code codes}, and {@code keys} come from the persisted trie log via
+ * {@link BonsaiExecutionWitnessBuilder}.
+ *
+ * <p>Returns {@code INTERNAL_ERROR} when no sidecar is found for the requested block. This is
+ * expected for blocks imported before the feature shipped and for any path that bypasses the
+ * standard import flow.
+ */
 public class DebugExecutionWitness extends AbstractBlockParameterOrBlockHashMethod {
 
   private final MetricsSystem metricsSystem;
-  private final ExecutionWitnessCache witnessCache;
 
   public DebugExecutionWitness(
-      final BlockchainQueries blockchainQueries,
-      final MetricsSystem metricsSystem,
-      final ExecutionWitnessCache witnessCache) {
+      final BlockchainQueries blockchainQueries, final MetricsSystem metricsSystem) {
     super(blockchainQueries);
     this.metricsSystem = metricsSystem;
-    this.witnessCache = witnessCache;
   }
 
   @Override
@@ -64,11 +74,7 @@ public class DebugExecutionWitness extends AbstractBlockParameterOrBlockHashMeth
 
   @Override
   protected Object resultByBlockHash(final JsonRpcRequestContext request, final Hash blockHash) {
-
-    final Optional<ExecutionWitnessResult> cached = witnessCache.get(blockHash);
-    if (cached.isPresent()) {
-      return cached.get();
-    }
+    final Blockchain blockchain = getBlockchainQueries().getBlockchain();
 
     final Optional<BlockHeader> maybeBlockHeader =
         getBlockchainQueries().getBlockHeaderByHash(blockHash);
@@ -77,39 +83,59 @@ public class DebugExecutionWitness extends AbstractBlockParameterOrBlockHashMeth
     }
     final BlockHeader blockHeader = maybeBlockHeader.get();
 
-    final Optional<BlockHeader> maybeParentHeader =
-        getBlockchainQueries().getBlockchain().getBlockHeader(blockHeader.getParentHash());
-    if (maybeParentHeader.isEmpty()) {
+    final Optional<BlockHeader> maybeParent =
+        blockchain.getBlockHeader(blockHeader.getParentHash());
+    if (maybeParent.isEmpty()) {
       return new JsonRpcErrorResponse(request.getRequest().getId(), RpcErrorType.BLOCK_NOT_FOUND);
     }
-    final BlockHeader parentHeader = maybeParentHeader.get();
+    final BlockHeader parentHeader = maybeParent.get();
 
-    // Cold-path: rebuild from the trie log. Accessed ancestors are not recoverable without
-    // re-execution, so {@code headers} is restricted to the parent — correct for blocks that
-    // never invoke BLOCKHASH; callers that need the full set should drive the witness through
-    // {@code engine_newPayloadWithWitnessV*} to populate the cache.
-    final Map<Long, Hash> ancestorsParentOnly =
-        Map.of(parentHeader.getNumber(), parentHeader.getBlockHash());
+    final Optional<Long> oldestAccessed = blockchain.getOldestAccessedAncestor(blockHash);
+    if (oldestAccessed.isEmpty()) {
+      return new JsonRpcErrorResponse(
+          request.getRequest().getId(), RpcErrorType.INTERNAL_ERROR);
+    }
+
+    final Map<Long, Hash> accessedAncestors =
+        buildAccessedAncestors(parentHeader, oldestAccessed.get(), blockchain);
 
     return new BonsaiExecutionWitnessBuilder(metricsSystem)
         .tryBuildForBlock(
             blockHeader,
             parentHeader,
             getBlockchainQueries().getWorldStateArchive(),
-            getBlockchainQueries().getBlockchain(),
-            ancestorsParentOnly)
-        .map(
-            built ->
-                new ExecutionWitnessResult(
-                    built.state(), built.codes(), built.keys(), built.headers()))
-        .map(
-            (final ExecutionWitnessResult result) -> {
-              witnessCache.put(blockHash, result);
-              return (Object) result;
-            })
+            blockchain,
+            accessedAncestors)
+        .<Object>map(
+            built -> new ExecutionWitnessResult(built.state(), built.codes(), built.headers()))
         .orElseGet(
             () ->
                 new JsonRpcErrorResponse(
                     request.getRequest().getId(), RpcErrorType.INTERNAL_ERROR));
+  }
+
+  /**
+   * Reconstructs the {@code accessedAncestors} map for a previously-imported block by walking the
+   * chain backward from {@code parentHeader} down to {@code oldestAccessedNumber}. The result has
+   * the same shape as {@link
+   * org.hyperledger.besu.ethereum.BlockProcessingOutputs#getAccessedAncestors()} captured at
+   * import time — but built from persisted headers rather than the in-memory
+   * {@link org.hyperledger.besu.evm.blockhash.BlockHashLookup}. At most 256 hops (the
+   * {@code BLOCKHASH} reach).
+   */
+  private static Map<Long, Hash> buildAccessedAncestors(
+      final BlockHeader parentHeader,
+      final long oldestAccessedNumber,
+      final Blockchain blockchain) {
+    final Map<Long, Hash> ancestors = new HashMap<>();
+    BlockHeader cursor = parentHeader;
+    while (cursor != null && cursor.getNumber() >= oldestAccessedNumber) {
+      ancestors.put(cursor.getNumber(), cursor.getBlockHash());
+      if (cursor.getNumber() == oldestAccessedNumber) {
+        break;
+      }
+      cursor = blockchain.getBlockHeader(cursor.getParentHash()).orElse(null);
+    }
+    return ancestors;
   }
 }

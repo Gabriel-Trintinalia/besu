@@ -700,13 +700,24 @@ public class MergeCoordinator implements MergeMiningCoordinator, BadChainListene
     validationResult
         .getYield()
         .ifPresentOrElse(
-            result ->
-                chain.storeBlock(
-                    block,
-                    result.getReceipts(),
-                    validationResult.getYield().flatMap(y -> y.getBlockAccessList())),
+            result -> {
+              chain.storeBlock(
+                  block,
+                  result.getReceipts(),
+                  validationResult.getYield().flatMap(y -> y.getBlockAccessList()));
+              chain.storeOldestAccessedAncestor(
+                  block.getHash(), oldestAccessedAncestor(result, block));
+            },
             () -> LOG.debug("empty yield in blockProcessingResult"));
     return validationResult;
+  }
+
+  private static long oldestAccessedAncestor(
+      final org.hyperledger.besu.ethereum.BlockProcessingOutputs outputs, final Block block) {
+    return outputs.getAccessedAncestors().keySet().stream()
+        .mapToLong(Long::longValue)
+        .min()
+        .orElseGet(() -> block.getHeader().getNumber() - 1L);
   }
 
   @Override

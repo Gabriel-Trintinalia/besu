@@ -43,6 +43,14 @@ public interface BlockchainStorage {
 
   Optional<BlockAccessList> getBlockAccessList(Hash blockHash);
 
+  /**
+   * Returns the oldest ancestor block number accessed during {@code blockHash}'s execution, if a
+   * sidecar entry was persisted at import time. Used by {@code debug_executionWitness} to
+   * reconstruct the EIP-8025 {@code headers} list (a contiguous range from this number to the
+   * parent).
+   */
+  Optional<Long> getOldestAccessedAncestor(Hash blockHash);
+
   Optional<List<TransactionReceipt>> getTransactionReceipts(Hash blockHash);
 
   Optional<Hash> getBlockHash(long blockNumber);
@@ -62,6 +70,17 @@ public interface BlockchainStorage {
     void putSyncBlockBody(Hash blockHash, SyncBlockBody blockBody);
 
     void putBlockAccessList(Hash blockHash, BlockAccessList blockAccessList);
+
+    void putSyncBlockAccessList(Hash blockHash, SyncBlockAccessList syncBlockAccessList);
+
+    /**
+     * Persists the oldest ancestor block number accessed during the block's execution.
+     *
+     * @param blockHash the imported block's hash
+     * @param oldestAccessedAncestor the lowest block number reached by {@code BLOCKHASH} during
+     *     execution (or the parent number when no {@code BLOCKHASH} was invoked)
+     */
+    void putOldestAccessedAncestor(Hash blockHash, long oldestAccessedAncestor);
 
     void putTransactionLocation(Hash transactionHash, TransactionLocation transactionLocation);
 
@@ -102,6 +121,8 @@ public interface BlockchainStorage {
     void removeBlockBody(final Hash blockHash);
 
     void removeBlockAccessList(final Hash blockHash);
+
+    void removeOldestAccessedAncestor(final Hash blockHash);
 
     void removeTransactionReceipts(final Hash blockHash);
 

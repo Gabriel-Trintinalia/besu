@@ -41,23 +41,21 @@ import java.util.Map;
 import java.util.Optional;
 import java.util.TreeSet;
 import java.util.concurrent.ConcurrentHashMap;
-import java.util.stream.Stream;
 
 import org.apache.tuweni.bytes.Bytes;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
 /**
- * Builds the EIP-8025 execution witness (state trie nodes, contract codes, access keys, and
- * ancestor headers) for a single block from a Bonsai world state and trie log. Used by both {@code
+ * Builds the EIP-8025 execution witness (state trie nodes, contract codes, and ancestor headers)
+ * for a single block from a Bonsai world state and trie log. Used by both {@code
  * debug_executionWitness} and reference-test tooling so that both paths emit identical output.
  */
 public class BonsaiExecutionWitnessBuilder {
 
   private static final Logger LOG = LoggerFactory.getLogger(BonsaiExecutionWitnessBuilder.class);
 
-  public record Witness(
-      List<String> state, List<String> codes, List<String> keys, List<String> headers) {}
+  public record Witness(List<String> state, List<String> codes, List<String> headers) {}
 
   private final MetricsSystem metricsSystem;
 
@@ -79,9 +77,8 @@ public class BonsaiExecutionWitnessBuilder {
       final Map<Long, Hash> accessedAncestors) {
     final List<String> state = buildTrieNodes(blockHeader, trieLog, parentWorldState);
     final List<String> codes = buildCodes(trieLog, parentWorldState);
-    final List<String> keys = buildKeys(trieLog);
     final List<String> headers = buildHeaders(blockchain, accessedAncestors);
-    return new Witness(state, codes, keys, headers);
+    return new Witness(state, codes, headers);
   }
 
   /**
@@ -174,20 +171,6 @@ public class BonsaiExecutionWitnessBuilder {
                   .ifPresent(bytes -> resultSet.add(bytes.toHexString()));
             });
     return resultSet.stream().sorted().toList();
-  }
-
-  private List<String> buildKeys(final TrieLog trieLog) {
-    return trieLog.getAccountChanges().keySet().stream()
-        .flatMap(
-            addr ->
-                Stream.concat(
-                    Stream.of(addr.toHexString()),
-                    trieLog.getStorageChanges(addr).keySet().stream()
-                        .filter(k -> k.getSlotKey().isPresent())
-                        .map(k -> k.getSlotKey().orElseThrow().toHexString())))
-        .distinct()
-        .sorted()
-        .toList();
   }
 
   private List<String> buildHeaders(

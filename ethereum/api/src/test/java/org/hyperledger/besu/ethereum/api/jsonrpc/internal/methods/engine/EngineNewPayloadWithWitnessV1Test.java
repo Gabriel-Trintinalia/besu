@@ -23,7 +23,6 @@ import org.hyperledger.besu.ethereum.BlockProcessingOutputs;
 import org.hyperledger.besu.ethereum.BlockProcessingResult;
 import org.hyperledger.besu.ethereum.ProtocolContext;
 import org.hyperledger.besu.ethereum.api.jsonrpc.RpcMethod;
-import org.hyperledger.besu.ethereum.api.jsonrpc.internal.cache.ExecutionWitnessCache;
 import org.hyperledger.besu.ethereum.api.jsonrpc.internal.results.EnginePayloadWithWitnessResult;
 import org.hyperledger.besu.ethereum.chain.MutableBlockchain;
 import org.hyperledger.besu.ethereum.core.BlockHeader;
@@ -145,7 +144,6 @@ class EngineNewPayloadWithWitnessV1Test {
         mock(MergeMiningCoordinator.class),
         mock(EthPeers.class),
         mock(EngineCallListener.class),
-        new NoOpMetricsSystem(),
-        new ExecutionWitnessCache(ExecutionWitnessCache.DEFAULT_MAX_BYTES));
+        new NoOpMetricsSystem());
   }
 }

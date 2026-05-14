@@ -70,6 +70,12 @@ public class MainnetBlockImporter implements BlockImporter {
                         processingOutputs.getReceipts(),
                         processingOutputs.getBlockAccessList());
 
+                context
+                    .getBlockchain()
+                    .storeOldestAccessedAncestor(
+                        block.getHash(),
+                        oldestAccessedAncestor(processingOutputs, block));
+
                 // move the head worldstate if block processing was successful:
                 context
                     .getWorldStateArchive()
@@ -82,6 +88,14 @@ public class MainnetBlockImporter implements BlockImporter {
     }
 
     return new BlockImportResult(result.isSuccessful());
+  }
+
+  private static long oldestAccessedAncestor(
+      final org.hyperledger.besu.ethereum.BlockProcessingOutputs outputs, final Block block) {
+    return outputs.getAccessedAncestors().keySet().stream()
+        .mapToLong(Long::longValue)
+        .min()
+        .orElseGet(() -> block.getHeader().getNumber() - 1L);
   }
 
   @Override
