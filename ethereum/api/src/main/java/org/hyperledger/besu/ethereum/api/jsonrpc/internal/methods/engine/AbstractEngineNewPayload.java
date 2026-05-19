@@ -445,6 +445,29 @@ public abstract class AbstractEngineNewPayload extends ExecutionEngineJsonRpcMet
     }
   }
 
+  /**
+   * Returns the payload result object for a successfully imported block. The default produces the
+   * canonical {@link EnginePayloadStatusResult} that {@code engine_newPayloadV1..V5} ship.
+   *
+   * <p>Overridden by handlers whose response shape diverges from the standard status object —
+   * currently {@link EngineNewPayloadWithWitnessV5}, which returns an {@code
+   * EnginePayloadWithWitnessResult} carrying the EIP-8025 execution witness alongside the status.
+   * The canonical {@code EnginePayloadStatusResult} can't grow new fields without changing the wire
+   * contract every existing endpoint depends on, so the divergent variants return a different
+   * concrete result class instead.
+   *
+   * @param latestValidHash the imported block's hash (usable for blockchain lookup of the header
+   *     persisted by {@code mergeCoordinator.rememberBlock})
+   * @param executionResult processing result, carrying accessed-ancestors metadata via {@code
+   *     BlockProcessingOutputs.getAccessedBlockHashes()}
+   */
+  protected Object buildPayloadResult(
+      final EngineStatus status,
+      final Hash latestValidHash,
+      @SuppressWarnings("unused") final BlockProcessingResult executionResult) {
+    return new EnginePayloadStatusResult(status, latestValidHash, Optional.empty());
+  }
+
   JsonRpcResponse respondWith(
       final Object requestId,
       final EnginePayloadParameter param,
@@ -464,8 +487,7 @@ public abstract class AbstractEngineNewPayload extends ExecutionEngineJsonRpcMet
             () -> latestValidHash == null ? null : latestValidHash.getBytes().toHexString())
         .addArgument(status::name)
         .log();
-    return new JsonRpcSuccessResponse(
-        requestId, new EnginePayloadStatusResult(status, latestValidHash, Optional.empty()));
+    return new JsonRpcSuccessResponse(requestId, buildPayloadResult(status, latestValidHash, null));
   }
 
   // engine api calls are synchronous, no need for volatile
