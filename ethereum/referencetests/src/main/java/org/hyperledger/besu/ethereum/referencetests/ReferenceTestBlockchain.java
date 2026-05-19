@@ -172,11 +172,6 @@ public class ReferenceTestBlockchain implements Blockchain {
   }
 
   @Override
-  public Optional<Long> getOldestAccessedAncestor(final Hash blockHash) {
-    throw new UnsupportedOperationException();
-  }
-
-  @Override
   public Optional<Difficulty> getTotalDifficultyByHash(final Hash blockHeaderHash) {
     throw new UnsupportedOperationException();
   }

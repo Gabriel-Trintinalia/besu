@@ -469,18 +469,6 @@ public class DefaultBlockchain implements MutableBlockchain {
   }
 
   @Override
-  public Optional<Long> getOldestAccessedAncestor(final Hash blockHash) {
-    return blockchainStorage.getOldestAccessedAncestor(blockHash);
-  }
-
-  @Override
-  public void storeOldestAccessedAncestor(final Hash blockHash, final long oldestAccessedAncestor) {
-    final BlockchainStorage.Updater updater = blockchainStorage.updater();
-    updater.putOldestAccessedAncestor(blockHash, oldestAccessedAncestor);
-    updater.commit();
-  }
-
-  @Override
   public Optional<Hash> getBlockHashByNumber(final long number) {
     return blockchainStorage.getBlockHash(number);
   }

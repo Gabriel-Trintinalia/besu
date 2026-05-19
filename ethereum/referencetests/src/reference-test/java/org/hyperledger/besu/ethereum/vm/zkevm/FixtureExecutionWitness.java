@@ -16,14 +16,23 @@ package org.hyperledger.besu.ethereum.vm.zkevm;
 
 import java.util.List;
 
-/** Per-block execution witness as specified by EIP-8025, present in zkevm fixtures. */
+/**
+ * Per-block execution witness as specified by EIP-8025, present in zkevm fixtures. {@code mutated}
+ * is {@code true} when the fixture deliberately carries a non-canonical witness (e.g.
+ * validation_headers tests with corrupt RLP or missing entries) — callers should skip witness
+ * comparison in that case.
+ */
 public record FixtureExecutionWitness(
-    List<String> state, List<String> codes, List<String> headers) {
+    List<String> state, List<String> codes, List<String> headers, boolean mutated) {
 
   public FixtureExecutionWitness(
-      final List<String> state, final List<String> codes, final List<String> headers) {
+      final List<String> state,
+      final List<String> codes,
+      final List<String> headers,
+      final boolean mutated) {
     this.state = state != null ? state : List.of();
     this.codes = codes != null ? codes : List.of();
     this.headers = headers != null ? headers : List.of();
+    this.mutated = mutated;
   }
 }

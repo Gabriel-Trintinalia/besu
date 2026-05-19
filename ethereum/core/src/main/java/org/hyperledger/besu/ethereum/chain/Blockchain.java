@@ -196,17 +196,6 @@ public interface Blockchain {
   Optional<BlockAccessList> getBlockAccessList(Hash blockHash);
 
   /**
-   * Returns the oldest ancestor block number accessed during the block's execution, if a sidecar
-   * entry was persisted at import time. The full ancestor range is contiguous from this value up
-   * to the block's parent. Used by {@code debug_executionWitness} to reconstruct the EIP-8025
-   * {@code headers} list without re-execution.
-   *
-   * @param blockHash the block's hash
-   * @return the oldest accessed ancestor number, or empty if not persisted
-   */
-  Optional<Long> getOldestAccessedAncestor(Hash blockHash);
-
-  /**
    * Given a block's hash, returns the list of transaction receipts associated with this block's
    * transactions. Associated block is not necessarily on the canonical chain.
    *

@@ -52,6 +52,14 @@ public final class ZkevmFixtureWitnessLoader {
     return witnesses.get(blockIndex);
   }
 
+  /** Returns {@code true} when the block at {@code blockIndex} carries a mutated witness. */
+  public static boolean isMutated(
+      final String filePath, final String testName, final int blockIndex) {
+    return witnessFor(filePath, testName, blockIndex)
+        .map(FixtureExecutionWitness::mutated)
+        .orElse(false);
+  }
+
   private static Map<String, List<Optional<FixtureExecutionWitness>>> parse(final String filePath) {
     final JsonNode root;
     try {
@@ -70,14 +78,16 @@ public final class ZkevmFixtureWitnessLoader {
               }
               final List<Optional<FixtureExecutionWitness>> witnesses = new ArrayList<>();
               for (final JsonNode block : blocks) {
-                witnesses.add(readWitness(block.get("executionWitness")));
+                final boolean mutated = block.path("executionWitnessMutated").asBoolean(false);
+                witnesses.add(readWitness(block.get("executionWitness"), mutated));
               }
               byTest.put(entry.getKey(), Collections.unmodifiableList(witnesses));
             });
     return byTest;
   }
 
-  private static Optional<FixtureExecutionWitness> readWitness(final JsonNode node) {
+  private static Optional<FixtureExecutionWitness> readWitness(
+      final JsonNode node, final boolean mutated) {
     if (node == null || node.isNull()) {
       return Optional.empty();
     }
@@ -85,7 +95,8 @@ public final class ZkevmFixtureWitnessLoader {
         new FixtureExecutionWitness(
             readStringList(node.get("state")),
             readStringList(node.get("codes")),
-            readStringList(node.get("headers"))));
+            readStringList(node.get("headers")),
+            mutated));
   }
 
   private static List<String> readStringList(final JsonNode node) {
