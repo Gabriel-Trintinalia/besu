@@ -18,6 +18,7 @@ import static org.assertj.core.api.Assertions.assertThat;
 import static org.mockito.Mockito.mock;
 
 import org.hyperledger.besu.datatypes.Hash;
+import org.hyperledger.besu.ethereum.ProtocolContext;
 import org.hyperledger.besu.ethereum.api.jsonrpc.internal.JsonRpcRequest;
 import org.hyperledger.besu.ethereum.api.jsonrpc.internal.JsonRpcRequestContext;
 import org.hyperledger.besu.ethereum.api.jsonrpc.internal.response.JsonRpcErrorResponse;
@@ -27,6 +28,7 @@ import org.hyperledger.besu.ethereum.api.jsonrpc.internal.results.ExecutionWitne
 import org.hyperledger.besu.ethereum.api.query.BlockchainQueries;
 import org.hyperledger.besu.ethereum.core.BlockchainSetupUtil;
 import org.hyperledger.besu.ethereum.core.MiningConfiguration;
+import org.hyperledger.besu.ethereum.mainnet.ProtocolSchedule;
 import org.hyperledger.besu.metrics.noop.NoOpMetricsSystem;
 import org.hyperledger.besu.plugin.services.storage.DataStorageFormat;
 
@@ -42,14 +44,18 @@ public class DebugExecutionWitnessTest {
   @Test
   public void nameShouldBeDebugExecutionWitness() {
     final DebugExecutionWitness method =
-        new DebugExecutionWitness(mock(BlockchainQueries.class), METRICS);
+        new DebugExecutionWitness(
+            mock(BlockchainQueries.class),
+            mock(ProtocolContext.class),
+            mock(ProtocolSchedule.class),
+            METRICS);
     assertThat(method.getName()).isEqualTo("debug_executionWitness");
   }
 
   @Test
   public void shouldReturnWitnessForChainHead() {
-    // End-to-end: real blockchain populated via MainnetBlockImporter (which writes the sidecar);
-    // DebugExecutionWitness reads the sidecar + trie log to reconstruct the witness.
+    // End-to-end: real chain imported; DebugExecutionWitness re-executes the requested block
+    // against the persisted parent state to rebuild the witness.
     final BlockchainSetupUtil setup = BlockchainSetupUtil.forHiveTesting(DataStorageFormat.BONSAI);
     setup.importAllBlocks();
 
@@ -63,7 +69,9 @@ public class DebugExecutionWitnessTest {
     final Hash chainHeadHash = setup.getBlockchain().getChainHeadHash();
     final JsonRpcRequestContext request = requestForBlockHash(chainHeadHash);
 
-    final DebugExecutionWitness method = new DebugExecutionWitness(queries, METRICS);
+    final DebugExecutionWitness method =
+        new DebugExecutionWitness(
+            queries, setup.getProtocolContext(), setup.getProtocolSchedule(), METRICS);
     final Object result = method.response(request);
 
     assertThat(result).isInstanceOf(JsonRpcSuccessResponse.class);
@@ -80,11 +88,9 @@ public class DebugExecutionWitnessTest {
   }
 
   @Test
-  public void shouldReturnInternalErrorForBlockMissingSidecar() {
-    // A real chain is loaded, but we query for the genesis block — for which we don't write a
-    // sidecar at import (it's the bootstrap, not imported via the standard hooks). The framework
-    // resolves the header (so this doesn't fall into BLOCK_NOT_FOUND), but the sidecar lookup
-    // misses and we surface INTERNAL_ERROR.
+  public void shouldReturnBlockNotFoundForGenesis() {
+    // Genesis has no parent header on-chain, so the re-execution path can't run and we surface
+    // BLOCK_NOT_FOUND.
     final BlockchainSetupUtil setup = BlockchainSetupUtil.forHiveTesting(DataStorageFormat.BONSAI);
     setup.importAllBlocks();
 
@@ -98,19 +104,14 @@ public class DebugExecutionWitnessTest {
     final Hash genesisHash = setup.getBlockchain().getGenesisBlock().getHash();
     final JsonRpcRequestContext request = requestForBlockHash(genesisHash);
 
-    final DebugExecutionWitness method = new DebugExecutionWitness(queries, METRICS);
+    final DebugExecutionWitness method =
+        new DebugExecutionWitness(
+            queries, setup.getProtocolContext(), setup.getProtocolSchedule(), METRICS);
     final Object result = method.response(request);
 
-    // Genesis has no parent header on-chain → framework surfaces BLOCK_NOT_FOUND.
-    // Either error response is acceptable here; both indicate the cold-path failure modes.
-    assertThat(result)
-        .satisfiesAnyOf(
-            r -> assertThat(r).isInstanceOf(JsonRpcErrorResponse.class),
-            r -> assertThat(((JsonRpcSuccessResponse) r).getResult()).isNull());
-    if (result instanceof JsonRpcErrorResponse error) {
-      assertThat(error.getErrorType())
-          .isIn(RpcErrorType.BLOCK_NOT_FOUND, RpcErrorType.INTERNAL_ERROR);
-    }
+    assertThat(result).isInstanceOf(JsonRpcErrorResponse.class);
+    assertThat(((JsonRpcErrorResponse) result).getErrorType())
+        .isEqualTo(RpcErrorType.BLOCK_NOT_FOUND);
   }
 
   private static JsonRpcRequestContext requestForBlockHash(final Hash blockHash) {

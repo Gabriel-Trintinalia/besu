@@ -73,8 +73,8 @@ import org.hyperledger.besu.metrics.noop.NoOpMetricsSystem;
 
 public class BlockchainReferenceTestTools {
 
-    private static final List<String> NETWORKS_TO_RUN;
-    private static final ReferenceTestProtocolSchedules PROTOCOL_SCHEDULES;
+    static final List<String> NETWORKS_TO_RUN;
+    static final ReferenceTestProtocolSchedules PROTOCOL_SCHEDULES;
 
     static {
         final String networks =
@@ -122,9 +122,7 @@ public class BlockchainReferenceTestTools {
         params.ignore("/stEIP2537/");
     }
 
-    private BlockchainReferenceTestTools() {
-        // utility class
-    }
+    public BlockchainReferenceTestTools() {}
 
     public static Collection<Object[]> generateTestParametersForConfig(final String[] filePath) {
         return params.generate(filePath);
@@ -132,6 +130,35 @@ public class BlockchainReferenceTestTools {
 
     @SuppressWarnings("java:S5960") // this is actually test code
     public static void executeTest(final String name, final BlockchainReferenceTestCaseSpec spec) {
+        new BlockchainReferenceTestTools().runTest(name, spec);
+    }
+
+    /** Whether to rebuild each block from transactions and assert it matches the fixture. */
+    protected boolean shouldBuildBlocks() {
+        return true;
+    }
+
+    /**
+     * Called after each successful block import. Override to add per-block post-import assertions.
+     * The default implementation is a no-op.
+     */
+    protected void afterBlockImport(
+        final ProtocolContext ctx,
+        final Block block,
+        final BlockHeader parentHeader,
+        final BlockProcessingResult result,
+        final int blockIndex) {}
+
+    /**
+     * Whether to call {@link #afterBlockImport} for the block at {@code blockIndex}. Override to
+     * skip the hook for specific blocks (e.g. blocks with a mutated witness fixture).
+     */
+    protected boolean shouldRunAfterBlockImport(final int blockIndex) {
+        return true;
+    }
+
+    @SuppressWarnings("java:S5960")
+    protected final void runTest(final String name, final BlockchainReferenceTestCaseSpec spec) {
       final MutableBlockchain blockchain = spec.buildBlockchain();
       final BlockHeader genesisBlockHeader = spec.getGenesisBlockHeader();
         final ProtocolContext protocolContext = spec.buildProtocolContext(DataStorageConfiguration.DEFAULT_BONSAI_CONFIG, blockchain);
@@ -143,10 +170,11 @@ public class BlockchainReferenceTestTools {
 
         final ProtocolSchedule schedule = PROTOCOL_SCHEDULES.getByName(spec.getNetwork());
 
+        final BlockchainReferenceTestCaseSpec.CandidateBlock[] candidates = spec.getCandidateBlocks();
         try (BlockCreationFixture blockCreation =
-                     BlockCreationFixture.create(schedule, protocolContext, blockchain)) {
-            for (final BlockchainReferenceTestCaseSpec.CandidateBlock candidateBlock :
-                    spec.getCandidateBlocks()) {
+                     shouldBuildBlocks() ? BlockCreationFixture.create(schedule, protocolContext, blockchain) : null) {
+            for (int blockIndex = 0; blockIndex < candidates.length; blockIndex++) {
+                final BlockchainReferenceTestCaseSpec.CandidateBlock candidateBlock = candidates[blockIndex];
                 if (!candidateBlock.isExecutable()) {
                     return;
                 }
@@ -158,26 +186,23 @@ public class BlockchainReferenceTestTools {
 
                     verifyJournaledEVMAccountCompatability(worldState, protocolSpec);
 
-                    final boolean supportsBlockBuilding =
-                            ReferenceTestProtocolSchedules.supportsBlockBuilding(spec.getNetwork());
-                    final boolean shouldBuildBlock = supportsBlockBuilding && candidateBlock.isValid() && !name.contains("eip7934");
-                    final Block block =
-                            shouldBuildBlock
-                                    ? buildBlock(
-                                    schedule,
-                                    protocolContext,
-                                    blockchain,
-                                    blockCreation.transactionPool(),
-                                    blockCreation.ethScheduler(),
+                    final Block block;
+                    if (shouldBuildBlocks()) {
+                        final boolean shouldBuildBlock =
+                                ReferenceTestProtocolSchedules.supportsBlockBuilding(spec.getNetwork())
+                                        && candidateBlock.isValid()
+                                        && !name.contains("eip7934");
+                        block = shouldBuildBlock
+                                ? buildBlock(schedule, protocolContext, blockchain,
+                                    blockCreation.transactionPool(), blockCreation.ethScheduler(),
                                     blockFromReference)
-                                    : blockFromReference;
+                                : blockFromReference;
+                        assertThat(block).isEqualTo(blockFromReference);
+                    } else {
+                        block = blockFromReference;
+                    }
 
-                    assertThat(block).isEqualTo(blockFromReference);
-
-                    final HeaderValidationMode validationMode =
-                            "NoProof".equalsIgnoreCase(spec.getSealEngine())
-                                    ? HeaderValidationMode.LIGHT
-                                    : HeaderValidationMode.FULL;
+                    final HeaderValidationMode validationMode = headerValidationMode(spec);
 
                     // Use validateAndProcessBlock directly so we can access the error message and
                     // verify it matches the expected exception from the fixture.
@@ -191,17 +216,14 @@ public class BlockchainReferenceTestTools {
                                     candidateBlock.getBlockAccessList(),
                                     false);
 
+                    final BlockHeader parentHeader =
+                            blockchain.getBlockHeader(block.getHeader().getParentHash()).orElse(null);
                     final boolean imported = processingResult.isSuccessful();
                     if (imported) {
-                        // Block was accepted: persist and append it just like MainnetBlockImporter.
-                        processingResult.getYield().ifPresent(outputs -> {
-                            protocolContext.getBlockchain().appendBlock(block, outputs.getReceipts(), outputs.getBlockAccessList());
-                            protocolContext.getWorldStateArchive().getWorldState(
-                                    WorldStateQueryParams.newBuilder()
-                                            .withBlockHeader(block.getHeader())
-                                            .withShouldWorldStateUpdateHead(true)
-                                            .build());
-                        });
+                        appendImportedBlock(protocolContext, block, processingResult);
+                        if (shouldRunAfterBlockImport(blockIndex)) {
+                            afterBlockImport(protocolContext, block, parentHeader, processingResult, blockIndex);
+                        }
                     }
 
                     assertThat(imported)
@@ -232,7 +254,6 @@ public class BlockchainReferenceTestTools {
         }
 
         assertThat(blockchain.getChainHeadHash()).isEqualTo(spec.getLastBlockHash());
-
   }
 
   private static Block buildBlock(
@@ -273,6 +294,33 @@ public class BlockchainReferenceTestTools {
         withdrawals,
         blockFromReference.getHeader().getParentBeaconBlockRoot(),
         blockFromReference.getHeader().getOptionalSlotNumber());
+  }
+
+  static HeaderValidationMode headerValidationMode(final BlockchainReferenceTestCaseSpec spec) {
+    return "NoProof".equalsIgnoreCase(spec.getSealEngine())
+        ? HeaderValidationMode.LIGHT
+        : HeaderValidationMode.FULL;
+  }
+
+  static void appendImportedBlock(
+      final ProtocolContext protocolContext,
+      final Block block,
+      final BlockProcessingResult processingResult) {
+    processingResult
+        .getYield()
+        .ifPresent(
+            outputs -> {
+              protocolContext
+                  .getBlockchain()
+                  .appendBlock(block, outputs.getReceipts(), outputs.getBlockAccessList());
+              protocolContext
+                  .getWorldStateArchive()
+                  .getWorldState(
+                      WorldStateQueryParams.newBuilder()
+                          .withBlockHeader(block.getHeader())
+                          .withShouldWorldStateUpdateHead(true)
+                          .build());
+            });
   }
 
   static void verifyJournaledEVMAccountCompatability(

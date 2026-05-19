@@ -82,17 +82,6 @@ public interface MutableBlockchain extends Blockchain {
   }
 
   /**
-   * Persists the oldest ancestor block number accessed during the block's execution. Used by
-   * {@code debug_executionWitness} to reconstruct the EIP-8025 {@code headers} list without
-   * re-execution. The write is committed in its own transaction, separate from {@code appendBlock}.
-   *
-   * @param blockHash the imported block's hash
-   * @param oldestAccessedAncestor the lowest block number reached by {@code BLOCKHASH} during
-   *     execution (or the parent number when no {@code BLOCKHASH} was invoked)
-   */
-  void storeOldestAccessedAncestor(Hash blockHash, long oldestAccessedAncestor);
-
-  /**
    * Store a block header to the blockchain, updating the chain state.
    *
    * @param blockHeader The block header to store.
