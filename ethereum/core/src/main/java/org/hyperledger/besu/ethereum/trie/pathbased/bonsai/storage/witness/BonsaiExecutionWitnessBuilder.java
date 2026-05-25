@@ -19,37 +19,46 @@ import static org.hyperledger.besu.ethereum.trie.pathbased.common.provider.World
 import org.hyperledger.besu.datatypes.AccountValue;
 import org.hyperledger.besu.datatypes.Address;
 import org.hyperledger.besu.datatypes.Hash;
+import org.hyperledger.besu.datatypes.StorageSlotKey;
+import org.hyperledger.besu.ethereum.WitnessHint;
 import org.hyperledger.besu.ethereum.chain.Blockchain;
 import org.hyperledger.besu.ethereum.core.BlockHeader;
 import org.hyperledger.besu.ethereum.rlp.RLP;
-import org.hyperledger.besu.ethereum.trie.pathbased.bonsai.NoOpBonsaiCachedWorldStorageManager;
-import org.hyperledger.besu.ethereum.trie.pathbased.bonsai.cache.CodeCache;
-import org.hyperledger.besu.ethereum.trie.pathbased.bonsai.cache.NoopBonsaiCachedMerkleTrieLoader;
+import org.hyperledger.besu.ethereum.trie.NodeLoader;
+import org.hyperledger.besu.ethereum.trie.pathbased.bonsai.storage.BonsaiWorldStateKeyValueStorage;
 import org.hyperledger.besu.ethereum.trie.pathbased.bonsai.worldview.BonsaiWorldState;
-import org.hyperledger.besu.ethereum.trie.pathbased.bonsai.worldview.BonsaiWorldStateUpdateAccumulator;
 import org.hyperledger.besu.ethereum.trie.pathbased.common.provider.PathBasedWorldStateProvider;
-import org.hyperledger.besu.ethereum.trie.pathbased.common.trielog.NoOpTrieLogManager;
-import org.hyperledger.besu.ethereum.trie.pathbased.common.worldview.WorldStateConfig;
+import org.hyperledger.besu.ethereum.trie.patricia.StoredMerklePatriciaTrie;
 import org.hyperledger.besu.ethereum.worldstate.WorldStateArchive;
-import org.hyperledger.besu.evm.internal.EvmConfiguration;
-import org.hyperledger.besu.plugin.services.MetricsSystem;
 import org.hyperledger.besu.plugin.services.trielogs.TrieLog;
 import org.hyperledger.besu.plugin.services.worldstate.MutableWorldState;
 
 import java.util.ArrayList;
 import java.util.Collections;
+import java.util.HashMap;
+import java.util.HashSet;
 import java.util.List;
+import java.util.Map;
 import java.util.Optional;
+import java.util.Set;
 import java.util.concurrent.ConcurrentHashMap;
+import java.util.function.Function;
 
 import org.apache.tuweni.bytes.Bytes;
+import org.apache.tuweni.bytes.Bytes32;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
 /**
  * Builds the EIP-8025 execution witness (state trie nodes, contract codes, and ancestor headers)
- * for a single block from a Bonsai world state and trie log. Used by both {@code
- * debug_executionWitness} and reference-test tooling so that both paths emit identical output.
+ * for a single block from a Bonsai world state. Supports two input sources:
+ *
+ * <ul>
+ *   <li>{@link #buildFromHint} — uses the in-memory {@link WitnessHint} captured during block
+ *       processing (no disk I/O for witness data).
+ *   <li>{@link #tryBuildForBlock} — falls back to reading the trie log from disk, used by {@code
+ *       debug_executionWitness} on already-executed blocks.
+ * </ul>
  */
 public class BonsaiExecutionWitnessBuilder {
 
@@ -57,33 +66,40 @@ public class BonsaiExecutionWitnessBuilder {
 
   public record Witness(List<String> state, List<String> codes, List<String> headers) {}
 
-  private final MetricsSystem metricsSystem;
-
-  public BonsaiExecutionWitnessBuilder(final MetricsSystem metricsSystem) {
-    this.metricsSystem = metricsSystem;
-  }
-
   /**
-   * Builds the witness for {@code blockHeader}. Headers are built as a contiguous chain from {@code
-   * oldestAccessedAncestor} up to (and including) the parent, following parentHash links.
+   * Builds the witness using the in-memory {@link WitnessHint} produced during block execution.
+   * Avoids reading the trie log from disk.
    */
-  public Witness build(
+  public Optional<Witness> buildFromHint(
       final BlockHeader blockHeader,
-      final TrieLog trieLog,
-      final BonsaiWorldState parentWorldState,
+      final WitnessHint hint,
+      final BlockHeader parentHeader,
+      final WorldStateArchive worldStateArchive,
       final Blockchain blockchain,
       final long oldestAccessedAncestor) {
-    final List<String> state = buildTrieNodes(blockHeader, trieLog, parentWorldState);
-    final List<String> codes = buildCodes(trieLog, parentWorldState);
-    final List<String> headers = buildHeaders(blockchain, blockHeader, oldestAccessedAncestor);
-    return new Witness(state, codes, headers);
+    if (!(worldStateArchive instanceof PathBasedWorldStateProvider pathBased)) {
+      return Optional.empty();
+    }
+    final Optional<MutableWorldState> maybeParent =
+        pathBased.getWorldState(withBlockHeaderAndNoUpdateNodeHead(parentHeader));
+    if (maybeParent.isEmpty() || !(maybeParent.get() instanceof BonsaiWorldState parent)) {
+      return Optional.empty();
+    }
+    try (parent) {
+      final List<String> state =
+          buildTrieNodes(hint.priorAccounts(), hint.touchedSlots(), parent);
+      final List<String> codes = buildCodes(hint.priorAccounts(), parent);
+      final List<String> headers = buildHeaders(blockchain, blockHeader, oldestAccessedAncestor);
+      return Optional.of(new Witness(state, codes, headers));
+    } catch (final Exception e) {
+      LOG.warn("failed to build execution witness for {}: {}", blockHeader.getHash(), e.toString());
+      return Optional.empty();
+    }
   }
 
   /**
-   * Resolves the path-based archive, trie log, and parent world state for {@code blockHeader} and
-   * builds the witness. Returns empty when the archive is not path-based, the trie log is absent,
-   * the parent state is unavailable, or the build itself throws — callers handle the empty case as
-   * they choose (engine API: omit witness from response; debug RPC: error response).
+   * Builds the witness by reading the trie log from disk. Used by {@code debug_executionWitness}
+   * on blocks that were already executed (no in-memory hint available).
    */
   public Optional<Witness> tryBuildForBlock(
       final BlockHeader blockHeader,
@@ -113,61 +129,107 @@ public class BonsaiExecutionWitnessBuilder {
     }
   }
 
-  private List<String> buildTrieNodes(
-      final BlockHeader blockHeader, final TrieLog trieLog, final BonsaiWorldState worldView) {
-
-    final BonsaiWorldStateWitnessStorage witnessStorage =
-        new BonsaiWorldStateWitnessStorage(metricsSystem, worldView.getWorldStateStorage());
-    final CodeCache codeCache = new CodeCache();
-    final BonsaiWorldState witnessWorldState =
-        new BonsaiWorldState(
-            witnessStorage,
-            new NoopBonsaiCachedMerkleTrieLoader(),
-            new NoOpBonsaiCachedWorldStorageManager(
-                witnessStorage, EvmConfiguration.DEFAULT, codeCache),
-            new NoOpTrieLogManager(),
-            EvmConfiguration.DEFAULT,
-            WorldStateConfig.newBuilder().build(),
-            codeCache);
-
-    final BonsaiWorldStateUpdateAccumulator updater =
-        (BonsaiWorldStateUpdateAccumulator) witnessWorldState.updater();
-
-    // Force reads of all accounts and storage touched by the trie log.
+  /**
+   * Builds the witness from an explicit trie log and parent world state. Used internally by {@link
+   * #tryBuildForBlock} and available for reference-test tooling.
+   */
+  public Witness build(
+      final BlockHeader blockHeader,
+      final TrieLog trieLog,
+      final BonsaiWorldState parentWorldState,
+      final Blockchain blockchain,
+      final long oldestAccessedAncestor) {
+    final Map<Address, AccountValue> priorAccounts = new HashMap<>();
+    trieLog.getAccountChanges().forEach((addr, val) -> priorAccounts.put(addr, val.getPrior()));
+    final Map<Address, Set<StorageSlotKey>> touchedSlots = new HashMap<>();
     trieLog
         .getAccountChanges()
+        .keySet()
         .forEach(
-            (address, accountChange) -> {
-              updater.getAccount(address);
-              trieLog
-                  .getStorageChanges(address)
-                  .forEach(
-                      (storageSlotKey, __) ->
-                          updater.getStorageValueByStorageSlotKey(address, storageSlotKey));
-            });
+            addr -> touchedSlots.put(addr, new HashSet<>(trieLog.getStorageChanges(addr).keySet())));
 
-    updater.rollForward(trieLog);
-    updater.commit();
-    witnessWorldState.persist(blockHeader);
-
-    return witnessStorage.getTrieNodes().stream().map(Bytes::toHexString).sorted().toList();
+    final List<String> state = buildTrieNodes(priorAccounts, touchedSlots, parentWorldState);
+    final List<String> codes = buildCodes(priorAccounts, parentWorldState);
+    final List<String> headers = buildHeaders(blockchain, blockHeader, oldestAccessedAncestor);
+    return new Witness(state, codes, headers);
   }
 
-  private List<String> buildCodes(final TrieLog trieLog, final BonsaiWorldState worldView) {
+  /**
+   * Traverses Merkle proof paths in the parent trie for every account and storage slot in the
+   * supplied maps, collecting every node on each path. Single-pass — no ephemeral world state, no
+   * rollForward, and no persist() call.
+   */
+  private List<String> buildTrieNodes(
+      final Map<Address, AccountValue> priorAccounts,
+      final Map<Address, Set<StorageSlotKey>> touchedSlots,
+      final BonsaiWorldState parentWorldState) {
+
+    final BonsaiWorldStateKeyValueStorage storage = parentWorldState.getWorldStateStorage();
+    final Set<Bytes> witnessNodes = ConcurrentHashMap.newKeySet();
+
+    final NodeLoader accountNodeLoader =
+        (location, hash) -> {
+          final Optional<Bytes> node = storage.getAccountStateTrieNode(location, hash);
+          node.ifPresent(witnessNodes::add);
+          return node;
+        };
+
+    final StoredMerklePatriciaTrie<Bytes, Bytes> accountTrie =
+        new StoredMerklePatriciaTrie<>(
+            accountNodeLoader,
+            Bytes32.wrap(parentWorldState.getWorldStateRootHash().getBytes()),
+            Function.identity(),
+            Function.identity());
+
+    priorAccounts.forEach(
+        (address, priorAccount) -> {
+          final Hash addressHash = Hash.hash(address.getBytes());
+
+          // Traverse the account proof path — every node read is captured into witnessNodes
+          accountTrie.get(addressHash.getBytes());
+
+          // Traverse storage proof paths for all slots touched by this account
+          if (priorAccount == null
+              || Hash.EMPTY_TRIE_HASH.equals(priorAccount.getStorageRoot())) {
+            return;
+          }
+          final Hash storageRoot = priorAccount.getStorageRoot();
+
+          final NodeLoader storageNodeLoader =
+              (location, hash) -> {
+                final Optional<Bytes> node =
+                    storage.getAccountStorageTrieNode(addressHash, location, hash);
+                node.ifPresent(witnessNodes::add);
+                return node;
+              };
+
+          final StoredMerklePatriciaTrie<Bytes, Bytes> storageTrie =
+              new StoredMerklePatriciaTrie<>(
+                  storageNodeLoader,
+                  Bytes32.wrap(storageRoot.getBytes()),
+                  Function.identity(),
+                  Function.identity());
+
+          final Set<StorageSlotKey> slots = touchedSlots.getOrDefault(address, Set.of());
+          slots.forEach(slotKey -> storageTrie.get(slotKey.getSlotHash().getBytes()));
+        });
+
+    return witnessNodes.stream().map(Bytes::toHexString).sorted().toList();
+  }
+
+  private List<String> buildCodes(
+      final Map<Address, AccountValue> priorAccounts, final BonsaiWorldState worldView) {
     final var resultSet = ConcurrentHashMap.<String>newKeySet();
-    trieLog.getAccountChanges().entrySet().parallelStream()
+    priorAccounts.entrySet().parallelStream()
         .filter(
             entry ->
-                entry.getValue().getPrior() != null
-                    && !entry.getValue().getPrior().getCodeHash().equals(Hash.EMPTY))
+                entry.getValue() != null
+                    && !entry.getValue().getCodeHash().equals(Hash.EMPTY))
         .forEach(
-            entry -> {
-              final Address address = entry.getKey();
-              final AccountValue prior = entry.getValue().getPrior();
-              worldView
-                  .getCode(address, prior.getCodeHash())
-                  .ifPresent(bytes -> resultSet.add(bytes.toHexString()));
-            });
+            entry ->
+                worldView
+                    .getCode(entry.getKey(), entry.getValue().getCodeHash())
+                    .ifPresent(bytes -> resultSet.add(bytes.toHexString())));
     return resultSet.stream().sorted().toList();
   }
 
@@ -175,9 +237,6 @@ public class BonsaiExecutionWitnessBuilder {
       final Blockchain blockchain,
       final BlockHeader blockHeader,
       final long oldestAccessedAncestor) {
-    // Walk backwards from the parent following parentHash links until we reach the oldest
-    // accessed ancestor, producing a contiguous chain rather than only the directly-accessed
-    // blocks.
     final List<BlockHeader> chain = new ArrayList<>();
     BlockHeader current =
         blockchain

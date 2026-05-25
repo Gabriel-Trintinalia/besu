@@ -26,6 +26,7 @@ import org.hyperledger.besu.datatypes.Hash;
 import org.hyperledger.besu.datatypes.Wei;
 import org.hyperledger.besu.ethereum.BlockProcessingResult;
 import org.hyperledger.besu.ethereum.ProtocolContext;
+import org.hyperledger.besu.ethereum.mainnet.AbstractBlockProcessor;
 import org.hyperledger.besu.ethereum.blockcreation.BlockCreationTiming;
 import org.hyperledger.besu.ethereum.blockcreation.BlockCreator.BlockCreationResult;
 import org.hyperledger.besu.ethereum.chain.BadBlockCause;
@@ -653,6 +654,16 @@ public class MergeCoordinator implements MergeMiningCoordinator, BadChainListene
 
   private BlockProcessingResult validateBlock(
       final Block block, final Optional<BlockAccessList> blockAccessList) {
+    return validateBlock(
+        block,
+        blockAccessList,
+        new AbstractBlockProcessor.PostprocessingFunction.NoPostprocessing());
+  }
+
+  private BlockProcessingResult validateBlock(
+      final Block block,
+      final Optional<BlockAccessList> blockAccessList,
+      final AbstractBlockProcessor.PostprocessingFunction postprocessingBlockFunction) {
     final var validationResult =
         protocolSchedule
             .getByBlockHeader(block.getHeader())
@@ -663,7 +674,9 @@ public class MergeCoordinator implements MergeMiningCoordinator, BadChainListene
                 HeaderValidationMode.FULL,
                 HeaderValidationMode.NONE,
                 blockAccessList,
-                false);
+                false,
+                true,
+                postprocessingBlockFunction);
 
     return validationResult;
   }
@@ -694,9 +707,20 @@ public class MergeCoordinator implements MergeMiningCoordinator, BadChainListene
   @Override
   public BlockProcessingResult rememberBlock(
       final Block block, final Optional<BlockAccessList> blockAccessList) {
+    return rememberBlock(
+        block,
+        blockAccessList,
+        new AbstractBlockProcessor.PostprocessingFunction.NoPostprocessing());
+  }
+
+  @Override
+  public BlockProcessingResult rememberBlock(
+      final Block block,
+      final Optional<BlockAccessList> blockAccessList,
+      final AbstractBlockProcessor.PostprocessingFunction postprocessingBlockFunction) {
     LOG.atDebug().setMessage("Remember block {}").addArgument(block::toLogString).log();
     final var chain = protocolContext.getBlockchain();
-    final var validationResult = validateBlock(block, blockAccessList);
+    final var validationResult = validateBlock(block, blockAccessList, postprocessingBlockFunction);
     validationResult
         .getYield()
         .ifPresentOrElse(

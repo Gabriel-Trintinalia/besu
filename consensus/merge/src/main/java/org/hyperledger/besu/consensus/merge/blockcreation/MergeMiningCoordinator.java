@@ -21,6 +21,7 @@ import org.hyperledger.besu.datatypes.Address;
 import org.hyperledger.besu.datatypes.Hash;
 import org.hyperledger.besu.ethereum.BlockProcessingResult;
 import org.hyperledger.besu.ethereum.blockcreation.MiningCoordinator;
+import org.hyperledger.besu.ethereum.mainnet.AbstractBlockProcessor;
 import org.hyperledger.besu.ethereum.core.Block;
 import org.hyperledger.besu.ethereum.core.BlockHeader;
 import org.hyperledger.besu.ethereum.core.Withdrawal;
@@ -91,6 +92,23 @@ public interface MergeMiningCoordinator extends MiningCoordinator {
    */
   BlockProcessingResult rememberBlock(
       final Block block, final Optional<BlockAccessList> blockAccessList);
+
+  /**
+   * Remember block with optional block access list and postprocessing function.
+   *
+   * @param block the block
+   * @param blockAccessList optional block access list
+   * @param postprocessingBlockFunction called before persist; use {@link
+   *     AbstractBlockProcessor.PostprocessingFunction.NoPostprocessing} when no postprocessing is
+   *     required
+   * @return the block processing result
+   */
+  default BlockProcessingResult rememberBlock(
+      final Block block,
+      final Optional<BlockAccessList> blockAccessList,
+      final AbstractBlockProcessor.PostprocessingFunction postprocessingBlockFunction) {
+    return rememberBlock(block, blockAccessList);
+  }
 
   /**
    * Validate block.

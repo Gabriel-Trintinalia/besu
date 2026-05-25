@@ -72,8 +72,7 @@ class EngineNewPayloadWithWitnessV5Test {
     final BlockProcessingResult result =
         new BlockProcessingResult(
             Optional.of(
-                new BlockProcessingOutputs(
-                    null, java.util.List.of(), Optional.empty(), Optional.empty(), 0L, Map.of())));
+                new BlockProcessingOutputs(null, java.util.List.of())));
 
     final Object payload =
         method.buildPayloadResult(
@@ -100,8 +99,7 @@ class EngineNewPayloadWithWitnessV5Test {
     final BlockProcessingResult result =
         new BlockProcessingResult(
             Optional.of(
-                new BlockProcessingOutputs(
-                    null, java.util.List.of(), Optional.empty(), Optional.empty(), 0L, Map.of())));
+                new BlockProcessingOutputs(null, java.util.List.of())));
 
     final Object payload =
         method.buildPayloadResult(
@@ -128,8 +126,7 @@ class EngineNewPayloadWithWitnessV5Test {
     final BlockProcessingResult result =
         new BlockProcessingResult(
             Optional.of(
-                new BlockProcessingOutputs(
-                    null, java.util.List.of(), Optional.empty(), Optional.empty(), 0L, Map.of())));
+                new BlockProcessingOutputs(null, java.util.List.of())));
 
     final Object payload =
         method.buildPayloadResult(

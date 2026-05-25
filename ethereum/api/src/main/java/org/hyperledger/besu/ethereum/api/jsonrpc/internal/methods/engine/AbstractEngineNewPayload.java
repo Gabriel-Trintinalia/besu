@@ -34,6 +34,7 @@ import org.hyperledger.besu.datatypes.Wei;
 import org.hyperledger.besu.ethereum.BlockProcessingResult;
 import org.hyperledger.besu.ethereum.ProtocolContext;
 import org.hyperledger.besu.ethereum.api.jsonrpc.internal.JsonRpcRequestContext;
+import org.hyperledger.besu.ethereum.mainnet.AbstractBlockProcessor;
 import org.hyperledger.besu.ethereum.api.jsonrpc.internal.exception.InvalidJsonRpcRequestException;
 import org.hyperledger.besu.ethereum.api.jsonrpc.internal.methods.ExecutionEngineJsonRpcMethod;
 import org.hyperledger.besu.ethereum.api.jsonrpc.internal.parameters.EnginePayloadParameter;
@@ -369,8 +370,10 @@ public abstract class AbstractEngineNewPayload extends ExecutionEngineJsonRpcMet
 
     // execute block and return result response
     final long startTimeNs = System.nanoTime();
+    final AbstractBlockProcessor.PostprocessingFunction postprocessingFunction =
+        createPostprocessingFunction();
     final BlockProcessingResult executionResult =
-        mergeCoordinator.rememberBlock(block, maybeBlockAccessList);
+        mergeCoordinator.rememberBlock(block, maybeBlockAccessList, postprocessingFunction);
     if (executionResult.isSuccessful()) {
       lastExecutionTimeInNs = System.nanoTime() - startTimeNs;
       logImportedBlockInfo(
@@ -382,7 +385,7 @@ public abstract class AbstractEngineNewPayload extends ExecutionEngineJsonRpcMet
               .sum(),
           lastExecutionTimeInNs,
           executionResult.getNbParallelizedTransactions());
-      return respondWith(reqId, blockParam, newBlockHeader.getHash(), VALID);
+      return respondWith(reqId, blockParam, newBlockHeader.getHash(), VALID, executionResult);
     } else {
       if (executionResult.causedBy().isPresent()) {
         Throwable causedBy = executionResult.causedBy().get();
@@ -461,6 +464,15 @@ public abstract class AbstractEngineNewPayload extends ExecutionEngineJsonRpcMet
    * @param executionResult processing result, carrying accessed-ancestors metadata via {@code
    *     BlockProcessingOutputs.getAccessedBlockHashes()}
    */
+  /**
+   * Returns the {@link AbstractBlockProcessor.PostprocessingFunction} to use for the current block
+   * execution. The default returns a no-op function; {@code engine_newPayloadWithWitness} overrides
+   * this to return a Bonsai-aware function that captures accumulator state before {@code persist()}.
+   */
+  protected AbstractBlockProcessor.PostprocessingFunction createPostprocessingFunction() {
+    return new AbstractBlockProcessor.PostprocessingFunction.NoPostprocessing();
+  }
+
   protected Object buildPayloadResult(
       final EngineStatus status,
       final Hash latestValidHash,
@@ -488,6 +500,30 @@ public abstract class AbstractEngineNewPayload extends ExecutionEngineJsonRpcMet
         .addArgument(status::name)
         .log();
     return new JsonRpcSuccessResponse(requestId, buildPayloadResult(status, latestValidHash, null));
+  }
+
+  JsonRpcResponse respondWith(
+      final Object requestId,
+      final EnginePayloadParameter param,
+      final Hash latestValidHash,
+      final EngineStatus status,
+      final BlockProcessingResult executionResult) {
+    if (INVALID.equals(status) || INVALID_BLOCK_HASH.equals(status)) {
+      throw new IllegalArgumentException(
+          "Don't call respondWith() with invalid status of " + status.toString());
+    }
+    LOG.atDebug()
+        .setMessage(
+            "New payload: number: {}, hash: {}, parentHash: {}, latestValidHash: {}, status: {}")
+        .addArgument(param::getBlockNumber)
+        .addArgument(param::getBlockHash)
+        .addArgument(param::getParentHash)
+        .addArgument(
+            () -> latestValidHash == null ? null : latestValidHash.getBytes().toHexString())
+        .addArgument(status::name)
+        .log();
+    return new JsonRpcSuccessResponse(
+        requestId, buildPayloadResult(status, latestValidHash, executionResult));
   }
 
   // engine api calls are synchronous, no need for volatile

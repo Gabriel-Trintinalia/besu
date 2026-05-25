@@ -16,6 +16,7 @@ package org.hyperledger.besu.ethereum;
 
 import org.hyperledger.besu.ethereum.core.Block;
 import org.hyperledger.besu.ethereum.core.TransactionReceipt;
+import org.hyperledger.besu.ethereum.mainnet.AbstractBlockProcessor;
 import org.hyperledger.besu.ethereum.mainnet.BodyValidationMode;
 import org.hyperledger.besu.ethereum.mainnet.HeaderValidationMode;
 import org.hyperledger.besu.ethereum.mainnet.block.access.list.BlockAccessList;
@@ -86,6 +87,41 @@ public interface BlockValidator {
       final Optional<BlockAccessList> blockAccessList,
       final boolean shouldPersist,
       final boolean shouldRecordBadBlock);
+
+  /**
+   * Validates and processes a block, passing a postprocessing function that is called just before
+   * the world state is persisted. Defaults to the 7-arg overload (no postprocessing).
+   *
+   * @param context the protocol context
+   * @param block the block to validate and process
+   * @param headerValidationMode the header validation mode
+   * @param ommerValidationMode the ommer validation mode
+   * @param blockAccessList optional block access list
+   * @param shouldPersist flag indicating whether the block should be persisted
+   * @param shouldRecordBadBlock flag indicating whether bad blocks should be recorded
+   * @param postprocessingBlockFunction called before persist; use {@link
+   *     AbstractBlockProcessor.PostprocessingFunction.NoPostprocessing} when no postprocessing is
+   *     required
+   * @return the result of the block processing
+   */
+  default BlockProcessingResult validateAndProcessBlock(
+      final ProtocolContext context,
+      final Block block,
+      final HeaderValidationMode headerValidationMode,
+      final HeaderValidationMode ommerValidationMode,
+      final Optional<BlockAccessList> blockAccessList,
+      final boolean shouldPersist,
+      final boolean shouldRecordBadBlock,
+      final AbstractBlockProcessor.PostprocessingFunction postprocessingBlockFunction) {
+    return validateAndProcessBlock(
+        context,
+        block,
+        headerValidationMode,
+        ommerValidationMode,
+        blockAccessList,
+        shouldPersist,
+        shouldRecordBadBlock);
+  }
 
   /**
    * Performs fast block validation appropriate for use during syncing skipping transaction receipt

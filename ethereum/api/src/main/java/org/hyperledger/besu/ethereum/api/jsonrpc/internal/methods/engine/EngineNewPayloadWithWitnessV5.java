@@ -16,16 +16,18 @@ package org.hyperledger.besu.ethereum.api.jsonrpc.internal.methods.engine;
 
 import org.hyperledger.besu.consensus.merge.blockcreation.MergeMiningCoordinator;
 import org.hyperledger.besu.datatypes.Hash;
-import org.hyperledger.besu.ethereum.BlockProcessingOutputs;
 import org.hyperledger.besu.ethereum.BlockProcessingResult;
 import org.hyperledger.besu.ethereum.ProtocolContext;
+import org.hyperledger.besu.ethereum.WitnessHint;
 import org.hyperledger.besu.ethereum.api.jsonrpc.RpcMethod;
 import org.hyperledger.besu.ethereum.api.jsonrpc.internal.results.EnginePayloadWithWitnessResult;
 import org.hyperledger.besu.ethereum.api.jsonrpc.internal.results.ExecutionWitnessResult;
 import org.hyperledger.besu.ethereum.core.BlockHeader;
 import org.hyperledger.besu.ethereum.eth.manager.EthPeers;
+import org.hyperledger.besu.ethereum.mainnet.AbstractBlockProcessor;
 import org.hyperledger.besu.ethereum.mainnet.ProtocolSchedule;
 import org.hyperledger.besu.ethereum.trie.pathbased.bonsai.storage.witness.BonsaiExecutionWitnessBuilder;
+import org.hyperledger.besu.ethereum.trie.pathbased.bonsai.storage.witness.BonsaiPostprocessingFunction;
 import org.hyperledger.besu.plugin.services.MetricsSystem;
 
 import java.util.Collections;
@@ -35,14 +37,13 @@ import io.vertx.core.Vertx;
 
 /**
  * Same params as {@code engine_newPayloadV5}; response additionally carries the EIP-8025 execution
- * witness for the imported block. The witness is built inline from the post-import trie log and the
- * accessed-ancestor map captured during execution. The oldest-accessed-ancestor sidecar is written
- * upstream by {@code MergeCoordinator.rememberBlock}, so {@code debug_executionWitness} can
- * subsequently reconstruct the witness without re-executing the block.
+ * witness for the imported block. When the in-memory {@link WitnessHint} is present in the block
+ * processing outputs the witness is built from it directly (no trie-log disk I/O). Falls back to
+ * the trie-log path only if the hint is absent.
  */
 public class EngineNewPayloadWithWitnessV5 extends EngineNewPayloadV5 {
 
-  private final MetricsSystem witnessMetricsSystem;
+  private BonsaiPostprocessingFunction postprocessingFunction;
 
   public EngineNewPayloadWithWitnessV5(
       final Vertx vertx,
@@ -60,7 +61,6 @@ public class EngineNewPayloadWithWitnessV5 extends EngineNewPayloadV5 {
         ethPeers,
         engineCallListener,
         metricsSystem);
-    this.witnessMetricsSystem = metricsSystem;
   }
 
   @Override
@@ -69,16 +69,21 @@ public class EngineNewPayloadWithWitnessV5 extends EngineNewPayloadV5 {
   }
 
   @Override
+  protected AbstractBlockProcessor.PostprocessingFunction createPostprocessingFunction() {
+    postprocessingFunction = new BonsaiPostprocessingFunction();
+    return postprocessingFunction;
+  }
+
+  @Override
   protected Object buildPayloadResult(
       final EngineStatus status,
       final Hash latestValidHash,
       final BlockProcessingResult executionResult) {
-    final ExecutionWitnessResult witness = buildWitness(latestValidHash, executionResult);
+    final ExecutionWitnessResult witness = buildWitness(latestValidHash);
     return new EnginePayloadWithWitnessResult(status, latestValidHash, Optional.empty(), witness);
   }
 
-  private ExecutionWitnessResult buildWitness(
-      final Hash blockHash, final BlockProcessingResult executionResult) {
+  private ExecutionWitnessResult buildWitness(final Hash blockHash) {
     final Optional<BlockHeader> maybeBlock =
         protocolContext.getBlockchain().getBlockHeader(blockHash);
     if (maybeBlock.isEmpty()) {
@@ -91,22 +96,37 @@ public class EngineNewPayloadWithWitnessV5 extends EngineNewPayloadV5 {
       return null;
     }
 
+    final BonsaiExecutionWitnessBuilder builder = new BonsaiExecutionWitnessBuilder();
+    final Optional<WitnessHint> maybeHint =
+        postprocessingFunction != null
+            ? postprocessingFunction.getWitnessHint()
+            : Optional.empty();
+
     final long oldestAccessedAncestor =
-        executionResult
-            .getYield()
-            .map(BlockProcessingOutputs::getAccessedBlockHashes)
+        maybeHint
+            .map(WitnessHint::accessedBlockHashes)
             .filter(m -> !m.isEmpty())
             .map(m -> Collections.min(m.keySet()))
             .orElse(blockHeader.getNumber() - 1);
 
-    return new BonsaiExecutionWitnessBuilder(witnessMetricsSystem)
-        .tryBuildForBlock(
-            blockHeader,
-            maybeParent.get(),
-            protocolContext.getWorldStateArchive(),
-            protocolContext.getBlockchain(),
-            oldestAccessedAncestor)
-        .map(built -> new ExecutionWitnessResult(built.state(), built.codes(), built.headers()))
+    final Optional<BonsaiExecutionWitnessBuilder.Witness> maybeWitness =
+        maybeHint.isPresent()
+            ? builder.buildFromHint(
+                blockHeader,
+                maybeHint.get(),
+                maybeParent.get(),
+                protocolContext.getWorldStateArchive(),
+                protocolContext.getBlockchain(),
+                oldestAccessedAncestor)
+            : builder.tryBuildForBlock(
+                blockHeader,
+                maybeParent.get(),
+                protocolContext.getWorldStateArchive(),
+                protocolContext.getBlockchain(),
+                oldestAccessedAncestor);
+
+    return maybeWitness
+        .map(w -> new ExecutionWitnessResult(w.state(), w.codes(), w.headers()))
         .orElse(null);
   }
 }
