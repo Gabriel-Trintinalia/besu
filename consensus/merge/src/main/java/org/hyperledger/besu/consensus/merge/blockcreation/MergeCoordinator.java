@@ -653,17 +653,19 @@ public class MergeCoordinator implements MergeMiningCoordinator, BadChainListene
 
   private BlockProcessingResult validateBlock(
       final Block block, final Optional<BlockAccessList> blockAccessList) {
-    return protocolSchedule
-        .getByBlockHeader(block.getHeader())
-        .getBlockValidator()
-        .validateAndProcessBlock(
-            protocolContext,
-            block,
-            HeaderValidationMode.FULL,
-            HeaderValidationMode.NONE,
-            blockAccessList,
-            false,
-            true);
+    final var validationResult =
+        protocolSchedule
+            .getByBlockHeader(block.getHeader())
+            .getBlockValidator()
+            .validateAndProcessBlock(
+                protocolContext,
+                block,
+                HeaderValidationMode.FULL,
+                HeaderValidationMode.NONE,
+                blockAccessList,
+                false);
+
+    return validationResult;
   }
 
   private BlockProcessingResult validateProposedBlock(
