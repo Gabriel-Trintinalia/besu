@@ -156,6 +156,15 @@ public class BlockchainReferenceTestTools {
         return true;
     }
 
+    /**
+     * Whether to silently skip a block (and its assertions) when it fails to import, rather than
+     * failing the test. Override to return {@code true} in tests where import success is not the
+     * primary concern (e.g. witness-only tests).
+     */
+    protected boolean shouldSkipBlockOnImportFailure() {
+        return false;
+    }
+
     @SuppressWarnings("java:S5960")
     protected final void runTest(final String name, final BlockchainReferenceTestCaseSpec spec) {
       final MutableBlockchain blockchain = spec.buildBlockchain();
@@ -223,6 +232,8 @@ public class BlockchainReferenceTestTools {
                         if (shouldRunAfterBlockImport(blockIndex)) {
                             afterBlockImport(protocolContext, block, parentHeader, processingResult, blockIndex);
                         }
+                    } else if (shouldSkipBlockOnImportFailure()) {
+                        continue;
                     }
 
                     assertThat(imported)

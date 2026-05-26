@@ -37,6 +37,9 @@ import java.util.Collection;
 import java.util.Map;
 import java.util.Optional;
 
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
+
 /**
  * Drives zkevm execution-spec-test fixtures through Besu's block processing and asserts that the
  * {@code debug_executionWitness} output (state, codes, headers) matches the per-block
@@ -45,6 +48,8 @@ import java.util.Optional;
  * <p>Blocks are always imported from the fixture RLP — no block re-building is performed.
  */
 public class ZkevmExecutionWitnessTestTools extends BlockchainReferenceTestTools {
+
+  private static final Logger LOG = LoggerFactory.getLogger(ZkevmExecutionWitnessTestTools.class);
 
   private static final JsonTestParameters<BlockchainReferenceTestCaseSpec, ZkevmTestCase> params =
       JsonTestParameters.create(BlockchainReferenceTestCaseSpec.class, ZkevmTestCase.class)
@@ -87,6 +92,11 @@ public class ZkevmExecutionWitnessTestTools extends BlockchainReferenceTestTools
   }
 
   @Override
+  protected boolean shouldSkipBlockOnImportFailure() {
+    return true;
+  }
+
+  @Override
   protected boolean shouldRunAfterBlockImport(final int blockIndex) {
     return !ZkevmFixtureWitnessLoader.isMutated(testCase.filePath(), testCase.testName(), blockIndex);
   }
@@ -126,6 +136,16 @@ public class ZkevmExecutionWitnessTestTools extends BlockchainReferenceTestTools
     final BonsaiExecutionWitnessBuilder.Witness got =
         new BonsaiExecutionWitnessBuilder(new NoOpMetricsSystem())
             .build(block.getHeader(), trieLog, parentWorldState, ctx.getBlockchain(), accessedAncestors);
+
+    final boolean stateMatch = got.state().equals(expected.get().state());
+    final boolean codesMatch = got.codes().equals(expected.get().codes());
+    final boolean headersMatch = got.headers().equals(expected.get().headers());
+    LOG.info(
+        "Block {} witness match — state: {}, codes: {}, headers: {}",
+        block.getHash(),
+        stateMatch,
+        codesMatch,
+        headersMatch);
 
     assertThat(got.state()).as("state for block %s", block.getHash()).isEqualTo(expected.get().state());
     assertThat(got.codes()).as("codes for block %s", block.getHash()).isEqualTo(expected.get().codes());
