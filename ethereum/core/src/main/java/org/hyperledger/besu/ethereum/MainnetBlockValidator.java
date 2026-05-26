@@ -20,7 +20,6 @@ import org.hyperledger.besu.ethereum.core.Block;
 import org.hyperledger.besu.ethereum.core.BlockHeader;
 import org.hyperledger.besu.ethereum.core.Request;
 import org.hyperledger.besu.ethereum.core.TransactionReceipt;
-import org.hyperledger.besu.ethereum.mainnet.AbstractBlockProcessor;
 import org.hyperledger.besu.ethereum.mainnet.BlockAccessListValidator;
 import org.hyperledger.besu.ethereum.mainnet.BlockBodyValidator;
 import org.hyperledger.besu.ethereum.mainnet.BlockHeaderValidator;
@@ -35,6 +34,7 @@ import org.hyperledger.besu.plugin.services.worldstate.MutableWorldState;
 
 import java.util.ArrayList;
 import java.util.List;
+import java.util.Map;
 import java.util.Optional;
 import java.util.OptionalLong;
 
@@ -136,27 +136,6 @@ public class MainnetBlockValidator implements BlockValidator {
       final Optional<BlockAccessList> blockAccessList,
       final boolean shouldUpdateHead,
       final boolean shouldRecordBadBlock) {
-    return validateAndProcessBlock(
-        context,
-        block,
-        headerValidationMode,
-        ommerValidationMode,
-        blockAccessList,
-        shouldUpdateHead,
-        shouldRecordBadBlock,
-        new AbstractBlockProcessor.PostprocessingFunction.NoPostprocessing());
-  }
-
-  @Override
-  public BlockProcessingResult validateAndProcessBlock(
-      final ProtocolContext context,
-      final Block block,
-      final HeaderValidationMode headerValidationMode,
-      final HeaderValidationMode ommerValidationMode,
-      final Optional<BlockAccessList> blockAccessList,
-      final boolean shouldUpdateHead,
-      final boolean shouldRecordBadBlock,
-      final AbstractBlockProcessor.PostprocessingFunction postprocessingBlockFunction) {
 
     final int blockSize = block.getSize();
     if (blockSize > maxRlpBlockSize) {
@@ -228,7 +207,7 @@ public class MainnetBlockValidator implements BlockValidator {
         return result;
       }
 
-      var result = processBlock(context, worldState, block, blockAccessList, postprocessingBlockFunction);
+      var result = processBlock(context, worldState, block, blockAccessList);
       if (result.isFailed()) {
         handleFailedBlockProcessing(block, blockAccessList, result, shouldRecordBadBlock, context);
         return result;
@@ -241,6 +220,8 @@ public class MainnetBlockValidator implements BlockValidator {
             result.getYield().flatMap(BlockProcessingOutputs::getBlockAccessList);
         long cumulativeBlockGasUsed =
             result.getYield().map(BlockProcessingOutputs::getCumulativeBlockGasUsed).orElse(0L);
+        var accessedBlockHashes =
+            result.getYield().map(BlockProcessingOutputs::getAccessedBlockHashes).orElse(Map.of());
         if (!blockBodyValidator.validateBody(
             context,
             block,
@@ -262,7 +243,8 @@ public class MainnetBlockValidator implements BlockValidator {
                     receipts,
                     maybeRequests,
                     processedBlockAccessList,
-                    cumulativeBlockGasUsed)),
+                    cumulativeBlockGasUsed,
+                    accessedBlockHashes)),
             result.getNbParallelizedTransactions());
       }
     } catch (MerkleTrieException ex) {
@@ -340,27 +322,8 @@ public class MainnetBlockValidator implements BlockValidator {
       final MutableWorldState worldState,
       final Block block,
       final Optional<BlockAccessList> blockAccessList) {
-    return processBlock(
-        context,
-        worldState,
-        block,
-        blockAccessList,
-        new AbstractBlockProcessor.PostprocessingFunction.NoPostprocessing());
-  }
-
-  protected BlockProcessingResult processBlock(
-      final ProtocolContext context,
-      final MutableWorldState worldState,
-      final Block block,
-      final Optional<BlockAccessList> blockAccessList,
-      final AbstractBlockProcessor.PostprocessingFunction postprocessingBlockFunction) {
     return blockProcessor.processBlock(
-        context,
-        context.getBlockchain(),
-        worldState,
-        block,
-        blockAccessList,
-        postprocessingBlockFunction);
+        context, context.getBlockchain(), worldState, block, blockAccessList);
   }
 
   @Override

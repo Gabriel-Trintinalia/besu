@@ -20,7 +20,6 @@ import org.hyperledger.besu.datatypes.AccountValue;
 import org.hyperledger.besu.datatypes.Address;
 import org.hyperledger.besu.datatypes.Hash;
 import org.hyperledger.besu.datatypes.StorageSlotKey;
-import org.hyperledger.besu.ethereum.WitnessHint;
 import org.hyperledger.besu.ethereum.chain.Blockchain;
 import org.hyperledger.besu.ethereum.core.BlockHeader;
 import org.hyperledger.besu.ethereum.rlp.RLP;
@@ -51,14 +50,8 @@ import org.slf4j.LoggerFactory;
 
 /**
  * Builds the EIP-8025 execution witness (state trie nodes, contract codes, and ancestor headers)
- * for a single block from a Bonsai world state. Supports two input sources:
- *
- * <ul>
- *   <li>{@link #buildFromHint} — uses the in-memory {@link WitnessHint} captured during block
- *       processing (no disk I/O for witness data).
- *   <li>{@link #tryBuildForBlock} — falls back to reading the trie log from disk, used by {@code
- *       debug_executionWitness} on already-executed blocks.
- * </ul>
+ * for a single block from a Bonsai world state. Reads the trie log from disk via {@link
+ * #tryBuildForBlock}.
  */
 public class BonsaiExecutionWitnessBuilder {
 
@@ -67,39 +60,8 @@ public class BonsaiExecutionWitnessBuilder {
   public record Witness(List<String> state, List<String> codes, List<String> headers) {}
 
   /**
-   * Builds the witness using the in-memory {@link WitnessHint} produced during block execution.
-   * Avoids reading the trie log from disk.
-   */
-  public Optional<Witness> buildFromHint(
-      final BlockHeader blockHeader,
-      final WitnessHint hint,
-      final BlockHeader parentHeader,
-      final WorldStateArchive worldStateArchive,
-      final Blockchain blockchain,
-      final long oldestAccessedAncestor) {
-    if (!(worldStateArchive instanceof PathBasedWorldStateProvider pathBased)) {
-      return Optional.empty();
-    }
-    final Optional<MutableWorldState> maybeParent =
-        pathBased.getWorldState(withBlockHeaderAndNoUpdateNodeHead(parentHeader));
-    if (maybeParent.isEmpty() || !(maybeParent.get() instanceof BonsaiWorldState parent)) {
-      return Optional.empty();
-    }
-    try (parent) {
-      final List<String> state =
-          buildTrieNodes(hint.priorAccounts(), hint.touchedSlots(), parent);
-      final List<String> codes = buildCodes(hint.priorAccounts(), parent);
-      final List<String> headers = buildHeaders(blockchain, blockHeader, oldestAccessedAncestor);
-      return Optional.of(new Witness(state, codes, headers));
-    } catch (final Exception e) {
-      LOG.warn("failed to build execution witness for {}: {}", blockHeader.getHash(), e.toString());
-      return Optional.empty();
-    }
-  }
-
-  /**
-   * Builds the witness by reading the trie log from disk. Used by {@code debug_executionWitness}
-   * on blocks that were already executed (no in-memory hint available).
+   * Builds the witness by reading the trie log from disk. Used by {@code debug_executionWitness} on
+   * blocks that were already executed (no in-memory hint available).
    */
   public Optional<Witness> tryBuildForBlock(
       final BlockHeader blockHeader,
@@ -146,7 +108,8 @@ public class BonsaiExecutionWitnessBuilder {
         .getAccountChanges()
         .keySet()
         .forEach(
-            addr -> touchedSlots.put(addr, new HashSet<>(trieLog.getStorageChanges(addr).keySet())));
+            addr ->
+                touchedSlots.put(addr, new HashSet<>(trieLog.getStorageChanges(addr).keySet())));
 
     final List<String> state = buildTrieNodes(priorAccounts, touchedSlots, parentWorldState);
     final List<String> codes = buildCodes(priorAccounts, parentWorldState);
@@ -189,8 +152,7 @@ public class BonsaiExecutionWitnessBuilder {
           accountTrie.get(addressHash.getBytes());
 
           // Traverse storage proof paths for all slots touched by this account
-          if (priorAccount == null
-              || Hash.EMPTY_TRIE_HASH.equals(priorAccount.getStorageRoot())) {
+          if (priorAccount == null || Hash.EMPTY_TRIE_HASH.equals(priorAccount.getStorageRoot())) {
             return;
           }
           final Hash storageRoot = priorAccount.getStorageRoot();
@@ -222,9 +184,7 @@ public class BonsaiExecutionWitnessBuilder {
     final var resultSet = ConcurrentHashMap.<String>newKeySet();
     priorAccounts.entrySet().parallelStream()
         .filter(
-            entry ->
-                entry.getValue() != null
-                    && !entry.getValue().getCodeHash().equals(Hash.EMPTY))
+            entry -> entry.getValue() != null && !entry.getValue().getCodeHash().equals(Hash.EMPTY))
         .forEach(
             entry ->
                 worldView

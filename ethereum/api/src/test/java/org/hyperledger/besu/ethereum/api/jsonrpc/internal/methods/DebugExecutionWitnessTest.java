@@ -64,8 +64,7 @@ public class DebugExecutionWitnessTest {
     final JsonRpcRequestContext request = requestForBlockHash(chainHeadHash);
 
     final DebugExecutionWitness method =
-        new DebugExecutionWitness(
-            queries, setup.getProtocolContext(), setup.getProtocolSchedule());
+        new DebugExecutionWitness(queries, setup.getProtocolContext(), setup.getProtocolSchedule());
     final Object result = method.response(request);
 
     assertThat(result).isInstanceOf(JsonRpcSuccessResponse.class);
@@ -97,8 +96,7 @@ public class DebugExecutionWitnessTest {
     final JsonRpcRequestContext request = requestForBlockHash(genesisHash);
 
     final DebugExecutionWitness method =
-        new DebugExecutionWitness(
-            queries, setup.getProtocolContext(), setup.getProtocolSchedule());
+        new DebugExecutionWitness(queries, setup.getProtocolContext(), setup.getProtocolSchedule());
     final Object result = method.response(request);
 
     assertThat(result).isInstanceOf(JsonRpcErrorResponse.class);

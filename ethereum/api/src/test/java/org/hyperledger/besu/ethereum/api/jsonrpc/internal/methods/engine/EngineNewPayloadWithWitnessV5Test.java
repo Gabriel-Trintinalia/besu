@@ -33,7 +33,6 @@ import org.hyperledger.besu.ethereum.mainnet.ProtocolSchedule;
 import org.hyperledger.besu.ethereum.worldstate.WorldStateArchive;
 import org.hyperledger.besu.metrics.noop.NoOpMetricsSystem;
 
-import java.util.Map;
 import java.util.Optional;
 
 import io.vertx.core.Vertx;
@@ -71,8 +70,7 @@ class EngineNewPayloadWithWitnessV5Test {
     final EngineNewPayloadWithWitnessV5 method = newMethod(protocolContext);
     final BlockProcessingResult result =
         new BlockProcessingResult(
-            Optional.of(
-                new BlockProcessingOutputs(null, java.util.List.of())));
+            Optional.of(new BlockProcessingOutputs(null, java.util.List.of())));
 
     final Object payload =
         method.buildPayloadResult(
@@ -98,8 +96,7 @@ class EngineNewPayloadWithWitnessV5Test {
     final EngineNewPayloadWithWitnessV5 method = newMethod(protocolContext);
     final BlockProcessingResult result =
         new BlockProcessingResult(
-            Optional.of(
-                new BlockProcessingOutputs(null, java.util.List.of())));
+            Optional.of(new BlockProcessingOutputs(null, java.util.List.of())));
 
     final Object payload =
         method.buildPayloadResult(
@@ -125,8 +122,7 @@ class EngineNewPayloadWithWitnessV5Test {
     final EngineNewPayloadWithWitnessV5 method = newMethod(protocolContext);
     final BlockProcessingResult result =
         new BlockProcessingResult(
-            Optional.of(
-                new BlockProcessingOutputs(null, java.util.List.of())));
+            Optional.of(new BlockProcessingOutputs(null, java.util.List.of())));
 
     final Object payload =
         method.buildPayloadResult(

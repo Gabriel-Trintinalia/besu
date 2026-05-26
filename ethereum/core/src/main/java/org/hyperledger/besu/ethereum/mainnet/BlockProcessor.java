@@ -121,31 +121,6 @@ public interface BlockProcessor {
       final AbstractBlockProcessor.PreprocessingFunction preprocessingBlockFunction);
 
   /**
-   * Processes the block with an optional block access list and postprocessing function. The function
-   * is called just before {@code worldState.persist()} so that accumulator data is still available
-   * for witness generation or other post-execution tasks.
-   *
-   * @param protocolContext the current context of the protocol
-   * @param blockchain the blockchain to append the block to
-   * @param worldState the world state to apply changes to
-   * @param block the block to process
-   * @param blockAccessList the optional block access list
-   * @param postprocessingBlockFunction called before persist; use {@link
-   *     AbstractBlockProcessor.PostprocessingFunction.NoPostprocessing} when no postprocessing is
-   *     required
-   * @return the block processing result
-   */
-  default BlockProcessingResult processBlock(
-      final ProtocolContext protocolContext,
-      final Blockchain blockchain,
-      final MutableWorldState worldState,
-      final Block block,
-      final Optional<BlockAccessList> blockAccessList,
-      final AbstractBlockProcessor.PostprocessingFunction postprocessingBlockFunction) {
-    return processBlock(protocolContext, blockchain, worldState, block, blockAccessList);
-  }
-
-  /**
    * Get ommer reward in ${@link Wei}
    *
    * @param blockReward reward of the block

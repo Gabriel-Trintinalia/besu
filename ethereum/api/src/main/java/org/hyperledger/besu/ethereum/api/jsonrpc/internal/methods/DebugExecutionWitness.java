@@ -15,9 +15,9 @@
 package org.hyperledger.besu.ethereum.api.jsonrpc.internal.methods;
 
 import org.hyperledger.besu.datatypes.Hash;
+import org.hyperledger.besu.ethereum.BlockProcessingOutputs;
 import org.hyperledger.besu.ethereum.BlockProcessingResult;
 import org.hyperledger.besu.ethereum.ProtocolContext;
-import org.hyperledger.besu.ethereum.WitnessHint;
 import org.hyperledger.besu.ethereum.api.jsonrpc.RpcMethod;
 import org.hyperledger.besu.ethereum.api.jsonrpc.internal.JsonRpcRequestContext;
 import org.hyperledger.besu.ethereum.api.jsonrpc.internal.exception.InvalidJsonRpcParameters;
@@ -33,7 +33,6 @@ import org.hyperledger.besu.ethereum.core.BlockHeader;
 import org.hyperledger.besu.ethereum.mainnet.HeaderValidationMode;
 import org.hyperledger.besu.ethereum.mainnet.ProtocolSchedule;
 import org.hyperledger.besu.ethereum.trie.pathbased.bonsai.storage.witness.BonsaiExecutionWitnessBuilder;
-import org.hyperledger.besu.ethereum.trie.pathbased.bonsai.storage.witness.BonsaiPostprocessingFunction;
 
 import java.util.Collections;
 import java.util.Map;
@@ -41,12 +40,10 @@ import java.util.Optional;
 
 /**
  * Reconstructs the EIP-8025 execution witness for a previously-imported block by re-executing it
- * against the parent's world state.
- *
- * <p>Re-execution captures the accessed accounts, storage slots, and {@code BLOCKHASH} ancestors
- * via a {@link BonsaiPostprocessingFunction}; {@code state}, {@code codes}, and {@code headers} are then
- * assembled by {@link BonsaiExecutionWitnessBuilder#buildFromHint}. Re-execution does not advance
- * the chain head or record bad blocks.
+ * against the parent's world state. Re-execution does not advance the chain head or record bad
+ * blocks. The trie log written during re-execution is read by {@link
+ * BonsaiExecutionWitnessBuilder#tryBuildForBlock} to collect proof nodes; BLOCKHASH ancestors are
+ * taken from {@link BlockProcessingOutputs#getAccessedBlockHashes()}.
  */
 public class DebugExecutionWitness extends AbstractBlockParameterOrBlockHashMethod {
 
@@ -97,7 +94,6 @@ public class DebugExecutionWitness extends AbstractBlockParameterOrBlockHashMeth
     }
     final BlockHeader parentHeader = maybeParent.get();
 
-    final BonsaiPostprocessingFunction postprocessingFunction = new BonsaiPostprocessingFunction();
     final BlockProcessingResult result =
         protocolSchedule
             .getByBlockHeader(blockHeader)
@@ -109,28 +105,23 @@ public class DebugExecutionWitness extends AbstractBlockParameterOrBlockHashMeth
                 HeaderValidationMode.NONE,
                 blockchain.getBlockAccessList(blockHash),
                 false,
-                false,
-                postprocessingFunction);
+                false);
 
     if (!result.isSuccessful()) {
       return new JsonRpcErrorResponse(reqId, RpcErrorType.INTERNAL_ERROR);
     }
 
-    final Optional<WitnessHint> maybeHint = postprocessingFunction.getWitnessHint();
-    final long oldestAccessedAncestor =
-        maybeHint
-            .map(WitnessHint::accessedBlockHashes)
-            .filter(m -> !m.isEmpty())
-            .map(m -> Collections.min(m.keySet()))
-            .orElse(blockHeader.getNumber() - 1);
+    final Map<Long, Hash> accessedBlockHashes =
+        result.getYield().map(BlockProcessingOutputs::getAccessedBlockHashes).orElse(Map.of());
 
-    final WitnessHint hint =
-        maybeHint.orElseGet(() -> new WitnessHint(Map.of(), Map.of(), Map.of()));
+    final long oldestAccessedAncestor =
+        accessedBlockHashes.isEmpty()
+            ? blockHeader.getNumber() - 1
+            : Collections.min(accessedBlockHashes.keySet());
 
     return new BonsaiExecutionWitnessBuilder()
-        .buildFromHint(
+        .tryBuildForBlock(
             blockHeader,
-            hint,
             parentHeader,
             getBlockchainQueries().getWorldStateArchive(),
             blockchain,

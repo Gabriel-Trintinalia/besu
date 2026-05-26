@@ -34,7 +34,6 @@ import org.hyperledger.besu.datatypes.Wei;
 import org.hyperledger.besu.ethereum.BlockProcessingResult;
 import org.hyperledger.besu.ethereum.ProtocolContext;
 import org.hyperledger.besu.ethereum.api.jsonrpc.internal.JsonRpcRequestContext;
-import org.hyperledger.besu.ethereum.mainnet.AbstractBlockProcessor;
 import org.hyperledger.besu.ethereum.api.jsonrpc.internal.exception.InvalidJsonRpcRequestException;
 import org.hyperledger.besu.ethereum.api.jsonrpc.internal.methods.ExecutionEngineJsonRpcMethod;
 import org.hyperledger.besu.ethereum.api.jsonrpc.internal.parameters.EnginePayloadParameter;
@@ -370,10 +369,8 @@ public abstract class AbstractEngineNewPayload extends ExecutionEngineJsonRpcMet
 
     // execute block and return result response
     final long startTimeNs = System.nanoTime();
-    final AbstractBlockProcessor.PostprocessingFunction postprocessingFunction =
-        createPostprocessingFunction();
     final BlockProcessingResult executionResult =
-        mergeCoordinator.rememberBlock(block, maybeBlockAccessList, postprocessingFunction);
+        mergeCoordinator.rememberBlock(block, maybeBlockAccessList);
     if (executionResult.isSuccessful()) {
       lastExecutionTimeInNs = System.nanoTime() - startTimeNs;
       logImportedBlockInfo(
@@ -446,31 +443,6 @@ public abstract class AbstractEngineNewPayload extends ExecutionEngineJsonRpcMet
                 return authority;
               });
     }
-  }
-
-  /**
-   * Returns the payload result object for a successfully imported block. The default produces the
-   * canonical {@link EnginePayloadStatusResult} that {@code engine_newPayloadV1..V5} ship.
-   *
-   * <p>Overridden by handlers whose response shape diverges from the standard status object —
-   * currently {@link EngineNewPayloadWithWitnessV5}, which returns an {@code
-   * EnginePayloadWithWitnessResult} carrying the EIP-8025 execution witness alongside the status.
-   * The canonical {@code EnginePayloadStatusResult} can't grow new fields without changing the wire
-   * contract every existing endpoint depends on, so the divergent variants return a different
-   * concrete result class instead.
-   *
-   * @param latestValidHash the imported block's hash (usable for blockchain lookup of the header
-   *     persisted by {@code mergeCoordinator.rememberBlock})
-   * @param executionResult processing result, carrying accessed-ancestors metadata via {@code
-   *     BlockProcessingOutputs.getAccessedBlockHashes()}
-   */
-  /**
-   * Returns the {@link AbstractBlockProcessor.PostprocessingFunction} to use for the current block
-   * execution. The default returns a no-op function; {@code engine_newPayloadWithWitness} overrides
-   * this to return a Bonsai-aware function that captures accumulator state before {@code persist()}.
-   */
-  protected AbstractBlockProcessor.PostprocessingFunction createPostprocessingFunction() {
-    return new AbstractBlockProcessor.PostprocessingFunction.NoPostprocessing();
   }
 
   protected Object buildPayloadResult(

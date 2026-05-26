@@ -208,43 +208,7 @@ public abstract class AbstractBlockProcessor implements BlockProcessor {
       final MutableWorldState worldState,
       final Block block,
       final Optional<BlockAccessList> blockAccessList,
-      final PostprocessingFunction postprocessingBlockFunction) {
-    return processBlock(
-        protocolContext,
-        blockchain,
-        worldState,
-        block,
-        blockAccessList,
-        new NoPreprocessing(),
-        postprocessingBlockFunction);
-  }
-
-  @Override
-  public BlockProcessingResult processBlock(
-      final ProtocolContext protocolContext,
-      final Blockchain blockchain,
-      final MutableWorldState worldState,
-      final Block block,
-      final Optional<BlockAccessList> blockAccessList,
       final PreprocessingFunction preprocessingBlockFunction) {
-    return processBlock(
-        protocolContext,
-        blockchain,
-        worldState,
-        block,
-        blockAccessList,
-        preprocessingBlockFunction,
-        new PostprocessingFunction.NoPostprocessing());
-  }
-
-  public BlockProcessingResult processBlock(
-      final ProtocolContext protocolContext,
-      final Blockchain blockchain,
-      final MutableWorldState worldState,
-      final Block block,
-      final Optional<BlockAccessList> blockAccessList,
-      final PreprocessingFunction preprocessingBlockFunction,
-      final PostprocessingFunction postprocessingBlockFunction) {
     final List<TransactionReceipt> receipts = new ArrayList<>();
     // EIP-7778: Track two separate cumulative gas values
     // cumulativeRegularGasUsed: For block gas limit enforcement (uses protocol-specific strategy)
@@ -580,8 +544,6 @@ public abstract class AbstractBlockProcessor implements BlockProcessor {
       LOG.trace("traceEndBlock for {}", blockHeader.getNumber());
       blockTracer.traceEndBlock(blockHeader, blockBody);
 
-      postprocessingBlockFunction.accept(worldState, blockHashLookup);
-
       try {
         worldState.persist(blockHeader, stateRootCommitter);
       } catch (MerkleTrieException e) {
@@ -606,6 +568,7 @@ public abstract class AbstractBlockProcessor implements BlockProcessor {
 
       // EIP-8037: gas_metered = max(cumulative_regular, cumulative_state)
       final long gasMetered = Math.max(cumulativeRegularGasUsed, cumulativeStateGasUsed);
+      final var accessedBlockHashes = blockHashLookup.getAccessedBlockHashes();
 
       return new BlockProcessingResult(
           Optional.of(
@@ -614,7 +577,8 @@ public abstract class AbstractBlockProcessor implements BlockProcessor {
                   receipts,
                   maybeRequests,
                   maybeBlockAccessList,
-                  gasMetered)),
+                  gasMetered,
+                  accessedBlockHashes)),
           parallelizedTxFound ? Optional.of(nbParallelTx) : Optional.empty());
     } finally {
       stateRootCommitter.cancel();
@@ -706,7 +670,7 @@ public abstract class AbstractBlockProcessor implements BlockProcessor {
       final List<BlockHeader> ommers,
       final boolean skipZeroBlockRewards);
 
-   public interface PreprocessingFunction {
+  public interface PreprocessingFunction {
     Optional<PreprocessingContext> run(
         final ProtocolContext protocolContext,
         final BlockHeader blockHeader,
@@ -733,16 +697,6 @@ public abstract class AbstractBlockProcessor implements BlockProcessor {
           final Optional<BlockHeader> maybeParentHeader) {
         return Optional.empty();
       }
-    }
-  }
-
-  public interface PostprocessingFunction {
-    void accept(MutableWorldState worldState, BlockHashLookup blockHashLookup);
-
-    class NoPostprocessing implements PostprocessingFunction {
-      @Override
-      public void accept(
-        final MutableWorldState worldState, final BlockHashLookup blockHashLookup) {}
     }
   }
 }
