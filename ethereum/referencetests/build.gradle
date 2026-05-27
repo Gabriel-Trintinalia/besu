@@ -133,17 +133,24 @@ def extractDevnetFixtures = tasks.register("extractDevnetFixtures", Copy) {
 tasks.register("cleanReferenceTestCache") {
   description = "Deletes cached execution-spec(-tests) tarballs other than the currently declared versions."
   doLast {
+    // Collect all (moduleDir -> Set<versionDirName>) entries for every active config first,
+    // then delete only directories not in any active config's keep-set.
+    def keepByModule = [:].withDefault { [] as Set }
     [
       configurations.tarConfig,
-      configurations.devnetTarConfig
+      configurations.devnetTarConfig,
+      configurations.zkevmTarConfig
     ].each { config ->
       def currentFile = config.files.find { it.name.endsWith('.tar.gz') }
       if (currentFile == null) return
-        // Cache layout: <module>/<version>/<hash>/<file>.tar.gz
-        def versionDir = currentFile.parentFile.parentFile
+      // Cache layout: <module>/<version>/<hash>/<file>.tar.gz
+      def versionDir = currentFile.parentFile.parentFile
       def moduleDir = versionDir.parentFile
-      moduleDir.listFiles()?.each { sibling ->
-        if (sibling.isDirectory() && sibling.name != versionDir.name) {
+      keepByModule[moduleDir.absolutePath] << versionDir.name
+    }
+    keepByModule.each { modulePath, keepSet ->
+      new File(modulePath).listFiles()?.each { sibling ->
+        if (sibling.isDirectory() && !keepSet.contains(sibling.name)) {
           logger.lifecycle("Deleting stale fixture cache: ${sibling}")
           delete sibling
         }
@@ -442,6 +449,8 @@ tasks.register('referenceTestsZkevm', Test) {
   description = 'Runs zkevm execution-spec-tests and validates debug_executionWitness output.'
   testClassesDirs = sourceSets.referenceTestZkevm.output.classesDirs
   classpath = sourceSets.referenceTestZkevm.runtimeClasspath
+  outputs.upToDateWhen { false }
+  outputs.cacheIf { false }
   // The following test suites require capabilities beyond what the trie-log-based witness
   // collector currently supports and are excluded until the underlying work is complete:
   //

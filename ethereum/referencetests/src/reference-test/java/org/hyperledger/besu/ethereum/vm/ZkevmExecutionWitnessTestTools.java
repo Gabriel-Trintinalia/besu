@@ -33,7 +33,9 @@ import org.hyperledger.besu.metrics.noop.NoOpMetricsSystem;
 import org.hyperledger.besu.plugin.services.trielogs.TrieLog;
 import org.hyperledger.besu.testutil.JsonTestParameters;
 
+import java.util.ArrayList;
 import java.util.Collection;
+import java.util.List;
 import java.util.Map;
 import java.util.Optional;
 
@@ -137,18 +139,35 @@ public class ZkevmExecutionWitnessTestTools extends BlockchainReferenceTestTools
         new BonsaiExecutionWitnessBuilder(new NoOpMetricsSystem())
             .build(block.getHeader(), trieLog, parentWorldState, ctx.getBlockchain(), accessedAncestors);
 
-    final boolean stateMatch = got.state().equals(expected.get().state());
-    final boolean codesMatch = got.codes().equals(expected.get().codes());
-    final boolean headersMatch = got.headers().equals(expected.get().headers());
-    LOG.info(
-        "Block {} witness match — state: {}, codes: {}, headers: {}",
-        block.getHash(),
-        stateMatch,
-        codesMatch,
-        headersMatch);
+    logWitnessDiff("state",   got.state(),   expected.get().state(),   block.getHash());
+    logWitnessDiff("codes",   got.codes(),   expected.get().codes(),   block.getHash());
+    logWitnessDiff("headers", got.headers(), expected.get().headers(), block.getHash());
 
     assertThat(got.state()).as("state for block %s", block.getHash()).isEqualTo(expected.get().state());
     assertThat(got.codes()).as("codes for block %s", block.getHash()).isEqualTo(expected.get().codes());
     assertThat(got.headers()).as("headers for block %s", block.getHash()).isEqualTo(expected.get().headers());
+  }
+
+  private static void logWitnessDiff(
+      final String field,
+      final List<String> got,
+      final List<String> expected,
+      final Hash blockHash) {
+    final List<String> missing = new ArrayList<>(expected);
+    missing.removeAll(got);
+    final List<String> extra = new ArrayList<>(got);
+    extra.removeAll(expected);
+    if (missing.isEmpty() && extra.isEmpty()) {
+      LOG.info("Block {} {} match", blockHash, field);
+    } else {
+      if (!missing.isEmpty()) {
+        LOG.warn("Block {} {} missing ({}):", blockHash, field, missing.size());
+        missing.forEach(e -> LOG.warn("  - {}", e));
+      }
+      if (!extra.isEmpty()) {
+        LOG.warn("Block {} {} extra ({}):", blockHash, field, extra.size());
+        extra.forEach(e -> LOG.warn("  + {}", e));
+      }
+    }
   }
 }

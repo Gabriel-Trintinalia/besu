@@ -344,12 +344,6 @@ public class KeyValueStoragePrefixedKeyBlockchainStorage implements BlockchainSt
     }
 
     @Override
-    public void putSyncBlockAccessList(
-        final Hash blockHash, final SyncBlockAccessList syncBlockAccessList) {
-      set(BLOCK_ACCESS_LIST_PREFIX, blockHash.getBytes(), syncBlockAccessList.getRlp());
-    }
-
-    @Override
     public void putTransactionLocation(
         final Hash transactionHash, final TransactionLocation transactionLocation) {
       set(

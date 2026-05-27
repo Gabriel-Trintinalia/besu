@@ -74,6 +74,7 @@ public class StubGenesisConfigOptions implements GenesisConfigOptions, Cloneable
   private static final DiscoveryOptions DISCOVERY_OPTIONS = DiscoveryOptions.DEFAULT;
   private boolean zeroBaseFee = false;
   private boolean fixedBaseFee = false;
+  private Optional<BlobScheduleOptions> blobScheduleOptions = Optional.empty();
 
   /** Default constructor. */
   public StubGenesisConfigOptions() {
@@ -434,7 +435,18 @@ public class StubGenesisConfigOptions implements GenesisConfigOptions, Cloneable
 
   @Override
   public Optional<BlobScheduleOptions> getBlobScheduleOptions() {
-    return Optional.empty();
+    return blobScheduleOptions;
+  }
+
+  /**
+   * Sets blob schedule options.
+   *
+   * @param options the blob schedule options
+   * @return this
+   */
+  public StubGenesisConfigOptions blobScheduleOptions(final BlobScheduleOptions options) {
+    this.blobScheduleOptions = Optional.of(options);
+    return this;
   }
 
   /**

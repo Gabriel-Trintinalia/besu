@@ -63,8 +63,6 @@ public interface BlockchainStorage {
 
     void putBlockAccessList(Hash blockHash, BlockAccessList blockAccessList);
 
-    void putSyncBlockAccessList(Hash blockHash, SyncBlockAccessList syncBlockAccessList);
-
     void putTransactionLocation(Hash transactionHash, TransactionLocation transactionLocation);
 
     /**

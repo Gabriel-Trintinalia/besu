@@ -16,14 +16,16 @@ package org.hyperledger.besu.ethereum.trie.pathbased.bonsai.storage;
 
 import static org.hyperledger.besu.ethereum.trie.pathbased.common.provider.WorldStateQueryParams.withBlockHeaderAndNoUpdateNodeHead;
 
-import org.hyperledger.besu.datatypes.AccountValue;
 import org.hyperledger.besu.datatypes.Address;
 import org.hyperledger.besu.datatypes.Hash;
+import org.hyperledger.besu.datatypes.StorageSlotKey;
 import org.hyperledger.besu.ethereum.chain.Blockchain;
 import org.hyperledger.besu.ethereum.core.BlockHeader;
+import org.hyperledger.besu.ethereum.core.MutableWorldState;
+import org.hyperledger.besu.ethereum.mainnet.block.access.list.BlockAccessList;
 import org.hyperledger.besu.ethereum.rlp.RLP;
+import org.hyperledger.besu.ethereum.trie.pathbased.bonsai.NoOpBonsaiCachedWorldStorageManager;
 import org.hyperledger.besu.ethereum.trie.pathbased.bonsai.cache.CodeCache;
-import org.hyperledger.besu.ethereum.trie.pathbased.bonsai.cache.NoOpBonsaiCachedWorldStorageManager;
 import org.hyperledger.besu.ethereum.trie.pathbased.bonsai.cache.NoopBonsaiCachedMerkleTrieLoader;
 import org.hyperledger.besu.ethereum.trie.pathbased.bonsai.worldview.BonsaiWorldState;
 import org.hyperledger.besu.ethereum.trie.pathbased.bonsai.worldview.BonsaiWorldStateUpdateAccumulator;
@@ -34,11 +36,13 @@ import org.hyperledger.besu.ethereum.worldstate.WorldStateArchive;
 import org.hyperledger.besu.evm.internal.EvmConfiguration;
 import org.hyperledger.besu.plugin.services.MetricsSystem;
 import org.hyperledger.besu.plugin.services.trielogs.TrieLog;
-import org.hyperledger.besu.plugin.services.worldstate.MutableWorldState;
 
+import java.util.LinkedHashMap;
+import java.util.LinkedHashSet;
 import java.util.List;
 import java.util.Map;
 import java.util.Optional;
+import java.util.Set;
 import java.util.TreeSet;
 import java.util.concurrent.ConcurrentHashMap;
 
@@ -75,8 +79,10 @@ public class BonsaiExecutionWitnessBuilder {
       final BonsaiWorldState parentWorldState,
       final Blockchain blockchain,
       final Map<Long, Hash> accessedAncestors) {
-    final List<String> state = buildTrieNodes(blockHeader, trieLog, parentWorldState);
-    final List<String> codes = buildCodes(trieLog, parentWorldState);
+    final Map<Address, Set<StorageSlotKey>> touchedSlots =
+        resolveAccounts(blockHeader, trieLog, blockchain);
+    final List<String> state = buildTrieNodes(blockHeader, trieLog, parentWorldState, touchedSlots);
+    final List<String> codes = buildCodes(parentWorldState, touchedSlots.keySet());
     final List<String> headers = buildHeaders(blockchain, accessedAncestors);
     return new Witness(state, codes, headers);
   }
@@ -115,8 +121,42 @@ public class BonsaiExecutionWitnessBuilder {
     }
   }
 
+  /**
+   * Returns address → touched storage slots. Uses the block access list when available
+   * (Amsterdam+), falling back to the trie log for pre-Amsterdam forks.
+   */
+  private Map<Address, Set<StorageSlotKey>> resolveAccounts(
+      final BlockHeader blockHeader, final TrieLog trieLog, final Blockchain blockchain) {
+    final Optional<BlockAccessList> maybeBal = blockchain.getBlockAccessList(blockHeader.getHash());
+    if (maybeBal.isPresent()) {
+      final Map<Address, Set<StorageSlotKey>> result = new LinkedHashMap<>();
+      maybeBal
+          .get()
+          .accountChanges()
+          .forEach(
+              ac -> {
+                final Set<StorageSlotKey> slots = new LinkedHashSet<>();
+                ac.storageReads().forEach(sr -> slots.add(sr.slot()));
+                ac.storageChanges().forEach(sc -> slots.add(sc.slot()));
+                result.put(ac.address(), slots);
+              });
+      return result;
+    }
+    final Map<Address, Set<StorageSlotKey>> result = new LinkedHashMap<>();
+    trieLog
+        .getAccountChanges()
+        .forEach(
+            (address, __) ->
+                result.put(
+                    address, new LinkedHashSet<>(trieLog.getStorageChanges(address).keySet())));
+    return result;
+  }
+
   private List<String> buildTrieNodes(
-      final BlockHeader blockHeader, final TrieLog trieLog, final BonsaiWorldState worldView) {
+      final BlockHeader blockHeader,
+      final TrieLog trieLog,
+      final BonsaiWorldState worldView,
+      final Map<Address, Set<StorageSlotKey>> touchedSlots) {
 
     final BonsaiWorldStateWitnessStorage witnessStorage =
         new BonsaiWorldStateWitnessStorage(metricsSystem, worldView.getWorldStateStorage());
@@ -135,18 +175,11 @@ public class BonsaiExecutionWitnessBuilder {
     final BonsaiWorldStateUpdateAccumulator updater =
         (BonsaiWorldStateUpdateAccumulator) witnessWorldState.updater();
 
-    // Force reads of all accounts and storage touched by the trie log.
-    trieLog
-        .getAccountChanges()
-        .forEach(
-            (address, accountChange) -> {
-              updater.getAccount(address);
-              trieLog
-                  .getStorageChanges(address)
-                  .forEach(
-                      (storageSlotKey, __) ->
-                          updater.getStorageValueByStorageSlotKey(address, storageSlotKey));
-            });
+    touchedSlots.forEach(
+        (address, slots) -> {
+          updater.getAccount(address);
+          slots.forEach(slot -> updater.getStorageValueByStorageSlotKey(address, slot));
+        });
 
     updater.rollForward(trieLog);
     updater.commit();
@@ -155,20 +188,17 @@ public class BonsaiExecutionWitnessBuilder {
     return witnessStorage.getTrieNodes().stream().map(Bytes::toHexString).sorted().toList();
   }
 
-  private List<String> buildCodes(final TrieLog trieLog, final BonsaiWorldState worldView) {
+  private List<String> buildCodes(final BonsaiWorldState worldView, final Set<Address> addresses) {
     final var resultSet = ConcurrentHashMap.<String>newKeySet();
-    trieLog.getAccountChanges().entrySet().parallelStream()
-        .filter(
-            entry ->
-                entry.getValue().getPrior() != null
-                    && !entry.getValue().getPrior().getCodeHash().equals(Hash.EMPTY))
+    addresses.parallelStream()
         .forEach(
-            entry -> {
-              final Address address = entry.getKey();
-              final AccountValue prior = entry.getValue().getPrior();
-              worldView
-                  .getCode(address, prior.getCodeHash())
-                  .ifPresent(bytes -> resultSet.add(bytes.toHexString()));
+            address -> {
+              final var account = worldView.get(address);
+              if (account != null && !account.getCodeHash().equals(Hash.EMPTY)) {
+                worldView
+                    .getCode(address, account.getCodeHash())
+                    .ifPresent(bytes -> resultSet.add(bytes.toHexString()));
+              }
             });
     return resultSet.stream().sorted().toList();
   }
