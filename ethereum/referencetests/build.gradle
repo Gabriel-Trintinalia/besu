@@ -451,17 +451,8 @@ tasks.register('referenceTestsZkevm', Test) {
   classpath = sourceSets.referenceTestZkevm.runtimeClasspath
   outputs.upToDateWhen { false }
   outputs.cacheIf { false }
-  // The following test suites require capabilities beyond what the trie-log-based witness
-  // collector currently supports and are excluded until the underlying work is complete:
-  //
-  // eip7708_eth_transfer_logs / eip7928_block_level_access_lists: protocol-level ETH
-  //   operations (burns, BAL) modify account state without EVM code execution, causing
-  //   the trie-log-based code collector to include codes that should be absent.
-  // eip7778_block_gas_accounting_without_refunds: Besu's gas-accounting implementation
-  //   diverges from the spec for this EIP, producing different state trie nodes.
-  exclude '**/ZkevmExecutionWitnessTest_*_eip7708_eth_transfer_logs_*'
-  exclude '**/ZkevmExecutionWitnessTest_*_eip7928_block_level_access_lists_*'
-  exclude '**/ZkevmExecutionWitnessTest_*_eip7778_block_gas_accounting_without_refunds_*'
+  // This are stateless tests that only validate the execution witness output format.
+  exclude '**/ZkevmExecutionWitnessTest_*_eip8025_optional_proofs_*'
 }
 
 tasks.register('validateReferenceTestSubmodule') {
