@@ -33,9 +33,7 @@ import org.hyperledger.besu.ethereum.core.BlockHeader;
 import org.hyperledger.besu.ethereum.mainnet.HeaderValidationMode;
 import org.hyperledger.besu.ethereum.mainnet.ProtocolSchedule;
 import org.hyperledger.besu.ethereum.trie.pathbased.bonsai.storage.BonsaiExecutionWitnessBuilder;
-import org.hyperledger.besu.plugin.services.MetricsSystem;
 
-import java.util.Map;
 import java.util.Optional;
 
 /**
@@ -51,17 +49,14 @@ public class DebugExecutionWitness extends AbstractBlockParameterOrBlockHashMeth
 
   private final ProtocolContext protocolContext;
   private final ProtocolSchedule protocolSchedule;
-  private final MetricsSystem metricsSystem;
 
   public DebugExecutionWitness(
       final BlockchainQueries blockchainQueries,
       final ProtocolContext protocolContext,
-      final ProtocolSchedule protocolSchedule,
-      final MetricsSystem metricsSystem) {
+      final ProtocolSchedule protocolSchedule) {
     super(blockchainQueries);
     this.protocolContext = protocolContext;
     this.protocolSchedule = protocolSchedule;
-    this.metricsSystem = metricsSystem;
   }
 
   @Override
@@ -116,18 +111,18 @@ public class DebugExecutionWitness extends AbstractBlockParameterOrBlockHashMeth
       return new JsonRpcErrorResponse(reqId, RpcErrorType.INTERNAL_ERROR);
     }
 
-    final Map<Long, Hash> accessedAncestors =
-        result.getYield().map(BlockProcessingOutputs::getAccessedAncestors).orElse(Map.of());
-
-    return new BonsaiExecutionWitnessBuilder(metricsSystem)
-        .tryBuildForBlock(
-            blockHeader,
-            parentHeader,
-            getBlockchainQueries().getWorldStateArchive(),
-            blockchain,
-            accessedAncestors)
-        .<Object>map(
-            built -> new ExecutionWitnessResult(built.state(), built.codes(), built.headers()))
-        .orElseGet(() -> new JsonRpcErrorResponse(reqId, RpcErrorType.INTERNAL_ERROR));
+    final Optional<BonsaiExecutionWitnessBuilder.Witness> maybeWitness =
+        new BonsaiExecutionWitnessBuilder()
+            .buildWitness(
+                blockHeader,
+                parentHeader,
+                getBlockchainQueries().getWorldStateArchive(),
+                blockchain,
+                result.getYield());
+    if (maybeWitness.isEmpty() || maybeWitness.get().state().isEmpty()) {
+      return new JsonRpcErrorResponse(reqId, RpcErrorType.INTERNAL_ERROR);
+    }
+    final BonsaiExecutionWitnessBuilder.Witness witness = maybeWitness.get();
+    return new ExecutionWitnessResult(witness.state(), witness.codes(), witness.headers());
   }
 }

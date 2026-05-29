@@ -118,7 +118,6 @@ public class DebugJsonRpcMethods extends ApiGroupJsonRpcMethods {
         new DebugGetRawReceipts(blockchainQueries),
         new DebugGetRawTransaction(blockchainQueries),
         new DebugTraceCall(blockchainQueries, protocolSchedule, transactionSimulator),
-        new DebugExecutionWitness(
-            blockchainQueries, protocolContext, protocolSchedule, metricsSystem));
+        new DebugExecutionWitness(blockchainQueries, protocolContext, protocolSchedule));
   }
 }

@@ -459,7 +459,7 @@ public abstract class AbstractEngineNewPayload extends ExecutionEngineJsonRpcMet
    * canonical {@link EnginePayloadStatusResult} that {@code engine_newPayloadV1..V5} ship.
    *
    * <p>Overridden by handlers whose response shape diverges from the standard status object —
-   * currently {@link EngineNewPayloadWithWitnessV1}, which returns an {@code
+   * currently {@link EngineNewPayloadWithWitnessV5}, which returns an {@code
    * EnginePayloadWithWitnessResult} carrying the EIP-8025 execution witness alongside the status.
    * The canonical {@code EnginePayloadStatusResult} can't grow new fields without changing the wire
    * contract every existing endpoint depends on, so the divergent variants return a different

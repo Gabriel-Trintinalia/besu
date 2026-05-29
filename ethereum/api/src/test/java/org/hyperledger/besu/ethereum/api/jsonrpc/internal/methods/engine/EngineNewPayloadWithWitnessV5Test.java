@@ -15,6 +15,7 @@
 package org.hyperledger.besu.ethereum.api.jsonrpc.internal.methods.engine;
 
 import static org.assertj.core.api.Assertions.assertThat;
+import static org.assertj.core.api.Assertions.assertThatThrownBy;
 import static org.mockito.Mockito.mock;
 import static org.mockito.Mockito.when;
 
@@ -23,7 +24,6 @@ import org.hyperledger.besu.ethereum.BlockProcessingOutputs;
 import org.hyperledger.besu.ethereum.BlockProcessingResult;
 import org.hyperledger.besu.ethereum.ProtocolContext;
 import org.hyperledger.besu.ethereum.api.jsonrpc.RpcMethod;
-import org.hyperledger.besu.ethereum.api.jsonrpc.internal.results.EnginePayloadWithWitnessResult;
 import org.hyperledger.besu.ethereum.chain.MutableBlockchain;
 import org.hyperledger.besu.ethereum.core.BlockHeader;
 import org.hyperledger.besu.ethereum.core.BlockHeaderTestFixture;
@@ -41,20 +41,19 @@ import org.junit.jupiter.api.extension.ExtendWith;
 import org.mockito.junit.jupiter.MockitoExtension;
 
 @ExtendWith(MockitoExtension.class)
-class EngineNewPayloadWithWitnessV1Test {
+class EngineNewPayloadWithWitnessV5Test {
 
   @Test
-  void nameIsEngineNewPayloadWithWitnessV1() {
-    final EngineNewPayloadWithWitnessV1 method = newMethod(mock(ProtocolContext.class));
+  void nameIsEngineNewPayloadWithWitnessV5() {
+    final EngineNewPayloadWithWitnessV5 method = newMethod(mock(ProtocolContext.class));
     assertThat(method.getName())
-        .isEqualTo(RpcMethod.ENGINE_NEW_PAYLOAD_WITH_WITNESS_V1.getMethodName());
+        .isEqualTo(RpcMethod.ENGINE_NEW_PAYLOAD_WITH_WITNESS_V5.getMethodName());
   }
 
   @Test
-  void buildValidPayloadResultEmitsStatusEvenWhenWitnessCannotBeBuilt() {
+  void buildValidPayloadResultThrowsWhenWitnessCannotBeBuilt() {
     // World state archive is a plain WorldStateArchive (not path-based) so
-    // BonsaiExecutionWitnessBuilder.tryBuildForBlock returns empty. The response should still
-    // carry a payload status with the correct latestValidHash; witness is just absent.
+    // BonsaiExecutionWitnessBuilder returns empty — an empty witness must not be returned.
     final BlockHeader parent = new BlockHeaderTestFixture().number(0).buildHeader();
     final BlockHeader header =
         new BlockHeaderTestFixture().number(1).parentHash(parent.getHash()).buildHeader();
@@ -67,23 +66,19 @@ class EngineNewPayloadWithWitnessV1Test {
     when(protocolContext.getBlockchain()).thenReturn(blockchain);
     when(protocolContext.getWorldStateArchive()).thenReturn(mock(WorldStateArchive.class));
 
-    final EngineNewPayloadWithWitnessV1 method = newMethod(protocolContext);
+    final EngineNewPayloadWithWitnessV5 method = newMethod(protocolContext);
     final BlockProcessingResult result =
         new BlockProcessingResult(
             Optional.of(
                 new BlockProcessingOutputs(
                     null, java.util.List.of(), Optional.empty(), Optional.empty(), 0L, Map.of())));
 
-    final Object payload = method.buildValidPayloadResult(header.getHash(), result);
-
-    assertThat(payload).isInstanceOf(EnginePayloadWithWitnessResult.class);
-    final EnginePayloadWithWitnessResult witnessResult = (EnginePayloadWithWitnessResult) payload;
-    assertThat(witnessResult.getStatus().getLatestValidHash()).contains(header.getHash());
-    assertThat(witnessResult.getWitness()).isNull();
+    assertThatThrownBy(() -> method.buildValidPayloadResult(header.getHash(), result))
+        .isInstanceOf(IllegalStateException.class);
   }
 
   @Test
-  void buildValidPayloadResultReturnsNullWitnessWhenParentHeaderMissing() {
+  void buildValidPayloadResultThrowsWhenParentHeaderMissing() {
     final BlockHeader header = new BlockHeaderTestFixture().number(1).buildHeader();
 
     final MutableBlockchain blockchain = mock(MutableBlockchain.class);
@@ -93,24 +88,19 @@ class EngineNewPayloadWithWitnessV1Test {
     final ProtocolContext protocolContext = mock(ProtocolContext.class);
     when(protocolContext.getBlockchain()).thenReturn(blockchain);
 
-    final EngineNewPayloadWithWitnessV1 method = newMethod(protocolContext);
+    final EngineNewPayloadWithWitnessV5 method = newMethod(protocolContext);
     final BlockProcessingResult result =
         new BlockProcessingResult(
             Optional.of(
                 new BlockProcessingOutputs(
                     null, java.util.List.of(), Optional.empty(), Optional.empty(), 0L, Map.of())));
 
-    final Object payload = method.buildValidPayloadResult(header.getHash(), result);
-
-    assertThat(payload).isInstanceOf(EnginePayloadWithWitnessResult.class);
-    final EnginePayloadWithWitnessResult witnessResult = (EnginePayloadWithWitnessResult) payload;
-    assertThat(witnessResult.getWitness()).isNull();
+    assertThatThrownBy(() -> method.buildValidPayloadResult(header.getHash(), result))
+        .isInstanceOf(IllegalStateException.class);
   }
 
   @Test
-  void buildValidPayloadResultReturnsNullWitnessWhenBlockHeaderNotPersisted() {
-    // If the imported block header isn't yet retrievable from the blockchain (shouldn't happen in
-    // practice since rememberBlock stores it first, but guard anyway), no witness is produced.
+  void buildValidPayloadResultThrowsWhenBlockHeaderNotPersisted() {
     final BlockHeader header = new BlockHeaderTestFixture().number(1).buildHeader();
 
     final MutableBlockchain blockchain = mock(MutableBlockchain.class);
@@ -119,25 +109,21 @@ class EngineNewPayloadWithWitnessV1Test {
     final ProtocolContext protocolContext = mock(ProtocolContext.class);
     when(protocolContext.getBlockchain()).thenReturn(blockchain);
 
-    final EngineNewPayloadWithWitnessV1 method = newMethod(protocolContext);
+    final EngineNewPayloadWithWitnessV5 method = newMethod(protocolContext);
     final BlockProcessingResult result =
         new BlockProcessingResult(
             Optional.of(
                 new BlockProcessingOutputs(
                     null, java.util.List.of(), Optional.empty(), Optional.empty(), 0L, Map.of())));
 
-    final Object payload = method.buildValidPayloadResult(header.getHash(), result);
-
-    assertThat(payload).isInstanceOf(EnginePayloadWithWitnessResult.class);
-    final EnginePayloadWithWitnessResult witnessResult = (EnginePayloadWithWitnessResult) payload;
-    assertThat(witnessResult.getStatus().getLatestValidHash()).contains(header.getHash());
-    assertThat(witnessResult.getWitness()).isNull();
+    assertThatThrownBy(() -> method.buildValidPayloadResult(header.getHash(), result))
+        .isInstanceOf(IllegalStateException.class);
   }
 
-  private static EngineNewPayloadWithWitnessV1 newMethod(final ProtocolContext protocolContext) {
+  private static EngineNewPayloadWithWitnessV5 newMethod(final ProtocolContext protocolContext) {
     final ProtocolSchedule schedule = mock(ProtocolSchedule.class);
     when(schedule.milestoneFor(org.mockito.ArgumentMatchers.any())).thenReturn(Optional.empty());
-    return new EngineNewPayloadWithWitnessV1(
+    return new EngineNewPayloadWithWitnessV5(
         mock(Vertx.class),
         schedule,
         protocolContext,

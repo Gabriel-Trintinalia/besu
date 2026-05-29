@@ -18,19 +18,16 @@ import static org.hyperledger.besu.ethereum.api.jsonrpc.internal.methods.Executi
 
 import org.hyperledger.besu.consensus.merge.blockcreation.MergeMiningCoordinator;
 import org.hyperledger.besu.datatypes.Hash;
-import org.hyperledger.besu.ethereum.BlockProcessingOutputs;
 import org.hyperledger.besu.ethereum.BlockProcessingResult;
 import org.hyperledger.besu.ethereum.ProtocolContext;
 import org.hyperledger.besu.ethereum.api.jsonrpc.RpcMethod;
 import org.hyperledger.besu.ethereum.api.jsonrpc.internal.results.EnginePayloadWithWitnessResult;
 import org.hyperledger.besu.ethereum.api.jsonrpc.internal.results.ExecutionWitnessResult;
-import org.hyperledger.besu.ethereum.core.BlockHeader;
 import org.hyperledger.besu.ethereum.eth.manager.EthPeers;
 import org.hyperledger.besu.ethereum.mainnet.ProtocolSchedule;
 import org.hyperledger.besu.ethereum.trie.pathbased.bonsai.storage.BonsaiExecutionWitnessBuilder;
 import org.hyperledger.besu.plugin.services.MetricsSystem;
 
-import java.util.Map;
 import java.util.Optional;
 
 import io.vertx.core.Vertx;
@@ -42,11 +39,9 @@ import io.vertx.core.Vertx;
  * upstream by {@code MergeCoordinator.rememberBlock}, so {@code debug_executionWitness} can
  * subsequently reconstruct the witness without re-executing the block.
  */
-public class EngineNewPayloadWithWitnessV1 extends EngineNewPayloadV5 {
+public class EngineNewPayloadWithWitnessV5 extends EngineNewPayloadV5 {
 
-  private final MetricsSystem witnessMetricsSystem;
-
-  public EngineNewPayloadWithWitnessV1(
+  public EngineNewPayloadWithWitnessV5(
       final Vertx vertx,
       final ProtocolSchedule timestampSchedule,
       final ProtocolContext protocolContext,
@@ -62,48 +57,48 @@ public class EngineNewPayloadWithWitnessV1 extends EngineNewPayloadV5 {
         ethPeers,
         engineCallListener,
         metricsSystem);
-    this.witnessMetricsSystem = metricsSystem;
   }
 
   @Override
   public String getName() {
-    return RpcMethod.ENGINE_NEW_PAYLOAD_WITH_WITNESS_V1.getMethodName();
+    return RpcMethod.ENGINE_NEW_PAYLOAD_WITH_WITNESS_V5.getMethodName();
   }
 
   @Override
   protected Object buildValidPayloadResult(
       final Hash latestValidHash, final BlockProcessingResult executionResult) {
     final ExecutionWitnessResult witness = buildWitness(latestValidHash, executionResult);
+    if (witness == null || witness.getState().isEmpty()) {
+      throw new IllegalStateException(
+          "failed to build execution witness for block " + latestValidHash);
+    }
     return new EnginePayloadWithWitnessResult(VALID, latestValidHash, Optional.empty(), witness);
   }
 
   private ExecutionWitnessResult buildWitness(
       final Hash blockHash, final BlockProcessingResult executionResult) {
-    final Optional<BlockHeader> maybeBlock =
-        protocolContext.getBlockchain().getBlockHeader(blockHash);
-    if (maybeBlock.isEmpty()) {
-      return null;
-    }
-    final BlockHeader blockHeader = maybeBlock.get();
-    final Optional<BlockHeader> maybeParent =
-        protocolContext.getBlockchain().getBlockHeader(blockHeader.getParentHash());
-    if (maybeParent.isEmpty()) {
-      return null;
-    }
-    final Map<Long, Hash> accessedAncestors =
-        executionResult
-            .getYield()
-            .map(BlockProcessingOutputs::getAccessedAncestors)
-            .orElse(Map.of());
 
-    return new BonsaiExecutionWitnessBuilder(witnessMetricsSystem)
-        .tryBuildForBlock(
-            blockHeader,
-            maybeParent.get(),
-            protocolContext.getWorldStateArchive(),
-            protocolContext.getBlockchain(),
-            accessedAncestors)
-        .map(built -> new ExecutionWitnessResult(built.state(), built.codes(), built.headers()))
+    return protocolContext
+        .getBlockchain()
+        .getBlockHeader(blockHash)
+        .flatMap(
+            blockHeader ->
+                protocolContext
+                    .getBlockchain()
+                    .getBlockHeader(blockHeader.getParentHash())
+                    .flatMap(
+                        parentHeader ->
+                            new BonsaiExecutionWitnessBuilder()
+                                .buildWitness(
+                                    blockHeader,
+                                    parentHeader,
+                                    protocolContext.getWorldStateArchive(),
+                                    protocolContext.getBlockchain(),
+                                    executionResult.getYield())
+                                .map(
+                                    w ->
+                                        new ExecutionWitnessResult(
+                                            w.state(), w.codes(), w.headers()))))
         .orElse(null);
   }
 }

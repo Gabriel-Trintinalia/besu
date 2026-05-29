@@ -29,7 +29,6 @@ import org.hyperledger.besu.ethereum.api.query.BlockchainQueries;
 import org.hyperledger.besu.ethereum.core.BlockchainSetupUtil;
 import org.hyperledger.besu.ethereum.core.MiningConfiguration;
 import org.hyperledger.besu.ethereum.mainnet.ProtocolSchedule;
-import org.hyperledger.besu.metrics.noop.NoOpMetricsSystem;
 import org.hyperledger.besu.plugin.services.storage.DataStorageFormat;
 
 import org.junit.jupiter.api.Test;
@@ -38,8 +37,6 @@ import org.mockito.junit.jupiter.MockitoExtension;
 
 @ExtendWith(MockitoExtension.class)
 public class DebugExecutionWitnessTest {
-
-  private static final NoOpMetricsSystem METRICS = new NoOpMetricsSystem();
 
   @Test
   public void nameShouldBeDebugExecutionWitness() {
@@ -70,8 +67,7 @@ public class DebugExecutionWitnessTest {
     final JsonRpcRequestContext request = requestForBlockHash(chainHeadHash);
 
     final DebugExecutionWitness method =
-        new DebugExecutionWitness(
-            queries, setup.getProtocolContext(), setup.getProtocolSchedule(), METRICS);
+        new DebugExecutionWitness(queries, setup.getProtocolContext(), setup.getProtocolSchedule());
     final Object result = method.response(request);
 
     assertThat(result).isInstanceOf(JsonRpcSuccessResponse.class);
@@ -105,8 +101,7 @@ public class DebugExecutionWitnessTest {
     final JsonRpcRequestContext request = requestForBlockHash(genesisHash);
 
     final DebugExecutionWitness method =
-        new DebugExecutionWitness(
-            queries, setup.getProtocolContext(), setup.getProtocolSchedule(), METRICS);
+        new DebugExecutionWitness(queries, setup.getProtocolContext(), setup.getProtocolSchedule());
     final Object result = method.response(request);
 
     assertThat(result).isInstanceOf(JsonRpcErrorResponse.class);

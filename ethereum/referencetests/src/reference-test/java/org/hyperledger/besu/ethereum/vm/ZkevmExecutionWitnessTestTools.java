@@ -16,8 +16,6 @@ package org.hyperledger.besu.ethereum.vm;
 
 import static org.assertj.core.api.Assertions.assertThat;
 
-import org.hyperledger.besu.datatypes.Hash;
-import org.hyperledger.besu.ethereum.BlockProcessingOutputs;
 import org.hyperledger.besu.ethereum.BlockProcessingResult;
 import org.hyperledger.besu.ethereum.ProtocolContext;
 import org.hyperledger.besu.ethereum.core.Block;
@@ -29,12 +27,10 @@ import org.hyperledger.besu.ethereum.trie.pathbased.common.provider.PathBasedWor
 import org.hyperledger.besu.ethereum.trie.pathbased.common.provider.WorldStateQueryParams;
 import org.hyperledger.besu.ethereum.vm.zkevm.FixtureExecutionWitness;
 import org.hyperledger.besu.ethereum.vm.zkevm.ZkevmFixtureWitnessLoader;
-import org.hyperledger.besu.metrics.noop.NoOpMetricsSystem;
 import org.hyperledger.besu.plugin.services.trielogs.TrieLog;
 import org.hyperledger.besu.testutil.JsonTestParameters;
 
 import java.util.Collection;
-import java.util.Map;
 import java.util.Optional;
 
 import org.slf4j.Logger;
@@ -127,15 +123,12 @@ public class ZkevmExecutionWitnessTestTools extends BlockchainReferenceTestTools
       return;
     }
 
-    final Map<Long, Hash> accessedAncestors =
-        result.getYield().map(BlockProcessingOutputs::getAccessedAncestors).orElse(Map.of());
-
     final TrieLog trieLog =
         pathBasedProvider.getTrieLogManager().getTrieLogLayer(block.getHash()).orElseThrow();
 
     final BonsaiExecutionWitnessBuilder.Witness got =
-        new BonsaiExecutionWitnessBuilder(new NoOpMetricsSystem())
-            .build(block.getHeader(), trieLog, parentWorldState, ctx.getBlockchain(), accessedAncestors);
+        new BonsaiExecutionWitnessBuilder()
+            .build(block.getHeader(), trieLog, parentWorldState, ctx.getBlockchain(), result.getYield());
 
     final boolean stateMatch = got.state().equals(expected.get().state());
     final boolean codesMatch = got.codes().equals(expected.get().codes());
