@@ -158,8 +158,9 @@ configure(allprojects - project(':platform')) {
   }
 
   java {
-    sourceCompatibility = 21
-    targetCompatibility = 21
+    toolchain {
+      languageVersion = JavaLanguageVersion.of(25)
+    }
 
     consistentResolution {
       useCompileClasspathVersions()
@@ -194,10 +195,7 @@ configure(allprojects - project(':platform')) {
     }
     exclusiveContent {
       forRepositories(ethExecSpecTestsRepo)
-      filter {
-        includeModule('ethereum', 'execution-spec-tests')
-        includeModule('ethereum', 'execution-specs')
-      }
+      filter { includeModule('ethereum', 'execution-spec-tests')}
     }
   }
 

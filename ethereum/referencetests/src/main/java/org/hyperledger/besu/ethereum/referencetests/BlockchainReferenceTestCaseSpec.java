@@ -249,24 +249,22 @@ public class BlockchainReferenceTestCaseSpec {
     }
   }
 
-  @JsonIgnoreProperties(
-      ignoreUnknown = true,
-      value = {
-        "blocknumber",
-        "chainname",
-        "chainnetwork",
-        "expectExceptionByzantium",
-        "expectExceptionConstantinople",
-        "expectExceptionConstantinopleFix",
-        "expectExceptionIstanbul",
-        "expectExceptionEIP150",
-        "expectExceptionEIP158",
-        "expectExceptionFrontier",
-        "expectExceptionHomestead",
-        "hasBigInt",
-        "rlp_decoded",
-        "receipts"
-      })
+  @JsonIgnoreProperties({
+    "blocknumber",
+    "chainname",
+    "chainnetwork",
+    "expectExceptionByzantium",
+    "expectExceptionConstantinople",
+    "expectExceptionConstantinopleFix",
+    "expectExceptionIstanbul",
+    "expectExceptionEIP150",
+    "expectExceptionEIP158",
+    "expectExceptionFrontier",
+    "expectExceptionHomestead",
+    "hasBigInt",
+    "rlp_decoded",
+    "receipts"
+  })
   public static class CandidateBlock {
 
     private final Bytes rlp;
