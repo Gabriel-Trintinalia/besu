@@ -132,21 +132,22 @@ public class DebugExecutionWitness extends AbstractBlockParameterOrBlockHashMeth
       return new JsonRpcErrorResponse(reqId, RpcErrorType.INTERNAL_ERROR);
     }
 
-    final Optional<BonsaiExecutionWitnessBuilder.Witness> maybeWitness =
-        new BonsaiExecutionWitnessBuilder()
-            .buildWitness(
-                blockHeader,
-                parentHeader,
-                getBlockchainQueries().getWorldStateArchive(),
-                blockchain,
-                result.getYield());
-    // If the witness is empty or has an empty state list, return INTERNAL_ERROR to indicate that
-    // the witness could not be constructed (e.g. due to missing trie logs or non-path-based
-    // archive)
-    if (maybeWitness.isEmpty() || maybeWitness.get().state().isEmpty()) {
+    final BonsaiExecutionWitnessBuilder.Witness witness;
+    try {
+      witness =
+          new BonsaiExecutionWitnessBuilder()
+              .buildWitness(
+                  blockHeader,
+                  parentHeader,
+                  getBlockchainQueries().getWorldStateArchive(),
+                  blockchain,
+                  result.getYield());
+      if (witness.state().isEmpty()) {
+        return new JsonRpcErrorResponse(reqId, RpcErrorType.INTERNAL_ERROR);
+      }
+    } catch (final IllegalStateException e) {
       return new JsonRpcErrorResponse(reqId, RpcErrorType.INTERNAL_ERROR);
     }
-    final BonsaiExecutionWitnessBuilder.Witness witness = maybeWitness.get();
     return new ExecutionWitnessResult(witness.state(), witness.codes(), witness.headers());
   }
 }

@@ -61,62 +61,51 @@ public class BonsaiExecutionWitnessBuilder {
   public record Witness(List<String> state, List<String> codes, List<String> headers) {}
 
   /**
-   * Builds the witness directly from a pre-resolved parent world state and trie log. The {@code
-   * maybeOutputs} supplies the accessed-ancestor map (used to populate {@code headers}) and the
-   * block access list (used by {@link #resolveAccounts} to determine touched slots).
-   */
-  public Witness build(
-      final BlockHeader blockHeader,
-      final TrieLog trieLog,
-      final BonsaiWorldState parentWorldState,
-      final Blockchain blockchain,
-      final Optional<BlockProcessingOutputs> maybeOutputs) {
-    final Map<Long, Hash> accessedAncestors =
-        maybeOutputs.map(BlockProcessingOutputs::getAccessedAncestors).orElse(Map.of());
-    final Optional<BlockAccessList> maybeBlockAccessList =
-        maybeOutputs.flatMap(BlockProcessingOutputs::getBlockAccessList);
-    final Map<Address, Set<StorageSlotKey>> touchedSlots =
-        resolveAccounts(trieLog, maybeBlockAccessList);
-    final List<String> state = buildTrieNodes(parentWorldState, touchedSlots);
-    final List<String> codes = buildCodes(parentWorldState, touchedSlots.keySet());
-    final List<String> headers = buildHeaders(blockchain, accessedAncestors);
-    return new Witness(state, codes, headers);
-  }
-
-  /**
    * Resolves the path-based archive, trie log, and parent world state for {@code blockHeader} and
-   * builds the witness. Returns empty when the archive is not path-based, the trie log is absent,
-   * the parent state is unavailable, or the build itself throws — callers handle the empty case as
-   * they choose (engine API: omit witness from response; debug RPC: error response).
+   * builds the witness. Throws {@link IllegalStateException} when a prerequisite is unavailable
+   * (non-Bonsai archive, missing trie log, missing parent state) or if witness construction fails.
    */
-  public Optional<Witness> buildWitness(
+  public Witness buildWitness(
       final BlockHeader blockHeader,
       final BlockHeader parentHeader,
       final WorldStateArchive worldStateArchive,
       final Blockchain blockchain,
       final Optional<BlockProcessingOutputs> maybeOutputs) {
-    // Witness building requires a path-based (Bonsai) archive; other archive types are unsupported.
     if (!(worldStateArchive instanceof PathBasedWorldStateProvider pathBased)) {
-      return Optional.empty();
+      throw new IllegalStateException("Witness generation requires a path-based (Bonsai) archive");
     }
-    // Guard against missing trie log; without it the witness cannot be built
-    final Optional<TrieLog> maybeTrieLog =
-        pathBased.getTrieLogManager().getTrieLogLayer(blockHeader.getHash());
-    if (maybeTrieLog.isEmpty()) {
-      return Optional.empty();
+    final TrieLog trieLog =
+        pathBased
+            .getTrieLogManager()
+            .getTrieLogLayer(blockHeader.getHash())
+            .orElseThrow(
+                () -> new IllegalStateException("No trie log for block " + blockHeader.getHash()));
+    final MutableWorldState maybeParent =
+        pathBased
+            .getWorldState(withBlockHeaderAndNoUpdateNodeHead(parentHeader))
+            .orElseThrow(
+                () ->
+                    new IllegalStateException(
+                        "Parent world state unavailable for " + parentHeader.getHash()));
+    if (!(maybeParent instanceof BonsaiWorldState parent)) {
+      throw new IllegalStateException(
+          "Parent world state is not a BonsaiWorldState for " + parentHeader.getHash());
     }
-    // The parent world state is needed as the base for replaying the trie log and extracting codes.
-    final Optional<MutableWorldState> maybeParent =
-        pathBased.getWorldState(withBlockHeaderAndNoUpdateNodeHead(parentHeader));
-    // Guard against unexpected absence of parent state; witness building cannot proceed without it.
-    if (maybeParent.isEmpty() || !(maybeParent.get() instanceof BonsaiWorldState parent)) {
-      return Optional.empty();
-    }
+
     try (parent) {
-      return Optional.of(build(blockHeader, maybeTrieLog.get(), parent, blockchain, maybeOutputs));
+      final Map<Long, Hash> accessedAncestors =
+          maybeOutputs.map(BlockProcessingOutputs::getAccessedAncestors).orElse(Map.of());
+      final Optional<BlockAccessList> maybeBlockAccessList =
+          maybeOutputs.flatMap(BlockProcessingOutputs::getBlockAccessList);
+      final Map<Address, Set<StorageSlotKey>> touchedSlots =
+          buildTouchedSlotsMap(trieLog, maybeBlockAccessList);
+      return new Witness(
+          buildTrieNodes(parent, touchedSlots),
+          buildCodes(parent, touchedSlots.keySet()),
+          buildHeaders(blockchain, accessedAncestors));
     } catch (final Exception e) {
-      LOG.warn("failed to build execution witness for {}: {}", blockHeader.getHash(), e.toString());
-      return Optional.empty();
+      throw new IllegalStateException(
+          "Failed to build execution witness for " + blockHeader.getHash(), e);
     }
   }
 
@@ -131,7 +120,7 @@ public class BonsaiExecutionWitnessBuilder {
    *
    * <p>TODO: investigate trie log discrepancies and remove the BAL dependency once resolved.
    */
-  private Map<Address, Set<StorageSlotKey>> resolveAccounts(
+  private Map<Address, Set<StorageSlotKey>> buildTouchedSlotsMap(
       final TrieLog trieLog, final Optional<BlockAccessList> maybeBal) {
     if (maybeBal.isPresent()) {
       // BAL preferred over trie log — see Javadoc above for context.
@@ -153,7 +142,7 @@ public class BonsaiExecutionWitnessBuilder {
     trieLog
         .getAccountChanges()
         .forEach(
-            (address, __) ->
+            (address, _) ->
                 result.put(
                     address, new LinkedHashSet<>(trieLog.getStorageChanges(address).keySet())));
     return result;
