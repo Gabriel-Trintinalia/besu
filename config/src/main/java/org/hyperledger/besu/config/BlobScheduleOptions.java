@@ -43,6 +43,25 @@ public class BlobScheduleOptions {
   }
 
   /**
+   * Creates a BlobScheduleOptions with explicit per-key blob schedules. Keys not present in the map
+   * will return empty from their corresponding getter. Keys are lowercased.
+   *
+   * @param schedulesByKey map of fork key (e.g. {@code "bpo2"}) to blob schedule
+   * @return a new BlobScheduleOptions
+   */
+  public static BlobScheduleOptions of(final Map<String, BlobSchedule> schedulesByKey) {
+    final ObjectNode root = JsonUtil.createEmptyObjectNode();
+    schedulesByKey.forEach(
+      (key, schedule) -> {
+        final ObjectNode entry = root.putObject(key.toLowerCase(java.util.Locale.US));
+        entry.put("target", schedule.getTarget());
+        entry.put("max", schedule.getMax());
+        entry.put("basefeeupdatefraction", schedule.getBaseFeeUpdateFraction());
+      });
+    return new BlobScheduleOptions(root);
+  }
+
+  /**
    * Gets cancun blob schedule.
    *
    * @return the cancun blob schedule
