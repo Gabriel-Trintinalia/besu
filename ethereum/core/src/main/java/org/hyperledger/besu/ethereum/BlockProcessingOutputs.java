@@ -168,11 +168,8 @@ public class BlockProcessingOutputs {
   }
 
   /**
-   * Returns the ancestor block hashes touched while processing this block, keyed by block number.
-   * Always includes the parent header. Used by EIP-8025 execution-witness generation to populate
-   * the {@code headers} list.
-   *
-   * @return an unmodifiable view of the accessed ancestor map
+   * Returns a map of ancestor block numbers to hashes for all ancestors accessed during block
+   * processing. This is used to populate the "headers" field of the execution witness (EIP-8025).
    */
   public Map<Long, Hash> getAccessedAncestors() {
     return accessedAncestors;

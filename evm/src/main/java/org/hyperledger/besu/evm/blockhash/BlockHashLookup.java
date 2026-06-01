@@ -52,13 +52,14 @@ public interface BlockHashLookup extends BiFunction<MessageFrame, Long, Hash> {
   }
 
   /**
-   * Block numbers (and their hashes) that this lookup resolved during the lifetime of one block's
-   * execution — at minimum the parent header (which lookups pre-populate at construction), plus any
-   * ancestor reached while serving {@code BLOCKHASH}. Used by EIP-8025 witness assembly to populate
-   * the {@code headers} list. Lookups that do not track this should leave the default and return an
-   * empty map.
+   * Returns a map of ancestor block numbers to hashes for all ancestors accessed during block
+   * processing. This is used to populate the "headers" field of the execution witness (EIP-8025).
    *
-   * @return an unmodifiable view of accessed ancestors keyed by block number
+   * <p>By default, this returns an empty map, indicating that no ancestors were accessed. Override
+   * this method to return the actual accessed ancestors when supported by the lookup
+   * implementation.
+   *
+   * @return a map of ancestor block numbers to hashes for all accessed ancestors
    */
   default Map<Long, Hash> getAccessedAncestors() {
     return Map.of();
