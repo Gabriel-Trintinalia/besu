@@ -43,7 +43,7 @@ import java.util.Optional;
  * <p>Re-execution captures the {@code BLOCKHASH}-accessed ancestor set via {@link
  * BlockProcessingOutputs#getAccessedAncestors()}; {@code state}, {@code codes}, and {@code headers}
  * are then assembled by {@link BonsaiExecutionWitnessBuilder} from the persisted trie log + the
- * accessed-ancestors map. The re-execution does not advance the chain head or record bad blocks.
+ * accessed-ancestors map.
  */
 public class DebugExecutionWitness extends AbstractBlockParameterOrBlockHashMethod {
 

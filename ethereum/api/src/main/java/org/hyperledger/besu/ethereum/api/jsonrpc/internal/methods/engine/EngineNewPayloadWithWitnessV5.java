@@ -33,11 +33,15 @@ import java.util.Optional;
 import io.vertx.core.Vertx;
 
 /**
- * Same params as {@code engine_newPayloadV5}; response additionally carries the EIP-8025 execution
- * witness for the imported block. The witness is built inline from the post-import trie log and the
- * accessed-ancestor map captured during execution. The oldest-accessed-ancestor sidecar is written
- * upstream by {@code MergeCoordinator.rememberBlock}, so {@code debug_executionWitness} can
- * subsequently reconstruct the witness without re-executing the block.
+ * Implements {@code engine_newPayloadWithWitnessV5}: same request/response shape as {@code
+ * engine_newPayloadV5} but the success response additionally carries an EIP-8025 execution witness
+ * for the imported block.
+ *
+ * <p>The witness is assembled immediately after the block is imported by reading the trie log and
+ * block access list produced during execution (both available via {@link
+ * org.hyperledger.besu.ethereum.BlockProcessingOutputs}). If the witness cannot be built — for
+ * example because the world-state archive is not path-based — an {@link IllegalStateException} is
+ * thrown so that callers receive a clear error rather than a silently empty witness.
  */
 public class EngineNewPayloadWithWitnessV5 extends EngineNewPayloadV5 {
 
@@ -64,6 +68,11 @@ public class EngineNewPayloadWithWitnessV5 extends EngineNewPayloadV5 {
     return RpcMethod.ENGINE_NEW_PAYLOAD_WITH_WITNESS_V5.getMethodName();
   }
 
+/**
+   * Builds the witness and wraps it together with the standard VALID payload status into an {@link
+   * EnginePayloadWithWitnessResult}. Throws {@link IllegalStateException} if the witness is absent
+   * or has an empty {@code state} list, ensuring callers never receive an empty witness silently.
+   */
   @Override
   protected Object buildValidPayloadResult(
       final Hash latestValidHash, final BlockProcessingResult executionResult) {
@@ -75,6 +84,11 @@ public class EngineNewPayloadWithWitnessV5 extends EngineNewPayloadV5 {
     return new EnginePayloadWithWitnessResult(VALID, latestValidHash, Optional.empty(), witness);
   }
 
+  /**
+   * Attempts to build the EIP-8025 witness for the block identified by {@code blockHash}. Returns
+   * {@code null} if either the block header or its parent header is not yet available in the
+   * blockchain, or if {@link BonsaiExecutionWitnessBuilder} returns empty (e.g. no trie log).
+   */
   private ExecutionWitnessResult buildWitness(
       final Hash blockHash, final BlockProcessingResult executionResult) {
 

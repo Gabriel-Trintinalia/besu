@@ -24,8 +24,8 @@ import org.hyperledger.besu.ethereum.chain.Blockchain;
 import org.hyperledger.besu.ethereum.core.BlockHeader;
 import org.hyperledger.besu.ethereum.mainnet.block.access.list.BlockAccessList;
 import org.hyperledger.besu.ethereum.rlp.RLP;
+import org.hyperledger.besu.ethereum.trie.pathbased.bonsai.NoOpBonsaiCachedWorldStorageManager;
 import org.hyperledger.besu.ethereum.trie.pathbased.bonsai.cache.CodeCache;
-import org.hyperledger.besu.ethereum.trie.pathbased.bonsai.cache.NoOpBonsaiCachedWorldStorageManager;
 import org.hyperledger.besu.ethereum.trie.pathbased.bonsai.cache.NoopBonsaiCachedMerkleTrieLoader;
 import org.hyperledger.besu.ethereum.trie.pathbased.bonsai.worldview.BonsaiWorldState;
 import org.hyperledger.besu.ethereum.trie.pathbased.bonsai.worldview.BonsaiWorldStateUpdateAccumulator;
@@ -101,17 +101,16 @@ public class BonsaiExecutionWitnessBuilder {
     if (!(worldStateArchive instanceof PathBasedWorldStateProvider pathBased)) {
       return Optional.empty();
     }
-    // The trie log records the state diff for the block and is needed to replay changes onto the
-    // parent world state during witness construction.
+    // Guard against missing trie log; without it the witness cannot be built
     final Optional<TrieLog> maybeTrieLog =
         pathBased.getTrieLogManager().getTrieLogLayer(blockHeader.getHash());
     if (maybeTrieLog.isEmpty()) {
       return Optional.empty();
     }
-    // Open the parent world state in read-only mode (no head update) so the witness builder can
-    // read pre-execution trie nodes without affecting the live chain state.
+    // The parent world state is needed as the base for replaying the trie log and extracting codes.
     final Optional<MutableWorldState> maybeParent =
         pathBased.getWorldState(withBlockHeaderAndNoUpdateNodeHead(parentHeader));
+    // Guard against unexpected absence of parent state; witness building cannot proceed without it.
     if (maybeParent.isEmpty() || !(maybeParent.get() instanceof BonsaiWorldState parent)) {
       return Optional.empty();
     }
