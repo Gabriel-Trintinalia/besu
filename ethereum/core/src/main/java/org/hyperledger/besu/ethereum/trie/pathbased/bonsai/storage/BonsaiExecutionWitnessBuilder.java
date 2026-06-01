@@ -24,17 +24,13 @@ import org.hyperledger.besu.ethereum.chain.Blockchain;
 import org.hyperledger.besu.ethereum.core.BlockHeader;
 import org.hyperledger.besu.ethereum.mainnet.block.access.list.BlockAccessList;
 import org.hyperledger.besu.ethereum.rlp.RLP;
-import org.hyperledger.besu.ethereum.trie.pathbased.bonsai.NoOpBonsaiCachedWorldStorageManager;
-import org.hyperledger.besu.ethereum.trie.pathbased.bonsai.cache.CodeCache;
-import org.hyperledger.besu.ethereum.trie.pathbased.bonsai.cache.NoopBonsaiCachedMerkleTrieLoader;
+import org.hyperledger.besu.ethereum.trie.NodeLoader;
+import org.hyperledger.besu.ethereum.trie.common.PmtStateTrieAccountValue;
 import org.hyperledger.besu.ethereum.trie.pathbased.bonsai.worldview.BonsaiWorldState;
-import org.hyperledger.besu.ethereum.trie.pathbased.bonsai.worldview.BonsaiWorldStateUpdateAccumulator;
 import org.hyperledger.besu.ethereum.trie.pathbased.common.provider.PathBasedWorldStateProvider;
-import org.hyperledger.besu.ethereum.trie.pathbased.common.trielog.NoOpTrieLogManager;
-import org.hyperledger.besu.ethereum.trie.pathbased.common.worldview.WorldStateConfig;
+import org.hyperledger.besu.ethereum.trie.patricia.StoredMerklePatriciaTrie;
+import org.hyperledger.besu.ethereum.trie.patricia.StoredNodeFactory;
 import org.hyperledger.besu.ethereum.worldstate.WorldStateArchive;
-import org.hyperledger.besu.evm.internal.EvmConfiguration;
-import org.hyperledger.besu.metrics.noop.NoOpMetricsSystem;
 import org.hyperledger.besu.plugin.services.trielogs.TrieLog;
 import org.hyperledger.besu.plugin.services.worldstate.MutableWorldState;
 
@@ -46,8 +42,10 @@ import java.util.Optional;
 import java.util.Set;
 import java.util.TreeSet;
 import java.util.concurrent.ConcurrentHashMap;
+import java.util.function.Function;
 
 import org.apache.tuweni.bytes.Bytes;
+import org.apache.tuweni.bytes.Bytes32;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
@@ -79,7 +77,7 @@ public class BonsaiExecutionWitnessBuilder {
         maybeOutputs.flatMap(BlockProcessingOutputs::getBlockAccessList);
     final Map<Address, Set<StorageSlotKey>> touchedSlots =
         resolveAccounts(trieLog, maybeBlockAccessList);
-    final List<String> state = buildTrieNodes(blockHeader, trieLog, parentWorldState, touchedSlots);
+    final List<String> state = buildTrieNodes(parentWorldState, touchedSlots);
     final List<String> codes = buildCodes(parentWorldState, touchedSlots.keySet());
     final List<String> headers = buildHeaders(blockchain, accessedAncestors);
     return new Witness(state, codes, headers);
@@ -162,46 +160,63 @@ public class BonsaiExecutionWitnessBuilder {
   }
 
   /**
-   * Collects the trie nodes required to prove the given {@code touchedSlots} set. A throw-away
-   * {@link BonsaiWorldStateWitnessStorage} wraps the parent storage so that every trie-node read
-   * issued during state access and the subsequent {@code rollForward} + {@code persist} is
-   * intercepted and recorded. Returns the collected nodes as sorted hex strings.
+   * Collects the trie nodes required to prove the given {@code touchedSlots} set by walking the
+   * account-state and storage tries directly. For each account, an intercepting {@link NodeLoader}
+   * records every node read while traversing its path in the parent state trie. For accounts with
+   * touched storage slots the same interception is applied to the account's storage trie.
+   *
+   * <p>This avoids constructing a throw-away {@link BonsaiWorldState} and driving a full {@code
+   * rollForward} + {@code persist} cycle: the trie is traversed directly against the parent
+   * storage, skipping the world-state machinery and any unmodified subtrees visited during
+   * root-hash recomputation.
    */
   private List<String> buildTrieNodes(
-      final BlockHeader blockHeader,
-      final TrieLog trieLog,
-      final BonsaiWorldState worldView,
-      final Map<Address, Set<StorageSlotKey>> touchedSlots) {
+      final BonsaiWorldState worldView, final Map<Address, Set<StorageSlotKey>> touchedSlots) {
 
-    final BonsaiWorldStateWitnessStorage witnessStorage =
-        new BonsaiWorldStateWitnessStorage(
-            new NoOpMetricsSystem(), worldView.getWorldStateStorage());
-    final CodeCache codeCache = new CodeCache();
-    final BonsaiWorldState witnessWorldState =
-        new BonsaiWorldState(
-            witnessStorage,
-            new NoopBonsaiCachedMerkleTrieLoader(),
-            new NoOpBonsaiCachedWorldStorageManager(
-                witnessStorage, EvmConfiguration.DEFAULT, codeCache),
-            new NoOpTrieLogManager(),
-            EvmConfiguration.DEFAULT,
-            WorldStateConfig.newBuilder().build(),
-            codeCache);
+    final var storage = worldView.getWorldStateStorage();
+    final Set<Bytes> collectedNodes = ConcurrentHashMap.newKeySet();
 
-    final BonsaiWorldStateUpdateAccumulator updater =
-        (BonsaiWorldStateUpdateAccumulator) witnessWorldState.updater();
+    // Intercept every account-trie node read and record it for the witness.
+    final NodeLoader accountNodeLoader =
+        (location, hash) -> {
+          final Optional<Bytes> node = storage.getAccountStateTrieNode(location, hash);
+          node.ifPresent(collectedNodes::add);
+          return node;
+        };
+    final StoredMerklePatriciaTrie<Bytes, Bytes> accountTrie =
+        new StoredMerklePatriciaTrie<>(
+            new StoredNodeFactory<>(accountNodeLoader, Function.identity(), Function.identity()),
+            Bytes32.wrap(worldView.rootHash().getBytes()));
 
+    // For each touched account, walk the account trie to collect nodes on the path to the account
     touchedSlots.forEach(
         (address, slots) -> {
-          updater.getAccount(address);
-          slots.forEach(slot -> updater.getStorageValueByStorageSlotKey(address, slot));
+          final Hash addressHash = Hash.hash(address.getBytes());
+          final Optional<Bytes> accountRlp = accountTrie.get(addressHash.getBytes());
+
+          // Walk the storage trie only when slots were touched and the account exists in
+          // the parent state (newly created accounts have no pre-execution storage trie).
+          if (accountRlp.isPresent() && !slots.isEmpty()) {
+            final Hash storageRoot =
+                PmtStateTrieAccountValue.readFrom(RLP.input(accountRlp.get())).getStorageRoot();
+            // Intercept storage-trie node reads for this account.
+            final NodeLoader storageNodeLoader =
+                (location, hash) -> {
+                  final Optional<Bytes> node =
+                      storage.getAccountStorageTrieNode(addressHash, location, hash);
+                  node.ifPresent(collectedNodes::add);
+                  return node;
+                };
+            final StoredMerklePatriciaTrie<Bytes, Bytes> storageTrie =
+                new StoredMerklePatriciaTrie<>(
+                    new StoredNodeFactory<>(
+                        storageNodeLoader, Function.identity(), Function.identity()),
+                    Bytes32.wrap(storageRoot.getBytes()));
+            slots.forEach(slot -> storageTrie.get(slot.getSlotHash().getBytes()));
+          }
         });
 
-    updater.rollForward(trieLog);
-    updater.commit();
-    witnessWorldState.persist(blockHeader);
-
-    return witnessStorage.getTrieNodes().stream().map(Bytes::toHexString).sorted().toList();
+    return collectedNodes.stream().map(Bytes::toHexString).sorted().toList();
   }
 
   /**
@@ -214,7 +229,8 @@ public class BonsaiExecutionWitnessBuilder {
         .forEach(
             address -> {
               final var account = worldView.get(address);
-              if (account != null && !account.getCodeHash().equals(Hash.EMPTY)) {
+              if (account != null
+                  && !account.getCodeHash().getBytes().equals(Hash.EMPTY.getBytes())) {
                 worldView
                     .getCode(address, account.getCodeHash())
                     .ifPresent(bytes -> resultSet.add(bytes.toHexString()));
