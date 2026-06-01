@@ -31,6 +31,7 @@ import org.hyperledger.besu.datatypes.Hash;
 import org.hyperledger.besu.datatypes.RequestType;
 import org.hyperledger.besu.datatypes.VersionedHash;
 import org.hyperledger.besu.datatypes.Wei;
+import org.hyperledger.besu.ethereum.BlockProcessingOutputs;
 import org.hyperledger.besu.ethereum.BlockProcessingResult;
 import org.hyperledger.besu.ethereum.ProtocolContext;
 import org.hyperledger.besu.ethereum.api.jsonrpc.internal.JsonRpcRequestContext;
@@ -391,7 +392,7 @@ public abstract class AbstractEngineNewPayload extends ExecutionEngineJsonRpcMet
           executionResult.getNbParallelizedTransactions());
       final Hash validHash = newBlockHeader.getHash();
       logEnginePayloadResponse(blockParam, validHash, VALID);
-      return new JsonRpcSuccessResponse(reqId, buildValidPayloadResult(validHash, executionResult));
+      return buildValidResponse(reqId, validHash, executionResult);
     } else {
       if (executionResult.causedBy().isPresent()) {
         Throwable causedBy = executionResult.causedBy().get();
@@ -455,25 +456,24 @@ public abstract class AbstractEngineNewPayload extends ExecutionEngineJsonRpcMet
   }
 
   /**
-   * Returns the payload result object for a successfully imported block. The default produces the
-   * canonical {@link EnginePayloadStatusResult} that {@code engine_newPayloadV1..V5} ship.
+   * Builds the complete {@link JsonRpcResponse} for a successfully imported block. The default
+   * wraps a canonical {@link EnginePayloadStatusResult} in a {@link JsonRpcSuccessResponse}.
    *
-   * <p>Overridden by handlers whose response shape diverges from the standard status object —
-   * currently {@link EngineNewPayloadWithWitnessV5}, which returns an {@code
-   * EnginePayloadWithWitnessResult} carrying the EIP-8025 execution witness alongside the status.
-   * The canonical {@code EnginePayloadStatusResult} can't grow new fields without changing the wire
-   * contract every existing endpoint depends on, so the divergent variants return a different
-   * concrete result class instead.
+   * <p>Overridden by handlers that need a different response shape or that may fail after the block
+   * is imported — for example {@link EngineNewPayloadWithWitnessV5}, which additionally builds an
+   * EIP-8025 execution witness and may return a {@link JsonRpcErrorResponse} if the witness cannot
+   * be generated.
    *
-   * @param latestValidHash the imported block's hash (usable for blockchain lookup of the header
-   *     persisted by {@code mergeCoordinator.rememberBlock})
-   * @param executionResult processing result, carrying accessed-ancestors metadata via {@code
-   *     BlockProcessingOutputs.getAccessedAncestors()}
+   * @param reqId the JSON-RPC request identifier, forwarded to the response
+   * @param latestValidHash the imported block's hash
+   * @param executionResult the processing result, carrying {@link BlockProcessingOutputs} metadata
    */
-  protected Object buildValidPayloadResult(
+  protected JsonRpcResponse buildValidResponse(
+      final Object reqId,
       final Hash latestValidHash,
       @SuppressWarnings("unused") final BlockProcessingResult executionResult) {
-    return new EnginePayloadStatusResult(VALID, latestValidHash, Optional.empty());
+    return new JsonRpcSuccessResponse(
+        reqId, new EnginePayloadStatusResult(VALID, latestValidHash, Optional.empty()));
   }
 
   JsonRpcResponse respondWith(

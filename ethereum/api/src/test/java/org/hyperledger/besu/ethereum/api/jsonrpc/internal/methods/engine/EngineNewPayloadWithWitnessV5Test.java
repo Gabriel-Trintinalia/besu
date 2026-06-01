@@ -15,7 +15,6 @@
 package org.hyperledger.besu.ethereum.api.jsonrpc.internal.methods.engine;
 
 import static org.assertj.core.api.Assertions.assertThat;
-import static org.assertj.core.api.Assertions.assertThatThrownBy;
 import static org.mockito.Mockito.mock;
 import static org.mockito.Mockito.when;
 
@@ -24,6 +23,9 @@ import org.hyperledger.besu.ethereum.BlockProcessingOutputs;
 import org.hyperledger.besu.ethereum.BlockProcessingResult;
 import org.hyperledger.besu.ethereum.ProtocolContext;
 import org.hyperledger.besu.ethereum.api.jsonrpc.RpcMethod;
+import org.hyperledger.besu.ethereum.api.jsonrpc.internal.response.JsonRpcErrorResponse;
+import org.hyperledger.besu.ethereum.api.jsonrpc.internal.response.JsonRpcResponse;
+import org.hyperledger.besu.ethereum.api.jsonrpc.internal.response.RpcErrorType;
 import org.hyperledger.besu.ethereum.chain.MutableBlockchain;
 import org.hyperledger.besu.ethereum.core.BlockHeader;
 import org.hyperledger.besu.ethereum.core.BlockHeaderTestFixture;
@@ -51,9 +53,9 @@ class EngineNewPayloadWithWitnessV5Test {
   }
 
   @Test
-  void buildValidPayloadResultThrowsWhenWitnessCannotBeBuilt() {
+  void buildValidResponseReturnsErrorWhenWitnessCannotBeBuilt() {
     // World state archive is a plain WorldStateArchive (not path-based) so
-    // BonsaiExecutionWitnessBuilder returns empty — an empty witness must not be returned.
+    // BonsaiExecutionWitnessBuilder returns empty — must surface as INTERNAL_ERROR.
     final BlockHeader parent = new BlockHeaderTestFixture().number(0).buildHeader();
     final BlockHeader header =
         new BlockHeaderTestFixture().number(1).parentHash(parent.getHash()).buildHeader();
@@ -73,12 +75,14 @@ class EngineNewPayloadWithWitnessV5Test {
                 new BlockProcessingOutputs(
                     null, java.util.List.of(), Optional.empty(), Optional.empty(), 0L, Map.of())));
 
-    assertThatThrownBy(() -> method.buildValidPayloadResult(header.getHash(), result))
-        .isInstanceOf(IllegalStateException.class);
+    final JsonRpcResponse response = method.buildValidResponse("1", header.getHash(), result);
+    assertThat(response).isInstanceOf(JsonRpcErrorResponse.class);
+    assertThat(((JsonRpcErrorResponse) response).getErrorType())
+        .isEqualTo(RpcErrorType.INTERNAL_ERROR);
   }
 
   @Test
-  void buildValidPayloadResultThrowsWhenParentHeaderMissing() {
+  void buildValidResponseReturnsErrorWhenParentHeaderMissing() {
     final BlockHeader header = new BlockHeaderTestFixture().number(1).buildHeader();
 
     final MutableBlockchain blockchain = mock(MutableBlockchain.class);
@@ -95,12 +99,14 @@ class EngineNewPayloadWithWitnessV5Test {
                 new BlockProcessingOutputs(
                     null, java.util.List.of(), Optional.empty(), Optional.empty(), 0L, Map.of())));
 
-    assertThatThrownBy(() -> method.buildValidPayloadResult(header.getHash(), result))
-        .isInstanceOf(IllegalStateException.class);
+    final JsonRpcResponse response = method.buildValidResponse("1", header.getHash(), result);
+    assertThat(response).isInstanceOf(JsonRpcErrorResponse.class);
+    assertThat(((JsonRpcErrorResponse) response).getErrorType())
+        .isEqualTo(RpcErrorType.INTERNAL_ERROR);
   }
 
   @Test
-  void buildValidPayloadResultThrowsWhenBlockHeaderNotPersisted() {
+  void buildValidResponseReturnsErrorWhenBlockHeaderNotPersisted() {
     final BlockHeader header = new BlockHeaderTestFixture().number(1).buildHeader();
 
     final MutableBlockchain blockchain = mock(MutableBlockchain.class);
@@ -116,8 +122,10 @@ class EngineNewPayloadWithWitnessV5Test {
                 new BlockProcessingOutputs(
                     null, java.util.List.of(), Optional.empty(), Optional.empty(), 0L, Map.of())));
 
-    assertThatThrownBy(() -> method.buildValidPayloadResult(header.getHash(), result))
-        .isInstanceOf(IllegalStateException.class);
+    final JsonRpcResponse response = method.buildValidResponse("1", header.getHash(), result);
+    assertThat(response).isInstanceOf(JsonRpcErrorResponse.class);
+    assertThat(((JsonRpcErrorResponse) response).getErrorType())
+        .isEqualTo(RpcErrorType.INTERNAL_ERROR);
   }
 
   private static EngineNewPayloadWithWitnessV5 newMethod(final ProtocolContext protocolContext) {

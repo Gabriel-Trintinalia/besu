@@ -44,8 +44,7 @@ public class DebugExecutionWitnessTest {
         new DebugExecutionWitness(
             mock(BlockchainQueries.class),
             mock(ProtocolContext.class),
-            mock(ProtocolSchedule.class),
-            METRICS);
+            mock(ProtocolSchedule.class));
     assertThat(method.getName()).isEqualTo("debug_executionWitness");
   }
 

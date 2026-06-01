@@ -21,6 +21,10 @@ import org.hyperledger.besu.datatypes.Hash;
 import org.hyperledger.besu.ethereum.BlockProcessingResult;
 import org.hyperledger.besu.ethereum.ProtocolContext;
 import org.hyperledger.besu.ethereum.api.jsonrpc.RpcMethod;
+import org.hyperledger.besu.ethereum.api.jsonrpc.internal.response.JsonRpcErrorResponse;
+import org.hyperledger.besu.ethereum.api.jsonrpc.internal.response.JsonRpcResponse;
+import org.hyperledger.besu.ethereum.api.jsonrpc.internal.response.JsonRpcSuccessResponse;
+import org.hyperledger.besu.ethereum.api.jsonrpc.internal.response.RpcErrorType;
 import org.hyperledger.besu.ethereum.api.jsonrpc.internal.results.EnginePayloadWithWitnessResult;
 import org.hyperledger.besu.ethereum.api.jsonrpc.internal.results.ExecutionWitnessResult;
 import org.hyperledger.besu.ethereum.eth.manager.EthPeers;
@@ -40,8 +44,9 @@ import io.vertx.core.Vertx;
  * <p>The witness is assembled immediately after the block is imported by reading the trie log and
  * block access list produced during execution (both available via {@link
  * org.hyperledger.besu.ethereum.BlockProcessingOutputs}). If the witness cannot be built — for
- * example because the world-state archive is not path-based — an {@link IllegalStateException} is
- * thrown so that callers receive a clear error rather than a silently empty witness.
+ * example because the world-state archive is not path-based — a {@link JsonRpcErrorResponse} with
+ * {@code INTERNAL_ERROR} is returned so callers receive a clear error rather than a silently empty
+ * witness.
  */
 public class EngineNewPayloadWithWitnessV5 extends EngineNewPayloadV5 {
 
@@ -68,30 +73,32 @@ public class EngineNewPayloadWithWitnessV5 extends EngineNewPayloadV5 {
     return RpcMethod.ENGINE_NEW_PAYLOAD_WITH_WITNESS_V5.getMethodName();
   }
 
-/**
-   * Builds the witness and wraps it together with the standard VALID payload status into an {@link
-   * EnginePayloadWithWitnessResult}. Throws {@link IllegalStateException} if the witness is absent
-   * or has an empty {@code state} list, ensuring callers never receive an empty witness silently.
+  /**
+   * Attempts to build the EIP-8025 witness and returns either a success response carrying {@link
+   * EnginePayloadWithWitnessResult} or a {@link JsonRpcErrorResponse} with {@code INTERNAL_ERROR}
+   * when the witness is absent or has an empty {@code state} list.
    */
   @Override
-  protected Object buildValidPayloadResult(
-      final Hash latestValidHash, final BlockProcessingResult executionResult) {
-    final ExecutionWitnessResult witness = buildWitness(latestValidHash, executionResult);
-    if (witness == null || witness.getState().isEmpty()) {
-      throw new IllegalStateException(
-          "failed to build execution witness for block " + latestValidHash);
-    }
-    return new EnginePayloadWithWitnessResult(VALID, latestValidHash, Optional.empty(), witness);
+  protected JsonRpcResponse buildValidResponse(
+      final Object reqId, final Hash latestValidHash, final BlockProcessingResult executionResult) {
+    return buildWitness(latestValidHash, executionResult)
+        .<JsonRpcResponse>map(
+            witness ->
+                new JsonRpcSuccessResponse(
+                    reqId,
+                    new EnginePayloadWithWitnessResult(
+                        VALID, latestValidHash, Optional.empty(), witness)))
+        .orElse(new JsonRpcErrorResponse(reqId, RpcErrorType.INTERNAL_ERROR));
   }
 
   /**
    * Attempts to build the EIP-8025 witness for the block identified by {@code blockHash}. Returns
-   * {@code null} if either the block header or its parent header is not yet available in the
-   * blockchain, or if {@link BonsaiExecutionWitnessBuilder} returns empty (e.g. no trie log).
+   * empty if either the block header or its parent header is not yet available in the blockchain,
+   * if {@link BonsaiExecutionWitnessBuilder} returns empty (e.g. no trie log or non-path-based
+   * archive), or if the resulting witness has an empty {@code state} list.
    */
-  private ExecutionWitnessResult buildWitness(
+  private Optional<ExecutionWitnessResult> buildWitness(
       final Hash blockHash, final BlockProcessingResult executionResult) {
-
     return protocolContext
         .getBlockchain()
         .getBlockHeader(blockHash)
@@ -109,10 +116,10 @@ public class EngineNewPayloadWithWitnessV5 extends EngineNewPayloadV5 {
                                     protocolContext.getWorldStateArchive(),
                                     protocolContext.getBlockchain(),
                                     executionResult.getYield())
+                                .filter(w -> !w.state().isEmpty())
                                 .map(
                                     w ->
                                         new ExecutionWitnessResult(
-                                            w.state(), w.codes(), w.headers()))))
-        .orElse(null);
+                                            w.state(), w.codes(), w.headers()))));
   }
 }
