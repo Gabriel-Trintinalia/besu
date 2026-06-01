@@ -73,13 +73,13 @@ public class DebugExecutionWitnessTest {
     final ExecutionWitnessResult witness =
         (ExecutionWitnessResult) ((JsonRpcSuccessResponse) result).getResult();
     assertThat(witness).isNotNull();
-    assertThat(witness.getState()).isNotEmpty();
-    assertThat(witness.getHeaders()).isNotEmpty();
-    witness.getState().forEach(node -> assertThat(node).startsWith("0x"));
-    witness.getCodes().forEach(code -> assertThat(code).startsWith("0x"));
-    witness.getHeaders().forEach(header -> assertThat(header).startsWith("0x"));
-    assertThat(witness.getState()).isSortedAccordingTo(String::compareTo);
-    assertThat(witness.getCodes()).isSortedAccordingTo(String::compareTo);
+    assertThat(witness.state()).isNotEmpty();
+    assertThat(witness.headers()).isNotEmpty();
+    witness.state().forEach(node -> assertThat(node).startsWith("0x"));
+    witness.codes().forEach(code -> assertThat(code).startsWith("0x"));
+    witness.headers().forEach(header -> assertThat(header).startsWith("0x"));
+    assertThat(witness.state()).isSortedAccordingTo(String::compareTo);
+    assertThat(witness.codes()).isSortedAccordingTo(String::compareTo);
   }
 
   @Test

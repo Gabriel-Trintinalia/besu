@@ -37,13 +37,23 @@ import org.hyperledger.besu.ethereum.trie.pathbased.bonsai.storage.BonsaiExecuti
 import java.util.Optional;
 
 /**
- * Reconstructs the EIP-8025 execution witness for a previously-imported block by re-executing it
- * against the parent's world state.
+ * Implements {@code debug_executionWitness}: reconstructs the EIP-8025 execution witness for a
+ * previously-imported block by re-executing it against the persisted parent world state.
  *
- * <p>Re-execution captures the {@code BLOCKHASH}-accessed ancestor set via {@link
- * BlockProcessingOutputs#getAccessedAncestors()}; {@code state}, {@code codes}, and {@code headers}
- * are then assembled by {@link BonsaiExecutionWitnessBuilder} from the persisted trie log + the
- * accessed-ancestors map.
+ * <p>Re-execution is required (rather than reading a stored witness) because the {@code
+ * BLOCKHASH}-accessed ancestor set is only observable at execution time and is not persisted
+ * separately. The re-execution result carries the accessed-ancestor map via {@link
+ * BlockProcessingOutputs#getAccessedAncestors()}, which {@link BonsaiExecutionWitnessBuilder} uses
+ * to populate the {@code headers} list.
+ *
+ * <p>Error responses:
+ *
+ * <ul>
+ *   <li>{@link RpcErrorType#BLOCK_NOT_FOUND} — the requested block or its parent header is not in
+ *       the local chain (e.g. genesis, which has no on-chain parent).
+ *   <li>{@link RpcErrorType#INTERNAL_ERROR} — block re-execution failed, or the world-state archive
+ *       is not path-based (Bonsai), or the resulting witness has an empty {@code state} list.
+ * </ul>
  */
 public class DebugExecutionWitness extends AbstractBlockParameterOrBlockHashMethod {
 
@@ -64,6 +74,7 @@ public class DebugExecutionWitness extends AbstractBlockParameterOrBlockHashMeth
     return RpcMethod.DEBUG_EXECUTION_WITNESS.getMethodName();
   }
 
+  /** Extracts the block identifier (hash or tag) from request parameter index 0. */
   @Override
   protected BlockParameterOrBlockHash blockParameterOrBlockHash(
       final JsonRpcRequestContext request) {
@@ -75,11 +86,19 @@ public class DebugExecutionWitness extends AbstractBlockParameterOrBlockHashMeth
     }
   }
 
+  /**
+   * Re-executes the block identified by {@code blockHash} against its parent world state, then
+   * delegates witness construction to {@link BonsaiExecutionWitnessBuilder}. Returns a {@link
+   * org.hyperledger.besu.ethereum.api.jsonrpc.internal.results.ExecutionWitnessResult} on success,
+   * or a {@link org.hyperledger.besu.ethereum.api.jsonrpc.internal.response.JsonRpcErrorResponse}
+   * if the block or parent is missing, re-execution fails, or the witness is empty.
+   */
   @Override
   protected Object resultByBlockHash(final JsonRpcRequestContext request, final Hash blockHash) {
     final Object reqId = request.getRequest().getId();
     final Blockchain blockchain = getBlockchainQueries().getBlockchain();
 
+    // Genesis has no on-chain parent, so it cannot be re-executed and is surfaced as not found.
     final Optional<Block> maybeBlock = blockchain.getBlockByHash(blockHash);
     if (maybeBlock.isEmpty()) {
       return new JsonRpcErrorResponse(reqId, RpcErrorType.BLOCK_NOT_FOUND);
@@ -94,6 +113,8 @@ public class DebugExecutionWitness extends AbstractBlockParameterOrBlockHashMeth
     }
     final BlockHeader parentHeader = maybeParent.get();
 
+    // Re-execution is needed to capture the BLOCKHASH-accessed
+    // ancestor set, which is not persisted and must be observed at execution time.
     final BlockProcessingResult result =
         protocolSchedule
             .getByBlockHeader(blockHeader)
@@ -119,6 +140,9 @@ public class DebugExecutionWitness extends AbstractBlockParameterOrBlockHashMeth
                 getBlockchainQueries().getWorldStateArchive(),
                 blockchain,
                 result.getYield());
+    // If the witness is empty or has an empty state list, return INTERNAL_ERROR to indicate that
+    // the witness could not be constructed (e.g. due to missing trie logs or non-path-based
+    // archive)
     if (maybeWitness.isEmpty() || maybeWitness.get().state().isEmpty()) {
       return new JsonRpcErrorResponse(reqId, RpcErrorType.INTERNAL_ERROR);
     }

@@ -27,10 +27,28 @@ import com.fasterxml.jackson.annotation.JsonPropertyOrder;
 import com.fasterxml.jackson.annotation.JsonUnwrapped;
 
 /**
- * Engine API result that combines the canonical payload status fields with the EIP-8025 execution
- * witness. The status fields are flattened into the top-level JSON object via {@link
- * JsonUnwrapped}; {@code witness} is emitted only when populated (i.e. the payload was VALID and a
- * witness could be computed).
+ * Engine API result for {@code engine_newPayloadWithWitnessV5}: the canonical payload-status fields
+ * ({@code status}, {@code latestValidHash}, {@code validationError}) are flattened into the
+ * top-level JSON object via {@link JsonUnwrapped}, and a {@code witness} object is appended when
+ * the payload was imported successfully.
+ *
+ * <p>Example success response (status {@code VALID}):
+ *
+ * <pre>{@code
+ * {
+ *   "status": "VALID",
+ *   "latestValidHash": "0xabc123…",
+ *   "validationError": null,
+ *   "witness": {
+ *     "state":   ["0x…", "0x…"],
+ *     "codes":   ["0x…"],
+ *     "headers": ["0x…", "0x…"]
+ *   }
+ * }
+ * }</pre>
+ *
+ * <p>The {@code witness} field is omitted ({@link Include#NON_NULL}) when the payload was not
+ * VALID, matching the standard {@code engine_newPayloadV5} wire format for non-success responses.
  */
 @JsonPropertyOrder({"status", "latestValidHash", "validationError", "witness"})
 public class EnginePayloadWithWitnessResult {
