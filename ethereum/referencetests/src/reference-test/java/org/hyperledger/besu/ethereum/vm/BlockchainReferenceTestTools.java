@@ -22,9 +22,11 @@ import org.hyperledger.besu.datatypes.Wei;
 import org.hyperledger.besu.ethereum.BlockProcessingResult;
 import org.hyperledger.besu.ethereum.BlockValidator;
 import org.hyperledger.besu.ethereum.ProtocolContext;
+import org.hyperledger.besu.ethereum.chain.Blockchain;
 import org.hyperledger.besu.ethereum.chain.MutableBlockchain;
 import org.hyperledger.besu.ethereum.core.Block;
 import org.hyperledger.besu.ethereum.core.BlockHeader;
+import org.hyperledger.besu.ethereum.core.BlockHeaderBuilder;
 import org.hyperledger.besu.ethereum.core.MiningConfiguration;
 import org.hyperledger.besu.ethereum.core.MutableWorldState;
 import org.hyperledger.besu.ethereum.core.Transaction;
@@ -46,10 +48,13 @@ import org.hyperledger.besu.ethereum.forkid.ForkIdManager;
 import org.hyperledger.besu.ethereum.mainnet.HeaderValidationMode;
 import org.hyperledger.besu.ethereum.mainnet.ProtocolSchedule;
 import org.hyperledger.besu.ethereum.mainnet.ProtocolSpec;
+import org.hyperledger.besu.datatypes.Hash;
 import org.hyperledger.besu.ethereum.referencetests.BlockchainReferenceTestCaseSpec;
 import org.hyperledger.besu.ethereum.referencetests.BlockExceptionMatcher;
+import org.hyperledger.besu.ethereum.referencetests.FixtureExecutionWitness;
 import org.hyperledger.besu.ethereum.referencetests.ReferenceTestProtocolSchedules;
 import org.hyperledger.besu.ethereum.rlp.RLPException;
+import org.hyperledger.besu.ethereum.trie.pathbased.bonsai.storage.BonsaiExecutionWitnessBuilder;
 import org.hyperledger.besu.ethereum.trie.pathbased.common.provider.WorldStateQueryParams;
 import org.hyperledger.besu.ethereum.worldstate.WorldStateArchive;
 import org.hyperledger.besu.evm.EVM;
@@ -59,6 +64,7 @@ import org.hyperledger.besu.evm.internal.EvmConfiguration.WorldUpdaterMode;
 import org.hyperledger.besu.testutil.JsonTestParameters;
 
 import java.time.Clock;
+import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.Collection;
 import java.util.Collections;
@@ -69,11 +75,15 @@ import org.apache.tuweni.bytes.Bytes;
 import org.apache.tuweni.bytes.Bytes32;
 import org.assertj.core.api.Assertions;
 import org.hyperledger.besu.metrics.noop.NoOpMetricsSystem;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 
 public class BlockchainReferenceTestTools {
 
-    static final List<String> NETWORKS_TO_RUN;
-    static final ReferenceTestProtocolSchedules PROTOCOL_SCHEDULES;
+  private static final Logger LOG = LoggerFactory.getLogger(BlockchainReferenceTestTools.class);
+
+  private static final List<String> NETWORKS_TO_RUN;
+    private static final ReferenceTestProtocolSchedules PROTOCOL_SCHEDULES;
 
     static {
         final String networks =
@@ -121,7 +131,9 @@ public class BlockchainReferenceTestTools {
         params.ignore("/stEIP2537/");
     }
 
-    public BlockchainReferenceTestTools() {}
+    private BlockchainReferenceTestTools() {
+        // utility class
+    }
 
     public static Collection<Object[]> generateTestParametersForConfig(final String[] filePath) {
         return params.generate(filePath);
@@ -129,44 +141,6 @@ public class BlockchainReferenceTestTools {
 
     @SuppressWarnings("java:S5960") // this is actually test code
     public static void executeTest(final String name, final BlockchainReferenceTestCaseSpec spec) {
-        new BlockchainReferenceTestTools().runTest(name, spec);
-    }
-
-    /** Whether to rebuild each block from transactions and assert it matches the fixture. */
-    protected boolean shouldBuildBlocks() {
-        return true;
-    }
-
-    /**
-     * Called after each successful block import. Override to add per-block post-import assertions.
-     * The default implementation is a no-op.
-     */
-    protected void afterBlockImport(
-        final ProtocolContext ctx,
-        final Block block,
-        final BlockHeader parentHeader,
-        final BlockProcessingResult result,
-        final int blockIndex) {}
-
-    /**
-     * Whether to call {@link #afterBlockImport} for the block at {@code blockIndex}. Override to
-     * skip the hook for specific blocks (e.g. blocks with a mutated witness fixture).
-     */
-    protected boolean shouldRunAfterBlockImport(final int blockIndex) {
-        return true;
-    }
-
-    /**
-     * Whether to silently skip a block (and its assertions) when it fails to import, rather than
-     * failing the test. Override to return {@code true} in tests where import success is not the
-     * primary concern (e.g. witness-only tests).
-     */
-    protected boolean shouldSkipBlockOnImportFailure() {
-        return false;
-    }
-
-    @SuppressWarnings("java:S5960")
-    protected final void runTest(final String name, final BlockchainReferenceTestCaseSpec spec) {
       final MutableBlockchain blockchain = spec.buildBlockchain();
       final BlockHeader genesisBlockHeader = spec.getGenesisBlockHeader();
         final ProtocolContext protocolContext = spec.buildProtocolContext(blockchain);
@@ -178,11 +152,10 @@ public class BlockchainReferenceTestTools {
 
         final ProtocolSchedule schedule = PROTOCOL_SCHEDULES.getByName(spec.getNetwork());
 
-        final BlockchainReferenceTestCaseSpec.CandidateBlock[] candidates = spec.getCandidateBlocks();
         try (BlockCreationFixture blockCreation =
-                     shouldBuildBlocks() ? BlockCreationFixture.create(schedule, protocolContext, blockchain) : null) {
-            for (int blockIndex = 0; blockIndex < candidates.length; blockIndex++) {
-                final BlockchainReferenceTestCaseSpec.CandidateBlock candidateBlock = candidates[blockIndex];
+                     BlockCreationFixture.create(schedule, protocolContext, blockchain)) {
+            for (final BlockchainReferenceTestCaseSpec.CandidateBlock candidateBlock :
+                    spec.getCandidateBlocks()) {
                 if (!candidateBlock.isExecutable()) {
                     return;
                 }
@@ -194,23 +167,26 @@ public class BlockchainReferenceTestTools {
 
                     verifyJournaledEVMAccountCompatability(worldState, protocolSpec);
 
-                    final Block block;
-                    if (shouldBuildBlocks()) {
-                        final boolean shouldBuildBlock =
-                                ReferenceTestProtocolSchedules.supportsBlockBuilding(spec.getNetwork())
-                                        && candidateBlock.isValid()
-                                        && !name.contains("eip7934");
-                        block = shouldBuildBlock
-                                ? buildBlock(schedule, protocolContext, blockchain,
-                                    blockCreation.transactionPool(), blockCreation.ethScheduler(),
+                    final boolean supportsBlockBuilding =
+                            ReferenceTestProtocolSchedules.supportsBlockBuilding(spec.getNetwork());
+                    final boolean shouldBuildBlock = supportsBlockBuilding && candidateBlock.isValid() && !name.contains("eip7934");
+                    final Block block =
+                            shouldBuildBlock
+                                    ? buildBlock(
+                                    schedule,
+                                    protocolContext,
+                                    blockchain,
+                                    blockCreation.transactionPool(),
+                                    blockCreation.ethScheduler(),
                                     blockFromReference)
-                                : blockFromReference;
-                        assertThat(block).isEqualTo(blockFromReference);
-                    } else {
-                        block = blockFromReference;
-                    }
+                                    : blockFromReference;
 
-                    final HeaderValidationMode validationMode = headerValidationMode(spec);
+                    assertThat(block).isEqualTo(blockFromReference);
+
+                    final HeaderValidationMode validationMode =
+                            "NoProof".equalsIgnoreCase(spec.getSealEngine())
+                                    ? HeaderValidationMode.LIGHT
+                                    : HeaderValidationMode.FULL;
 
                     // Use validateAndProcessBlock directly so we can access the error message and
                     // verify it matches the expected exception from the fixture.
@@ -224,16 +200,17 @@ public class BlockchainReferenceTestTools {
                                     candidateBlock.getBlockAccessList(),
                                     false);
 
-                    final BlockHeader parentHeader =
-                            blockchain.getBlockHeader(block.getHeader().getParentHash()).orElse(null);
                     final boolean imported = processingResult.isSuccessful();
                     if (imported) {
-                        appendImportedBlock(protocolContext, block, processingResult);
-                        if (shouldRunAfterBlockImport(blockIndex)) {
-                            afterBlockImport(protocolContext, block, parentHeader, processingResult, blockIndex);
-                        }
-                    } else if (shouldSkipBlockOnImportFailure()) {
-                        continue;
+                        // Block was accepted: persist and append it just like MainnetBlockImporter.
+                        processingResult.getYield().ifPresent(outputs -> {
+                            protocolContext.getBlockchain().appendBlock(block, outputs.getReceipts(), outputs.getBlockAccessList());
+                            protocolContext.getWorldStateArchive().getWorldState(
+                                    WorldStateQueryParams.newBuilder()
+                                            .withBlockHeader(block.getHeader())
+                                            .withShouldWorldStateUpdateHead(true)
+                                            .build());
+                        });
                     }
 
                     assertThat(imported)
@@ -257,6 +234,9 @@ public class BlockchainReferenceTestTools {
                         });
                     }
 
+                  if (imported) {
+                    assertWitness(protocolContext, block, blockchain, processingResult, candidateBlock);
+                  }
                 } catch (final RLPException e) {
                     assertThat(candidateBlock.isValid()).isFalse();
                 }
@@ -305,33 +285,6 @@ public class BlockchainReferenceTestTools {
         withdrawals,
         blockFromReference.getHeader().getParentBeaconBlockRoot(),
         blockFromReference.getHeader().getOptionalSlotNumber());
-  }
-
-  static HeaderValidationMode headerValidationMode(final BlockchainReferenceTestCaseSpec spec) {
-    return "NoProof".equalsIgnoreCase(spec.getSealEngine())
-        ? HeaderValidationMode.LIGHT
-        : HeaderValidationMode.FULL;
-  }
-
-  static void appendImportedBlock(
-      final ProtocolContext protocolContext,
-      final Block block,
-      final BlockProcessingResult processingResult) {
-    processingResult
-        .getYield()
-        .ifPresent(
-            outputs -> {
-              protocolContext
-                  .getBlockchain()
-                  .appendBlock(block, outputs.getReceipts(), outputs.getBlockAccessList());
-              protocolContext
-                  .getWorldStateArchive()
-                  .getWorldState(
-                      WorldStateQueryParams.newBuilder()
-                          .withBlockHeader(block.getHeader())
-                          .withShouldWorldStateUpdateHead(true)
-                          .build());
-            });
   }
 
   static void verifyJournaledEVMAccountCompatability(
@@ -415,6 +368,73 @@ public class BlockchainReferenceTestTools {
     public void close() {
       ethScheduler.stop();
       blockchain.removeAllBlockAddedObservers();
+    }
+  }
+
+  private static void assertWitness(
+    final ProtocolContext ctx,
+    final Block block,
+    final Blockchain blockchain,
+    final BlockProcessingResult result,
+    final BlockchainReferenceTestCaseSpec.CandidateBlock candidateBlock) {
+
+    // Skip genesis block since it doesn't have a parent to build the witness against
+    if( block.getHeader().getNumber() == blockchain.getGenesisBlock().getHeader().getNumber()) {
+      return;
+    }
+
+    // If the fixture doesn't specify an expected witness, skip the check
+    var expectedWitnessOpt = candidateBlock.getExpectedWitness();
+    if (expectedWitnessOpt.isEmpty()) {
+      return;
+    }
+
+    expectedWitnessOpt.ifPresent(
+      expected -> {
+        final BonsaiExecutionWitnessBuilder.Witness got =
+          new BonsaiExecutionWitnessBuilder()
+            .buildWitness(
+              block.getHeader(),
+              ctx.getWorldStateArchive(),
+              ctx.getBlockchain(),
+              result.getYield());
+
+        logWitnessDiff("state", got.state(), expected.state(), block.getHash());
+        logWitnessDiff("codes", got.codes(), expected.codes(), block.getHash());
+        logWitnessDiff("headers", got.headers(), expected.headers(), block.getHash());
+
+        assertThat(got.state())
+          .as("state for block %s", block.getHash())
+          .isEqualTo(expected.state());
+        assertThat(got.codes())
+          .as("codes for block %s", block.getHash())
+          .isEqualTo(expected.codes());
+        assertThat(got.headers())
+          .as("headers for block %s", block.getHash())
+          .isEqualTo(expected.headers());
+      });
+  }
+
+  private static void logWitnessDiff(
+    final String field,
+    final List<String> got,
+    final List<String> expected,
+    final Hash blockHash) {
+    final List<String> missing = new ArrayList<>(expected);
+    missing.removeAll(got);
+    final List<String> extra = new ArrayList<>(got);
+    extra.removeAll(expected);
+    if (missing.isEmpty() && extra.isEmpty()) {
+      LOG.info("Block {} {} match", blockHash, field);
+    } else {
+      if (!missing.isEmpty()) {
+        LOG.warn("Block {} {} missing ({}):", blockHash, field, missing.size());
+        missing.forEach(e -> LOG.warn("  - {}", e));
+      }
+      if (!extra.isEmpty()) {
+        LOG.warn("Block {} {} extra ({}):", blockHash, field, extra.size());
+        extra.forEach(e -> LOG.warn("  + {}", e));
+      }
     }
   }
 }

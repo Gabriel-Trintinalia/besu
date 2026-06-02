@@ -12,27 +12,30 @@
  *
  * SPDX-License-Identifier: Apache-2.0
  */
-package org.hyperledger.besu.ethereum.vm.zkevm;
+package org.hyperledger.besu.ethereum.referencetests;
 
 import java.util.List;
 
-/**
- * Per-block execution witness as specified by EIP-8025, present in zkevm fixtures. {@code mutated}
- * is {@code true} when the fixture deliberately carries a non-canonical witness (e.g.
- * validation_headers tests with corrupt RLP or missing entries) — callers should skip witness
- * comparison in that case.
- */
-public record FixtureExecutionWitness(
-    List<String> state, List<String> codes, List<String> headers, boolean mutated) {
+import com.fasterxml.jackson.annotation.JsonCreator;
+import com.fasterxml.jackson.annotation.JsonIgnoreProperties;
+import com.fasterxml.jackson.annotation.JsonProperty;
 
+/**
+ * Per-block execution witness as specified by EIP-8025, present in zkevm fixtures. Deserialized
+ * from the {@code executionWitness} object on each block entry; the sibling {@code
+ * executionWitnessMutated} flag is held separately by {@link
+ * BlockchainReferenceTestCaseSpec.CandidateBlock}.
+ */
+@JsonIgnoreProperties(ignoreUnknown = true)
+public record FixtureExecutionWitness(List<String> state, List<String> codes, List<String> headers) {
+
+  @JsonCreator
   public FixtureExecutionWitness(
-      final List<String> state,
-      final List<String> codes,
-      final List<String> headers,
-      final boolean mutated) {
+      @JsonProperty("state") final List<String> state,
+      @JsonProperty("codes") final List<String> codes,
+      @JsonProperty("headers") final List<String> headers) {
     this.state = state != null ? state : List.of();
     this.codes = codes != null ? codes : List.of();
     this.headers = headers != null ? headers : List.of();
-    this.mutated = mutated;
   }
 }

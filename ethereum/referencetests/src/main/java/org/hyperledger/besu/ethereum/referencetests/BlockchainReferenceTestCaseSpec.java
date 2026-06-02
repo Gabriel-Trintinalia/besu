@@ -161,7 +161,7 @@ public class BlockchainReferenceTestCaseSpec {
         .withBlockchain(blockchain)
         .withWorldStateArchive(
             buildWorldStateArchive(
-                Stream.of(candidateBlocks).filter(CandidateBlock::isExecutable).count(),
+                Stream.of(candidateBlocks).filter(CandidateBlock::isExecutable).count() + 1,
                 blockchain))
         .withConsensusContext(new ConsensusContextFixture())
         .build();
@@ -273,6 +273,8 @@ public class BlockchainReferenceTestCaseSpec {
     private final BlockAccessList blockAccessList;
     private final String expectException;
     private final String expectExceptionALL;
+    private final FixtureExecutionWitness executionWitness;
+    private final boolean witnessMutated;
 
     @JsonCreator
     public CandidateBlock(
@@ -290,7 +292,9 @@ public class BlockchainReferenceTestCaseSpec {
             @JsonAlias("rlp_decoded")
             final BlockAccessList blockAccessList,
         @JsonProperty("expectException") final String expectException,
-        @JsonProperty("expectExceptionALL") final String expectExceptionALL) {
+        @JsonProperty("expectExceptionALL") final String expectExceptionALL,
+        @JsonProperty("executionWitness") final FixtureExecutionWitness executionWitness,
+        @JsonProperty("executionWitnessMutated") final Boolean witnessMutated) {
       boolean blockValid = true;
       Bytes rlpAttempt = null;
       try {
@@ -312,6 +316,8 @@ public class BlockchainReferenceTestCaseSpec {
       this.blockAccessList = blockAccessList;
       this.expectException = expectException;
       this.expectExceptionALL = expectExceptionALL;
+      this.executionWitness = executionWitness;
+      this.witnessMutated = Boolean.TRUE.equals(witnessMutated);
     }
 
     public boolean isValid() {
@@ -356,6 +362,10 @@ public class BlockchainReferenceTestCaseSpec {
 
     public Optional<BlockAccessList> getBlockAccessList() {
       return Optional.ofNullable(blockAccessList);
+    }
+
+    public Optional<FixtureExecutionWitness> getExpectedWitness() {
+      return witnessMutated ? Optional.empty() : Optional.ofNullable(executionWitness);
     }
   }
 }

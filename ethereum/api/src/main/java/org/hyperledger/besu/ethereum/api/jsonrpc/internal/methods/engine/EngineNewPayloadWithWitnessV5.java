@@ -89,19 +89,10 @@ public class EngineNewPayloadWithWitnessV5 extends EngineNewPayloadV5 {
               .getBlockHeader(latestValidHash)
               .orElseThrow(
                   () -> new IllegalStateException("Block header not found: " + latestValidHash));
-      final BlockHeader parentHeader =
-          protocolContext
-              .getBlockchain()
-              .getBlockHeader(blockHeader.getParentHash())
-              .orElseThrow(
-                  () ->
-                      new IllegalStateException(
-                          "Parent header not found: " + blockHeader.getParentHash()));
       final BonsaiExecutionWitnessBuilder.Witness witness =
           new BonsaiExecutionWitnessBuilder()
               .buildWitness(
                   blockHeader,
-                  parentHeader,
                   protocolContext.getWorldStateArchive(),
                   protocolContext.getBlockchain(),
                   executionResult.getYield());

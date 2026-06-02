@@ -138,7 +138,6 @@ public class DebugExecutionWitness extends AbstractBlockParameterOrBlockHashMeth
           new BonsaiExecutionWitnessBuilder()
               .buildWitness(
                   blockHeader,
-                  parentHeader,
                   getBlockchainQueries().getWorldStateArchive(),
                   blockchain,
                   result.getYield());

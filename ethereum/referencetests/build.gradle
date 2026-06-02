@@ -179,7 +179,7 @@ def zkevmExecutionWitnessTests = tasks.register("zkevmExecutionWitnessTests") {
   doLast {
     generateTestFilesGroupedByDirectory(
       fileTree(referenceTestsDir.get().dir("fixtures/blockchain_tests")),
-      file("src/reference-test/templates/ZkevmExecutionWitnessReferenceTest.java.template"),
+      file("src/reference-test/templates/BlockchainReferenceTest.java.template"),
       "fixtures",
       "blockchain_tests",
       generatedTestsDir.get().dir("org/hyperledger/besu/ethereum/vm/zkevm").asFile.path,
