@@ -48,6 +48,7 @@ import org.hyperledger.besu.ethereum.forkid.ForkIdManager;
 import org.hyperledger.besu.ethereum.mainnet.HeaderValidationMode;
 import org.hyperledger.besu.ethereum.mainnet.ProtocolSchedule;
 import org.hyperledger.besu.ethereum.mainnet.ProtocolSpec;
+import org.hyperledger.besu.ethereum.mainnet.WitnessOperationTracer;
 import org.hyperledger.besu.datatypes.Hash;
 import org.hyperledger.besu.ethereum.referencetests.BlockchainReferenceTestCaseSpec;
 import org.hyperledger.besu.ethereum.referencetests.BlockExceptionMatcher;
@@ -191,6 +192,7 @@ public class BlockchainReferenceTestTools {
                     // Use validateAndProcessBlock directly so we can access the error message and
                     // verify it matches the expected exception from the fixture.
                     final BlockValidator blockValidator = protocolSpec.getBlockValidator();
+                    final WitnessOperationTracer witnessTracer = new WitnessOperationTracer();
                     final BlockProcessingResult processingResult =
                             blockValidator.validateAndProcessBlock(
                                     protocolContext,
@@ -198,7 +200,9 @@ public class BlockchainReferenceTestTools {
                                     validationMode,
                                     validationMode,
                                     candidateBlock.getBlockAccessList(),
-                                    false);
+                                    false,
+                                    true,
+                                    witnessTracer);
 
                     final boolean imported = processingResult.isSuccessful();
                     if (imported) {
@@ -235,7 +239,7 @@ public class BlockchainReferenceTestTools {
                     }
 
                   if (imported) {
-                    assertWitness(protocolContext, block, blockchain, processingResult, candidateBlock);
+                    assertWitness(protocolContext, block, blockchain, processingResult, witnessTracer, candidateBlock);
                   }
                 } catch (final RLPException e) {
                     assertThat(candidateBlock.isValid()).isFalse();
@@ -375,7 +379,8 @@ public class BlockchainReferenceTestTools {
     final ProtocolContext ctx,
     final Block block,
     final Blockchain blockchain,
-    final BlockProcessingResult result,
+    final BlockProcessingResult processingResult,
+    final WitnessOperationTracer witnessTracer,
     final BlockchainReferenceTestCaseSpec.CandidateBlock candidateBlock) {
 
     // Skip genesis block since it doesn't have a parent to build the witness against
@@ -397,7 +402,8 @@ public class BlockchainReferenceTestTools {
               block.getHeader(),
               ctx.getWorldStateArchive(),
               ctx.getBlockchain(),
-              result.getYield());
+              processingResult.getYield(),
+              witnessTracer);
 
         logWitnessDiff("state", got.state(), expected.state(), block.getHash());
         logWitnessDiff("codes", got.codes(), expected.codes(), block.getHash());
