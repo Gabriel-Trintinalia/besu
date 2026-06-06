@@ -30,6 +30,7 @@ import org.hyperledger.besu.ethereum.api.jsonrpc.internal.results.ExecutionWitne
 import org.hyperledger.besu.ethereum.core.BlockHeader;
 import org.hyperledger.besu.ethereum.eth.manager.EthPeers;
 import org.hyperledger.besu.ethereum.mainnet.ProtocolSchedule;
+import org.hyperledger.besu.ethereum.mainnet.WitnessOperationTracer;
 import org.hyperledger.besu.ethereum.trie.pathbased.bonsai.storage.BonsaiExecutionWitnessBuilder;
 import org.hyperledger.besu.plugin.services.MetricsSystem;
 
@@ -95,7 +96,7 @@ public class EngineNewPayloadWithWitnessV5 extends EngineNewPayloadV5 {
                   blockHeader,
                   protocolContext.getWorldStateArchive(),
                   protocolContext.getBlockchain(),
-                  executionResult.getYield());
+                  executionResult.getYield(), new WitnessOperationTracer());
       if (witness.state().isEmpty()) {
         return new JsonRpcErrorResponse(reqId, RpcErrorType.INTERNAL_ERROR);
       }

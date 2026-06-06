@@ -39,6 +39,7 @@ import org.hyperledger.besu.evm.internal.EvmConfiguration;
 import org.hyperledger.besu.metrics.noop.NoOpMetricsSystem;
 import org.hyperledger.besu.plugin.services.trielogs.TrieLog;
 
+import java.util.ArrayList;
 import java.util.LinkedHashMap;
 import java.util.LinkedHashSet;
 import java.util.List;
@@ -47,6 +48,7 @@ import java.util.Optional;
 import java.util.Set;
 import java.util.TreeSet;
 import java.util.concurrent.ConcurrentHashMap;
+import java.util.stream.Collectors;
 
 import org.apache.tuweni.bytes.Bytes;
 
@@ -58,63 +60,6 @@ import org.apache.tuweni.bytes.Bytes;
 public class BonsaiExecutionWitnessBuilder {
 
   public record Witness(List<String> state, List<String> codes, List<String> headers) {}
-
-  public Witness buildWitness(
-      final BlockHeader blockHeader,
-      final WorldStateArchive worldStateArchive,
-      final Blockchain blockchain,
-      final Optional<BlockProcessingOutputs> maybeOutputs) {
-    if (!(worldStateArchive instanceof PathBasedWorldStateProvider pathBased)) {
-      throw new IllegalStateException("execution witness requires a PathBased (Bonsai) archive");
-    }
-    final TrieLog trieLog =
-        pathBased
-            .getTrieLogManager()
-            .getTrieLogLayer(blockHeader.getHash())
-            .orElseThrow(
-                () ->
-                    new IllegalStateException(
-                        "trie log missing for block " + blockHeader.getHash()));
-
-    final BlockHeader parentHeader =
-      blockchain
-        .getBlockHeader(blockHeader.getParentHash())
-        .orElseThrow(
-          () ->
-            new IllegalStateException(
-              "Parent header not found: " + blockHeader.getParentHash()));
-
-    final MutableWorldState worldState =
-        pathBased
-            .getWorldState(withBlockHeaderAndNoUpdateNodeHead(parentHeader))
-            .orElseThrow(
-                () ->
-                    new IllegalStateException(
-                        "parent world state unavailable for " + parentHeader.getHash()));
-
-    if (!(worldState instanceof BonsaiWorldState ws)) {
-      throw new IllegalStateException("parent world state is not a BonsaiWorldState");
-    }
-
-
-    try (ws) {
-      final Map<Long, Hash> accessedAncestors =
-          maybeOutputs.map(BlockProcessingOutputs::getAccessedAncestors).orElse(Map.of());
-      final Optional<BlockAccessList> maybeBlockAccessList =
-          maybeOutputs.flatMap(BlockProcessingOutputs::getBlockAccessList);
-      final Map<Address, Set<StorageSlotKey>> touchedSlots =
-          resolveAccounts(trieLog, maybeBlockAccessList);
-      final List<String> state = buildTrieNodes(blockHeader, trieLog, ws, touchedSlots);
-      final List<String> codes = buildCodes(ws, touchedSlots.keySet());
-      final List<String> headers = buildHeaders(blockchain, accessedAncestors);
-      return new Witness(state, codes, headers);
-    } catch (final IllegalStateException e) {
-      throw e;
-    } catch (final Exception e) {
-      throw new IllegalStateException(
-          "failed to build execution witness for " + blockHeader.getHash(), e);
-    }
-  }
 
   /**
    * Hybrid witness builder: uses {@link BlockProcessingOutputs} (TrieLog + BAL) for the {@code
@@ -164,88 +109,10 @@ public class BonsaiExecutionWitnessBuilder {
     }
 
     try (ws) {
-      final Map<Long, Hash> accessedAncestors =
-          maybeOutputs.map(BlockProcessingOutputs::getAccessedAncestors).orElse(Map.of());
       final Optional<BlockAccessList> maybeBlockAccessList =
           maybeOutputs.flatMap(BlockProcessingOutputs::getBlockAccessList);
       final Map<Address, Set<StorageSlotKey>> touchedSlots =
           resolveAccounts(trieLog, maybeBlockAccessList);
-      final List<String> state = buildTrieNodes(blockHeader, trieLog, ws, touchedSlots);
-      // Codes: the tracer's codeAddresses correctly captures all MESSAGE_CALL targets including
-      // system contracts (EIP-2935 etc., now via SystemCallProcessor fix), and excludes accounts
-      // that the TrieLog-based approach would spuriously include (e.g. SLOAD-only accounts and
-      // pre-existing code at CREATE'd addresses).
-      final List<String> codes = buildCodes(ws, tracer.getCodeAddresses());
-      final List<String> headers = buildHeaders(blockchain, accessedAncestors);
-      return new Witness(state, codes, headers);
-    } catch (final IllegalStateException e) {
-      throw e;
-    } catch (final Exception e) {
-      throw new IllegalStateException(
-          "failed to build execution witness for " + blockHeader.getHash(), e);
-    }
-  }
-
-  /**
-   * Builds the witness from a {@link WitnessOperationTracer} that was active during block
-   * (re-)execution. The tracer provides the touched accounts, code addresses, and accessed
-   * ancestors directly from EVM trace events, bypassing the BAL / trie-log derivation.
-   *
-   * <p>The trie log is still retrieved (it is needed for the {@code rollForward} step in {@link
-   * #buildTrieNodes}) because the trie log is always available for imported blocks.
-   */
-  public Witness buildWitness(
-      final BlockHeader blockHeader,
-      final WorldStateArchive worldStateArchive,
-      final Blockchain blockchain,
-      final WitnessOperationTracer tracer) {
-    if (!(worldStateArchive instanceof PathBasedWorldStateProvider pathBased)) {
-      throw new IllegalStateException("execution witness requires a PathBased (Bonsai) archive");
-    }
-    final TrieLog trieLog =
-        pathBased
-            .getTrieLogManager()
-            .getTrieLogLayer(blockHeader.getHash())
-            .orElseThrow(
-                () ->
-                    new IllegalStateException(
-                        "trie log missing for block " + blockHeader.getHash()));
-
-    final BlockHeader parentHeader =
-        blockchain
-            .getBlockHeader(blockHeader.getParentHash())
-            .orElseThrow(
-                () ->
-                    new IllegalStateException(
-                        "Parent header not found: " + blockHeader.getParentHash()));
-
-    final MutableWorldState worldState =
-        pathBased
-            .getWorldState(withBlockHeaderAndNoUpdateNodeHead(parentHeader))
-            .orElseThrow(
-                () ->
-                    new IllegalStateException(
-                        "parent world state unavailable for " + parentHeader.getHash()));
-
-    if (!(worldState instanceof BonsaiWorldState ws)) {
-      throw new IllegalStateException("parent world state is not a BonsaiWorldState");
-    }
-
-    try (ws) {
-      // State: TrieLog provides all state-changed accounts. The tracer adds read-only SLOAD
-      // storage slots on top (absent from the trie log, needed for proving read accesses).
-      final Map<Address, Set<StorageSlotKey>> touchedSlots =
-          resolveAccounts(trieLog, Optional.empty());
-      tracer
-          .getTouchedAccounts()
-          .forEach(
-              (addr, slots) ->
-                  touchedSlots.computeIfAbsent(addr, a -> new LinkedHashSet<>()).addAll(slots));
-
-      // Codes: the tracer's codeAddresses captures all executed code (MESSAGE_CALL targets,
-      // DELEGATECALL/CALLCODE/STATICCALL targets via tracePreExecution, system contracts via
-      // SystemCallProcessor). This correctly excludes pre-existing code at CREATE'd addresses
-      // and SLOAD-only accounts that the TrieLog-based approach would incorrectly include.
       final List<String> state = buildTrieNodes(blockHeader, trieLog, ws, touchedSlots);
       final List<String> codes = buildCodes(ws, tracer.getCodeAddresses());
       final List<String> headers = buildHeaders(blockchain, tracer.getAccessedAncestors());
@@ -258,6 +125,7 @@ public class BonsaiExecutionWitnessBuilder {
     }
   }
 
+
   /**
    * Returns address → touched storage slots for witness construction.
    *
@@ -267,7 +135,20 @@ public class BonsaiExecutionWitnessBuilder {
    */
   private Map<Address, Set<StorageSlotKey>> resolveAccounts(
       final TrieLog trieLog, final Optional<BlockAccessList> maybeBal) {
-    // Always start with trie log (changes only, but covers all touched accounts)
+    if (maybeBal.isPresent()) {
+      final Map<Address, Set<StorageSlotKey>> result = new LinkedHashMap<>();
+      maybeBal
+          .get()
+          .accountChanges()
+          .forEach(
+              ac -> {
+                final Set<StorageSlotKey> slots = new LinkedHashSet<>();
+                ac.storageReads().forEach(sr -> slots.add(sr.slot()));
+                ac.storageChanges().forEach(sc -> slots.add(sc.slot()));
+                result.put(ac.address(), slots);
+              });
+      return result;
+    }
     final Map<Address, Set<StorageSlotKey>> result = new LinkedHashMap<>();
     trieLog
         .getAccountChanges()
@@ -275,18 +156,6 @@ public class BonsaiExecutionWitnessBuilder {
             (address, __) ->
                 result.put(
                     address, new LinkedHashSet<>(trieLog.getStorageChanges(address).keySet())));
-
-    // Merge BAL reads and changes on top when present (Amsterdam+) to capture read-only slots
-    maybeBal.ifPresent(
-        bal ->
-            bal.accountChanges()
-                .forEach(
-                    ac -> {
-                      final Set<StorageSlotKey> slots =
-                          result.computeIfAbsent(ac.address(), __ -> new LinkedHashSet<>());
-                      ac.storageReads().forEach(sr -> slots.add(sr.slot()));
-                      ac.storageChanges().forEach(sc -> slots.add(sc.slot()));
-                    }));
     return result;
   }
 
@@ -360,23 +229,15 @@ public class BonsaiExecutionWitnessBuilder {
    */
   private List<String> buildHeaders(
       final Blockchain blockchain, final Map<Long, Hash> accessedAncestors) {
-    return new TreeSet<>(accessedAncestors.keySet())
-        .stream()
-            .map(
-                number -> {
-                  final Hash hash = accessedAncestors.get(number);
-                  return blockchain
-                      .getBlockHeader(hash)
-                      .orElseThrow(
-                          () ->
-                              new IllegalStateException(
-                                  "missing block header for accessed ancestor "
-                                      + number
-                                      + " ("
-                                      + hash
-                                      + ")"));
-                })
-            .map(h -> RLP.encode(h::writeTo).toHexString())
-            .toList();
+    // accessedAncestors
+    long oldestAncestor = accessedAncestors.keySet().stream().min(Long::compare).orElseThrow();
+
+    // for oldestAncestor until parent of blockHeader, get header for each accessed ancestor number and hash
+    List<String> result = new ArrayList<>();
+    for (long number = oldestAncestor; number < blockchain.getChainHeadBlockNumber(); number++) {
+      BlockHeader header = blockchain.getBlockHeader(number).orElseThrow();
+      result.add(RLP.encode(header::writeTo).toHexString());
+    }
+    return result;
   }
 }

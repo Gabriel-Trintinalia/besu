@@ -142,6 +142,7 @@ public class DebugExecutionWitness extends AbstractBlockParameterOrBlockHashMeth
                   blockHeader,
                   getBlockchainQueries().getWorldStateArchive(),
                   blockchain,
+                  result.getYield(),
                   witnessTracer);
       if (witness.state().isEmpty()) {
         return new JsonRpcErrorResponse(reqId, RpcErrorType.INTERNAL_ERROR);
