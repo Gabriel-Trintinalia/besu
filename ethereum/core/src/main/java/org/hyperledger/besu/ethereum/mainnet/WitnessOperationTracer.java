@@ -37,64 +37,188 @@ import java.util.Set;
 import org.apache.tuweni.bytes.Bytes32;
 
 /**
- * Collects all EVM state access needed to build an EIP-8025 execution witness in a single pass
- * over the operation trace, without relying on the BlockAccessList or TrieLog.
+ * Determines which contract bytecodes and ancestor block headers a stateless executor needs to
+ * re-execute a block from scratch, producing the {@code codes} and {@code headers} fields of an
+ * EIP-8025 execution witness.
  *
- * <p>Two collections are built:
+ * <h2>Stateless execution model</h2>
  *
- * <ul>
- *   <li>{@link #getCodeAddresses()} — addresses whose bytecode must appear in the witness {@code
- *       codes} list (MESSAGE_CALL targets, EXTCODECOPY sources, EIP-7702 delegation targets
- *       resolved at frame entry or via soft-failure CALL, and EIP-7702 authorities whose
- *       pre-existing designation code is needed for intrinsic gas verification).
- *   <li>{@link #getAccessedAncestors()} — block-number→hash pairs for all ancestors that must
- *       appear in the witness {@code headers} list (always includes the parent; extended by BLOCKHASH
- *       opcode results).
- * </ul>
+ * <p>A stateless executor receives the block, a state witness (trie nodes proving every touched
+ * account and storage slot), a list of contract bytecodes ({@code codes}), and a list of ancestor
+ * block headers ({@code headers}). It has no local database. Every piece of data it needs must be
+ * derivable from those four inputs. This tracer decides exactly which bytecodes and headers are
+ * necessary.
+ *
+ * <h2>Why bytecodes must be explicit</h2>
+ *
+ * <p>The state witness proves account <em>fields</em> (nonce, balance, storageRoot, codeHash) via
+ * Merkle paths. It does not contain the bytecode itself — only its hash. A stateless executor
+ * knows <em>that</em> an account has code, but cannot reconstruct the instructions without the
+ * actual bytecode. The {@code codes} list supplies these bytecodes so the executor can:
+ *
+ * <ol>
+ *   <li>Load and run the bytecode of every contract it calls (MESSAGE_CALL frames).
+ *   <li>Serve EXTCODESIZE / EXTCODECOPY without a local database.
+ *   <li>Read EIP-7702 delegation designators ({@code 0xef0100<address>}) to resolve call targets
+ *       and compute delegation resolution gas.
+ *   <li>Verify intrinsic gas for EIP-7702 transactions, which depends on whether each authority
+ *       already held a delegation designator (or any non-empty code) before the block started.
+ * </ol>
+ *
+ * <h2>Sources of required bytecodes (the {@code codes} field)</h2>
+ *
+ * <p>This tracer collects addresses via four hooks:
+ *
+ * <dl>
+ *   <dt>{@link #traceStartTransaction} — transaction sender, EIP-7702 authorities
+ *   <dd>
+ *       <p><b>Sender:</b> If the sender account has non-empty code (e.g. it is a 7702-delegated
+ *       EOA carrying a delegation designator), the stateless executor must be able to read that
+ *       code to resolve the delegation during the transaction's own execution frame.
+ *
+ *       <p><b>EIP-7702 authorities:</b> For each authorization in the transaction's authorization
+ *       list, the EIP-7702 intrinsic gas formula charges extra if the authority already holds
+ *       non-empty code at the start of the block. A stateless executor re-running the intrinsic
+ *       gas check must therefore have the authority's <em>pre-block</em> bytecode available.
+ *       Because delegation processing (which may clear an authority's code) runs <em>before</em>
+ *       {@code traceStartTransaction} is called, we read authority codes from the parent-state
+ *       snapshot saved at {@link #traceStartBlock} rather than from the current world view.
+ *
+ *   <dt>{@link #traceContextEnter} — MESSAGE_CALL frame entry
+ *   <dd>
+ *       <p>Each time the EVM enters a new message-call frame the bytecode at
+ *       {@code frame.getContractAddress()} is about to be executed. The stateless executor must
+ *       have that bytecode to run the frame.
+ *
+ *       <p>For EIP-7702 delegated accounts the contract address holds a delegation designator
+ *       ({@code 0xef0100<T>}) rather than real code. The EVM transparently executes the bytecode
+ *       of target {@code T} instead. The stateless executor must therefore also have {@code T}'s
+ *       bytecode available.
+ *
+ *   <dt>{@link #tracePreExecution} / {@link #tracePostExecution} — EXTCODESIZE, EXTCODECOPY,
+ *       CALL-family soft failures
+ *   <dd>
+ *       <p><b>EXTCODESIZE (0x3B) and EXTCODECOPY (0x3C):</b> These opcodes read the bytecode of
+ *       an <em>external</em> account without entering a new frame. The stateless executor needs
+ *       the bytecode to serve them. We defer adding the address until {@code tracePostExecution}
+ *       to exclude OOG aborts (if the opcode ran out of gas the code was never accessed).
+ *       EXTCODEHASH (0x3F) is intentionally excluded: the verifier can derive the hash from the
+ *       account's {@code codeHash} field in the state witness without needing the full bytecode.
+ *
+ *       <p><b>CALL / CALLCODE / DELEGATECALL / STATICCALL — soft failures:</b>
+ *       {@code AbstractCallOperation.execute()} reads the target account (to determine delegation
+ *       and delegation-resolution gas) before the balance and call-depth checks. A call that fails
+ *       these later checks ("soft failure") never creates a child frame, so {@code
+ *       traceContextEnter} is never invoked — yet the bytecode was accessed. We detect whether the
+ *       account was read using a gas-accounting signal:
+ *       <ul>
+ *         <li>Non-delegated target: {@code haltReason == null} (no OOG at the pre-read checks)
+ *             means the account was read and its code must be in the witness.
+ *         <li>Delegated target ("alice"): a more precise gas-delta method distinguishes whether
+ *             the OOG fired before or after the delegation-resolution step that reads alice's code.
+ *             When alice's delegation target {@code T} was cold and is now warm, the resolution
+ *             step ran. When {@code T} was already warm, we compare the reported gas cost to the
+ *             pre-computed static cost (alice-access + memory expansion + value transfer) to
+ *             determine whether resolution ran.
+ *       </ul>
+ *       The delegation target {@code T} is added only when the call completed without an
+ *       exceptional halt ({@code haltReason == null}), because only then did the EVM record
+ *       {@code T} in the Block Access List and continue toward execution.
+ * </dl>
+ *
+ * <h2>Sources of required ancestor headers (the {@code headers} field)</h2>
+ *
+ * <p>The BLOCKHASH opcode and the EIP-2935 history contract both expose ancestor block hashes to
+ * running contracts. A stateless executor needs the corresponding headers to verify those hashes.
+ * The parent header is always required (the executor needs it to validate the block). Additional
+ * ancestors are recorded whenever a successful BLOCKHASH opcode pushes a non-zero result.
+ *
+ * <h2>Timing constraint: EIP-7702 delegation processing precedes tracing</h2>
+ *
+ * <p>EIP-7702 set-code transactions apply their authorization list <em>before</em> EVM execution
+ * begins. By the time {@link #traceStartTransaction} fires, any authority whose authorization
+ * succeeded (including clearings where a new delegation overwrites an existing one) already has
+ * its post-delegation code in the world state. To see the <em>pre-block</em> code — which is what
+ * the intrinsic gas formula observed — we must use the parent-state snapshot captured in
+ * {@link #traceStartBlock}.
  */
 public class WitnessOperationTracer implements BlockAwareOperationTracer {
 
   private final Set<Address> codeAddresses = new LinkedHashSet<>();
   private final Map<Long, Hash> accessedAncestors = new LinkedHashMap<>();
 
-  // Parent-state view saved in traceStartBlock; used in traceStartTransaction to look up
-  // EIP-7702 authority codes from the pre-block state (before delegation processing cleared them).
+  /**
+   * Parent-state snapshot saved at {@link #traceStartBlock}. Used in {@link
+   * #traceStartTransaction} to read EIP-7702 authority codes as they existed before the block
+   * started. Delegation processing runs before tracing begins, so the current world view may
+   * already reflect cleared or overwritten delegation designators.
+   */
   private WorldView parentWorldView = null;
 
-  // Transient: block number from BLOCKHASH pre-execution; consumed in tracePostExecution
+  /**
+   * Block number from a BLOCKHASH opcode captured in {@link #tracePreExecution}; consumed and
+   * reset in {@link #tracePostExecution}. {@code -1} means no BLOCKHASH is pending.
+   */
   private long pendingBlockHashNumber = -1;
 
-  // EIP-2929 Berlin+ warm/cold access costs and CALL value transfer cost.
+  // EIP-2929 Berlin+ gas costs replicated here to detect whether AbstractCallOperation read the
+  // delegation target account before aborting (see tracePreExecution CALL-family handling).
   private static final long WARM_ACCESS_COST = 100L;
   private static final long COLD_ACCESS_COST = 2600L;
   private static final long CALL_VALUE_TRANSFER_GAS_COST = 9_000L;
 
-  // Holds info needed in tracePostExecution to decide whether the delegation target's code was
-  // accessed (i.e., whether getAccount(alice) was called in AbstractCallOperation.execute()).
+  /**
+   * Snapshot of call-time state needed in {@link #tracePostExecution} to decide whether
+   * {@code AbstractCallOperation.execute()} read the delegation target account.
+   *
+   * <p>The EVM reads alice's code (and thus the delegation designator pointing at T) during the
+   * delegation-resolution gas step, which comes after the static-cost check but before the
+   * call-depth / balance check. We detect whether that step ran using two signals:
+   *
+   * <ul>
+   *   <li>If T was cold before the opcode and is warm afterward, the resolution step ran (it
+   *       warms T as a side effect) → alice's code was read.
+   *   <li>If T was already warm, its warm/cold state doesn't change. We fall back to comparing
+   *       the reported gas cost to the pre-computed static cost: the static cost covers alice's
+   *       access + memory expansion + value transfer, but not the delegation-resolution cost.
+   *       {@code gasCost > staticCost} implies the resolution step ran.
+   * </ul>
+   */
   private record PendingDelegationInfo(
-      Address aliceAddress,       // the call target that has a delegation designator
-      Address delegationTarget,   // T — where alice delegates to
-      boolean targetWasWarm,      // T's warm state BEFORE AbstractCallOperation ran
-      long pendingStaticCost) {}  // staticCost = aliceAccessCost + memExpansion (no child gas)
+      Address aliceAddress,    // call target that carries a delegation designator
+      Address delegationTarget, // T — the address alice delegates to
+      boolean targetWasWarm,   // warm/cold state of T before the opcode ran
+      long pendingStaticCost)  // aliceAccessCost + memExpansion + valueTransferCost (no child gas)
+  {}
 
-  // Keyed by frame identity so nested calls don't interfere.
+  /** Keyed by frame identity so concurrent nested calls don't interfere with each other. */
   private final IdentityHashMap<MessageFrame, PendingDelegationInfo> pendingCallDelegations =
       new IdentityHashMap<>();
 
-  // EXTCODESIZE / EXTCODECOPY: target address recorded in tracePreExecution,
-  // added to codeAddresses in tracePostExecution only when the opcode completed without OOG.
+  /**
+   * EXTCODESIZE / EXTCODECOPY target address captured in {@link #tracePreExecution}; committed to
+   * {@link #codeAddresses} in {@link #tracePostExecution} only when the opcode did not OOG (i.e.
+   * {@code haltReason == null}). An OOG abort means the bytecode was never accessed and the
+   * stateless executor does not need it.
+   */
   private final IdentityHashMap<MessageFrame, Address> pendingExtcodeAddr =
       new IdentityHashMap<>();
 
-  // Non-delegated CALL targets: AbstractCallOperation.execute() reads the account (getAccount(to))
-  // BEFORE the balance/depth check. So even for soft failures (insufficient balance, max depth)
-  // the target's code was accessed and must appear in the witness. We track the target here and
-  // add it in tracePostExecution when haltReason == null (i.e., not an OOG at check 1/2).
-  // Delegated calls are already handled by pendingCallDelegations; only non-delegated go here.
+  /**
+   * Non-delegated CALL target address captured in {@link #tracePreExecution}. {@code
+   * AbstractCallOperation.execute()} calls {@code getAccount(to)} before the balance / depth check,
+   * so the target's code is accessed even when the call is a soft failure (returns without creating
+   * a child frame). We commit to {@link #codeAddresses} in {@link #tracePostExecution} when
+   * {@code haltReason == null}, which means at least the pre-read gas checks (checks 1 and 2)
+   * passed and the account was read. Delegated targets are handled separately via
+   * {@link #pendingCallDelegations}.
+   */
   private final IdentityHashMap<MessageFrame, Address> pendingNonDelegCallAddr =
       new IdentityHashMap<>();
 
-  // --- Block lifecycle ---
+  // ---------------------------------------------------------------------------
+  // Block lifecycle
+  // ---------------------------------------------------------------------------
 
   @Override
   public void traceStartBlock(
@@ -103,7 +227,7 @@ public class WitnessOperationTracer implements BlockAwareOperationTracer {
       final BlockBody blockBody,
       final Address miningBeneficiary) {
     parentWorldView = worldView;
-    recordParentAndMiner(blockHeader);
+    recordParentHeader(blockHeader);
   }
 
   @Override
@@ -112,33 +236,47 @@ public class WitnessOperationTracer implements BlockAwareOperationTracer {
       final ProcessableBlockHeader processableBlockHeader,
       final Address miningBeneficiary) {
     parentWorldView = worldView;
-    recordParentAndMiner(processableBlockHeader);
+    recordParentHeader(processableBlockHeader);
   }
 
-  private void recordParentAndMiner(
-      final ProcessableBlockHeader header) {
+  /**
+   * The parent header is unconditionally required: the stateless executor needs it to verify the
+   * block's {@code parentHash} field and to seed the EIP-2935 history contract.
+   */
+  private void recordParentHeader(final ProcessableBlockHeader header) {
     accessedAncestors.put(header.getNumber() - 1, header.getParentHash());
   }
 
+  // ---------------------------------------------------------------------------
+  // Transaction start — sender code and EIP-7702 authority codes
+  // ---------------------------------------------------------------------------
+
+  /**
+   * Records codes that a stateless executor needs before the first opcode of a transaction runs.
+   *
+   * <p><b>Sender code:</b> If the sender is a 7702-delegated EOA (its account holds a delegation
+   * designator {@code 0xef0100<T>}), the stateless executor must be able to read that designator
+   * so it can resolve the sender's code pointer when the sender's own frame is executed. Any other
+   * non-empty sender code is included for the same reason.
+   *
+   * <p><b>EIP-7702 authority codes (pre-block state):</b> The EIP-7702 intrinsic gas formula
+   * charges {@code PER_EMPTY_ACCOUNT_COST} for each authorization whose authority currently has
+   * empty code, and a lower base cost when the authority already carries code. To reproduce this
+   * gas calculation, the stateless executor must see the authority's <em>pre-block</em> bytecode.
+   *
+   * <p>Critically, this method is called <em>after</em> delegation processing has already modified
+   * the world state (setting or clearing designation codes). We therefore read authority codes from
+   * {@link #parentWorldView} — the snapshot of the world state before any block processing ran —
+   * rather than from the {@code worldView} parameter, which reflects post-delegation state.
+   */
   @Override
   public void traceStartTransaction(final WorldView worldView, final Transaction transaction) {
-    // Sender: add sender's code if non-empty (delegation designator included, but NOT target).
     final Address sender = transaction.getSender();
     final var senderAccount = worldView.get(sender);
     if (senderAccount != null && !senderAccount.getCodeHash().equals(Hash.EMPTY)) {
       codeAddresses.add(sender);
     }
 
-    // EIP-7702: for each authorization authority that has any non-empty code in the pre-block
-    // state, add the authority so its code appears in the witness for intrinsic gas verification.
-    // Stateless verifiers need the pre-existing code (delegation designator or otherwise) to
-    // reproduce the intrinsic gas calculation. Only the authority itself is added — never the
-    // delegation target (targets appear in codes only when accessed during execution).
-    // Check authority codes from the PARENT world state (pre-block), not the current worldView.
-    // EIP-7702 delegation processing runs before traceStartTransaction is called, so by the time
-    // we reach here, a successfully-cleared authority's code is already empty in worldView.
-    // Using parentWorldView ensures we see the pre-block designation code — which is what the
-    // witness must include for intrinsic gas verification of the authorization.
     final WorldView authorityView = parentWorldView != null ? parentWorldView : worldView;
     transaction
         .getCodeDelegationList()
@@ -155,22 +293,38 @@ public class WitnessOperationTracer implements BlockAwareOperationTracer {
                                       || authAccount.getCodeHash().equals(Hash.EMPTY)) {
                                     return;
                                   }
-                                  // Include authority if it has any non-empty code (not just
-                                  // delegation designators) — the witness verifier needs the
-                                  // pre-existing code to verify intrinsic gas computation.
+                                  // Any non-empty pre-block code on the authority must be in the
+                                  // witness so the stateless executor can reproduce the intrinsic
+                                  // gas check. This includes plain 0x00 code, non-designator code,
+                                  // and delegation designators alike.
                                   codeAddresses.add(auth);
                                 })));
   }
 
-  // --- Context / call stack ---
+  // ---------------------------------------------------------------------------
+  // Frame entry — executed contract and its 7702 delegation target
+  // ---------------------------------------------------------------------------
 
+  /**
+   * Records bytecodes that a stateless executor needs to run a MESSAGE_CALL frame.
+   *
+   * <p><b>Contract bytecode:</b> The address at {@code frame.getContractAddress()} is about to be
+   * executed. The stateless executor must have its bytecode to run the frame.
+   *
+   * <p><b>EIP-7702 delegation target:</b> If the contract holds a delegation designator
+   * ({@code 0xef0100<T>}), the EVM transparently executes {@code T}'s code instead. The stateless
+   * executor must therefore also have {@code T}'s bytecode, even though {@code T}'s frame is not
+   * separately visible in the trace — it is co-executed under the contract's address.
+   *
+   * <p>CONTRACT_CREATION frames are excluded: init code is embedded in the transaction payload and
+   * does not need to appear in the {@code codes} list; newly deployed runtime code is absent from
+   * the pre-block state and is provided by the transaction itself.
+   */
   @Override
   public void traceContextEnter(final MessageFrame frame) {
     if (frame.getType() == MessageFrame.Type.MESSAGE_CALL) {
       final Address contract = frame.getContractAddress();
       codeAddresses.add(contract);
-      // EIP-7702: when a delegated account's frame is entered, the delegation target's code is
-      // also executed. Add the target so its bytecode appears in the witness codes list.
       final var account = frame.getWorldUpdater().get(contract);
       if (account != null) {
         final var code = account.getCode();
@@ -181,44 +335,80 @@ public class WitnessOperationTracer implements BlockAwareOperationTracer {
     }
   }
 
+  // ---------------------------------------------------------------------------
+  // Opcode pre-execution — record pending addresses / block numbers
+  // ---------------------------------------------------------------------------
+
+  /**
+   * Captures the target address or block number that an opcode is about to access, deferring the
+   * actual addition to {@link #codeAddresses} / {@link #accessedAncestors} until
+   * {@link #tracePostExecution} confirms the opcode did not OOG.
+   *
+   * <h3>EXTCODESIZE (0x3B) and EXTCODECOPY (0x3C)</h3>
+   *
+   * <p>These opcodes read the bytecode of an external account without creating a call frame. A
+   * stateless executor needs the bytecode to serve them. We record the target here and commit it
+   * in {@link #tracePostExecution} only when the opcode succeeds (no OOG halt), because an OOG
+   * abort means the bytecode was never actually read.
+   *
+   * <p>EXTCODEHASH (0x3F) is intentionally excluded: the verifier can derive the hash from the
+   * {@code codeHash} field already present in the account's state-witness proof. The full bytecode
+   * is not needed.
+   *
+   * <h3>BLOCKHASH (0x40)</h3>
+   *
+   * <p>A successful BLOCKHASH returns a non-zero hash only when the requested block is within the
+   * most recent 256 ancestors. The stateless executor needs the corresponding block header to
+   * verify that hash. We record the requested block number here and capture the returned hash in
+   * {@link #tracePostExecution}.
+   *
+   * <h3>CALL / CALLCODE / DELEGATECALL / STATICCALL (0xF1, 0xF2, 0xF4, 0xFA)</h3>
+   *
+   * <p>{@code AbstractCallOperation.execute()} reads the target account unconditionally before the
+   * balance and call-depth checks. If either of those later checks fails ("soft failure"), no child
+   * frame is created and {@link #traceContextEnter} is never called — yet the bytecode was
+   * accessed. We must capture the address here and decide in {@link #tracePostExecution} whether
+   * the access actually occurred.
+   *
+   * <p>For non-delegated targets the decision is simple: {@code haltReason == null} means the
+   * pre-read gas checks passed and the account was read.
+   *
+   * <p>For delegated targets (alice carries {@code 0xef0100<T>}) the decision is more nuanced.
+   * The account-read happens inside the delegation-resolution gas step (check 3), which runs after
+   * the static-cost check (check 2) but before the balance / depth check (check 4). An OOG at
+   * check 3 means alice's code was read but {@code T}'s warm/cold status may still have changed.
+   * We disambiguate using a gas-delta signal (see {@link PendingDelegationInfo}).
+   */
   @Override
   public void tracePreExecution(final MessageFrame frame) {
     final int opcode = frame.getCurrentOperation().getOpcode();
     switch (opcode) {
-      case 0x3B, 0x3C -> { // EXTCODESIZE / EXTCODECOPY
-        // The target's code must appear in the witness only when the opcode actually reads it
-        // (i.e., doesn't OOG). Record here; add in tracePostExecution if halt == null.
-        // EXTCODEHASH (0x3F) is intentionally excluded: only the hash is needed for verification,
-        // not the full bytecode, so the code does not need to appear in the witness codes list.
+      case 0x3B, 0x3C -> { // EXTCODESIZE, EXTCODECOPY
         if (frame.stackSize() >= 1) {
           pendingExtcodeAddr.put(frame, Words.toAddress(frame.getStackItem(0)));
         }
       }
-      case 0x40 -> { // BLOCKHASH — capture requested block number; hash read in tracePostExecution
+      case 0x40 -> { // BLOCKHASH
+        // Words.clampedToLong handles stack values > Long.MAX_VALUE (e.g. 2**64) without throwing;
+        // such values always produce a zero BLOCKHASH result and need no header in the witness.
         if (frame.stackSize() >= 1) pendingBlockHashNumber = Words.clampedToLong(frame.getStackItem(0));
       }
-      case 0xF1, 0xF2, 0xF4, 0xFA -> {
-        // CALL/CALLCODE/DELEGATECALL/STATICCALL: AbstractCallOperation.execute() reads the target
-        // account BEFORE the balance/depth check (step 6). So the target's code is in the witness
-        // for any call that doesn't OOG at checks 1+2 (haltReason == null in tracePostExecution).
-        //
-        // Delegated targets need a more precise check (the gas-delta method) because delegation
-        // resolution gas (check 3) can OOG after the account is read but before BAL recording.
-        // Non-delegated targets use the simpler haltReason-based detection.
+      case 0xF1, 0xF2, 0xF4, 0xFA -> { // CALL, CALLCODE, DELEGATECALL, STATICCALL
         final int minStack = (opcode == 0xF1 || opcode == 0xF2) ? 7 : 6;
         if (frame.stackSize() >= minStack) {
           final Address alice = Words.toAddress(frame.getStackItem(1));
           final var aliceAccount = frame.getWorldUpdater().get(alice);
           if (aliceAccount != null
               && CodeDelegationHelper.hasCodeDelegation(aliceAccount.getCode())) {
-            // Delegated alice: sophisticated gas-delta check to distinguish check-2 vs check-3 OOG.
+            // Alice is a delegated account. Capture state needed to detect whether the
+            // delegation-resolution gas step (which reads alice's code) actually ran.
             final Address T = CodeDelegationHelper.getTargetAddress(aliceAccount.getCode());
             final boolean aliceWasWarm = frame.isAddressWarm(alice);
             final boolean tWasWarm = frame.isAddressWarm(T);
             final long aliceAccessCost = aliceWasWarm ? WARM_ACCESS_COST : COLD_ACCESS_COST;
-            // Berlin staticCost = aliceAccessCost + max(inputMemExp, outputMemExp)
-            //   + callValueTransferGasCost (9000) if CALL/CALLCODE and value != 0.
-            // For CALL/CALLCODE the value parameter is at stack[2]; args start at stack[3].
+            // Reconstruct the static cost: aliceAccessCost + memory expansion + (value transfer
+            // cost if CALL/CALLCODE with non-zero value). This is the gas consumed by checks 1+2;
+            // any gas above this signals that check 3 (delegation resolution) also ran.
             final int argsBase = (opcode == 0xF1 || opcode == 0xF2) ? 3 : 2;
             final long argsOffset = Words.clampedToLong(frame.getStackItem(argsBase));
             final long argsLength = Words.clampedToLong(frame.getStackItem(argsBase + 1));
@@ -235,7 +425,7 @@ public class WitnessOperationTracer implements BlockAwareOperationTracer {
             final long staticCost = aliceAccessCost + memExp + valueTransferCost;
             pendingCallDelegations.put(frame, new PendingDelegationInfo(alice, T, tWasWarm, staticCost));
           } else {
-            // Non-delegated alice: simpler detection — haltReason == null means account was read.
+            // Non-delegated alice: account-read is implied by passing checks 1+2.
             pendingNonDelegCallAddr.put(frame, alice);
           }
         }
@@ -244,6 +434,51 @@ public class WitnessOperationTracer implements BlockAwareOperationTracer {
     }
   }
 
+  // ---------------------------------------------------------------------------
+  // Opcode post-execution — commit addresses / headers if the opcode succeeded
+  // ---------------------------------------------------------------------------
+
+  /**
+   * Finalises the additions to {@link #codeAddresses} and {@link #accessedAncestors} that were
+   * deferred in {@link #tracePreExecution}.
+   *
+   * <h3>BLOCKHASH</h3>
+   *
+   * <p>If the opcode succeeded (no OOG) and returned a non-zero hash, the stateless executor will
+   * need the corresponding header to verify that hash. We record the block-number → hash pair. A
+   * zero result means the requested block is out of the 256-ancestor window and no header is needed.
+   *
+   * <h3>Non-delegated CALL targets</h3>
+   *
+   * <p>A {@code haltReason == null} result indicates the opcode did not OOG at checks 1 or 2,
+   * meaning {@code AbstractCallOperation.execute()} read the target account. The stateless executor
+   * needs the target's bytecode regardless of whether the call created a child frame (for soft
+   * failures) or not (for successful calls, {@link #traceContextEnter} also adds the address, and
+   * the duplicate is harmless).
+   *
+   * <h3>EXTCODESIZE / EXTCODECOPY targets</h3>
+   *
+   * <p>Same principle: add the address only when the opcode completed without OOG.
+   *
+   * <h3>Delegated CALL targets (alice and T)</h3>
+   *
+   * <p>We use the gas-delta signal described in {@link PendingDelegationInfo} to determine whether
+   * alice's code was read:
+   *
+   * <ul>
+   *   <li>If T was cold before the opcode and is warm now, the delegation-resolution step ran and
+   *       alice's code was read.
+   *   <li>If T was already warm, we compare the reported gas cost to {@link
+   *       PendingDelegationInfo#pendingStaticCost}: a cost strictly greater than the static cost
+   *       means the resolution step also ran.
+   * </ul>
+   *
+   * <p>When alice's code was read, alice is added unconditionally (the stateless executor needs the
+   * designator to resolve the delegation). The delegation target T is added only when
+   * {@code haltReason == null}: a null halt reason means the EVM proceeded past the balance/depth
+   * check and recorded T in the Block Access List. For an OOG at check 3 the BAL recording never
+   * runs and T does not need to be in the witness.
+   */
   @Override
   public void tracePostExecution(final MessageFrame frame, final OperationResult operationResult) {
     if (pendingBlockHashNumber >= 0) {
@@ -255,40 +490,33 @@ public class WitnessOperationTracer implements BlockAwareOperationTracer {
       }
       pendingBlockHashNumber = -1;
     }
-    // Non-delegated CALL targets: add when haltReason == null (passed gas checks 1+2, account was
-    // read). Covers both successful calls (where traceContextEnter also adds the target) and soft
-    // failures (insufficient balance, max depth) where no child frame is created.
+
     final Address nonDelegAddr = pendingNonDelegCallAddr.remove(frame);
     if (nonDelegAddr != null && operationResult.getHaltReason() == null) {
       codeAddresses.add(nonDelegAddr);
     }
-    // EXTCODESIZE/EXTCODECOPY: add the target only when the opcode succeeded.
+
     final Address extcodeAddr = pendingExtcodeAddr.remove(frame);
     if (extcodeAddr != null && operationResult.getHaltReason() == null) {
       codeAddresses.add(extcodeAddr);
     }
-    // Detect whether AbstractCallOperation.execute() read the delegation account (alice) — this
-    // happens only when both the static-cost AND callOperationGasCost checks passed (checks 1+2).
-    // If alice's code was read, add alice to codeAddresses so the witness includes the designator.
+
     final PendingDelegationInfo info = pendingCallDelegations.remove(frame);
     if (info != null) {
       final boolean alicesCodeWasRead;
       if (!info.targetWasWarm() && frame.isAddressWarm(info.delegationTarget())) {
-        // T was cold and is now warm: calculateCodeDelegationResolutionGas ran → alice was read.
+        // T transitioned cold → warm: delegation-resolution step ran, alice's code was read.
         alicesCodeWasRead = true;
       } else {
-        // T was already warm (warm_target) — its warm state doesn't change, so we use the gas
-        // signal instead. Berlin staticCost = aliceAccessCost + memExpansion. If the OOG fired
-        // before getAccount(alice), gasCost == staticCost; after, gasCost > staticCost.
+        // T was already warm; use gas cost as the signal instead.
         alicesCodeWasRead = (operationResult.getGasCost() > info.pendingStaticCost());
       }
       if (alicesCodeWasRead) {
         codeAddresses.add(info.aliceAddress());
-        // Add T when the CALL completed without an exceptional halt (null haltReason).
-        // This covers soft failures (insufficient balance, max depth) where the EVM read alice's
-        // code, recorded T in the BAL, but didn't create a child frame. For OOG (INSUFFICIENT_GAS)
-        // the BAL recording code never runs and T is not needed. When a child frame IS created,
-        // traceContextEnter also adds T; the duplicate is harmless.
+        // T is needed only when the call did not OOG at check 3 — null haltReason means the EVM
+        // continued past the balance/depth check, recorded T in the BAL, and headed toward either
+        // a soft failure or a real child frame. (traceContextEnter adds T again for the latter;
+        // the duplicate insertion into the LinkedHashSet is harmless.)
         if (operationResult.getHaltReason() == null) {
           codeAddresses.add(info.delegationTarget());
         }
@@ -296,8 +524,13 @@ public class WitnessOperationTracer implements BlockAwareOperationTracer {
     }
   }
 
+  // ---------------------------------------------------------------------------
+  // Result accessors
+  // ---------------------------------------------------------------------------
+
   /**
-   * Returns the set of addresses whose bytecode must appear in the witness {@code codes} list.
+   * Returns the set of addresses whose bytecode must appear in the witness {@code codes} list so
+   * that a stateless executor can re-execute the block without a local database.
    */
   public Set<Address> getCodeAddresses() {
     return Collections.unmodifiableSet(codeAddresses);
@@ -305,12 +538,18 @@ public class WitnessOperationTracer implements BlockAwareOperationTracer {
 
   /**
    * Returns every block-number → hash pair that must appear in the witness {@code headers} list.
+   * The parent header is always present; additional entries are added for each non-zero BLOCKHASH
+   * result observed during execution.
    */
   public Map<Long, Hash> getAccessedAncestors() {
     return Collections.unmodifiableMap(accessedAncestors);
   }
 
-  // Mirrors FrontierGasCalculator.memoryExpansionGasCost for use in tracePreExecution.
+  // ---------------------------------------------------------------------------
+  // Internal helpers
+  // ---------------------------------------------------------------------------
+
+  /** Mirrors {@code FrontierGasCalculator.memoryExpansionGasCost} for use in tracePreExecution. */
   private static long memoryExpansionCost(
       final MessageFrame frame, final long offset, final long length) {
     if (length == 0) return 0L;
@@ -319,7 +558,7 @@ public class WitnessOperationTracer implements BlockAwareOperationTracer {
     return memoryCost(newWords) - memoryCost(oldWords);
   }
 
-  // Mirrors FrontierGasCalculator.memoryCost: 3*words + words^2/512.
+  /** Mirrors {@code FrontierGasCalculator.memoryCost}: {@code 3·words + words²/512}. */
   private static long memoryCost(final long words) {
     if (words == 0) return 0L;
     return 3L * words + words * words / 512L;
