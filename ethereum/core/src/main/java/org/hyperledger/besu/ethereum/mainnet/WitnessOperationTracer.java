@@ -17,6 +17,7 @@ package org.hyperledger.besu.ethereum.mainnet;
 import org.hyperledger.besu.datatypes.Address;
 import org.hyperledger.besu.datatypes.Hash;
 import org.hyperledger.besu.datatypes.Transaction;
+import org.hyperledger.besu.datatypes.Wei;
 import org.hyperledger.besu.evm.frame.MessageFrame;
 import org.hyperledger.besu.evm.gascalculator.GasCalculator;
 import org.hyperledger.besu.evm.internal.Words;
@@ -171,12 +172,6 @@ public class WitnessOperationTracer implements BlockAwareOperationTracer {
    * reset in {@link #tracePostExecution}. {@code -1} means no BLOCKHASH is pending.
    */
   private long pendingBlockHashNumber = -1;
-
-  // EIP-2929 Berlin+ gas costs replicated here to detect whether AbstractCallOperation read the
-  // delegation target account before aborting (see tracePreExecution CALL-family handling).
-  private static final long WARM_ACCESS_COST = 100L;
-  private static final long COLD_ACCESS_COST = 2600L;
-  private static final long CALL_VALUE_TRANSFER_GAS_COST = 9_000L;
 
   /**
    * Snapshot of call-time state needed in {@link #tracePostExecution} to decide whether
@@ -392,24 +387,18 @@ public class WitnessOperationTracer implements BlockAwareOperationTracer {
             final Address T = CodeDelegationHelper.getTargetAddress(aliceAccount.getCode());
             final boolean aliceWasWarm = frame.isAddressWarm(alice);
             final boolean tWasWarm = frame.isAddressWarm(T);
-            final long aliceAccessCost = aliceWasWarm ? WARM_ACCESS_COST : COLD_ACCESS_COST;
-            // Reconstruct the static cost: aliceAccessCost + memory expansion + (value transfer
-            // cost if CALL/CALLCODE with non-zero value). This is the gas consumed by checks 1+2;
-            // any gas above this signals that check 3 (delegation resolution) also ran.
+            // Reconstruct the static cost (checks 1+2); any gas above this signals that
+            // check 3 (delegation resolution) also ran.
             final int argsBase = (opcode == 0xF1 || opcode == 0xF2) ? 3 : 2;
-            final long argsOffset = Words.clampedToLong(frame.getStackItem(argsBase));
-            final long argsLength = Words.clampedToLong(frame.getStackItem(argsBase + 1));
-            final long retOffset = Words.clampedToLong(frame.getStackItem(argsBase + 2));
-            final long retLength = Words.clampedToLong(frame.getStackItem(argsBase + 3));
-            final long memExp =
-                Math.max(
-                    gasCalculator.memoryExpansionGasCost(frame, argsOffset, argsLength),
-                    gasCalculator.memoryExpansionGasCost(frame, retOffset, retLength));
-            final long valueTransferCost =
-                ((opcode == 0xF1 || opcode == 0xF2) && !frame.getStackItem(2).isZero())
-                    ? CALL_VALUE_TRANSFER_GAS_COST
-                    : 0L;
-            final long staticCost = aliceAccessCost + memExp + valueTransferCost;
+            final Wei transferValue = (opcode == 0xF1 || opcode == 0xF2)
+                ? Wei.wrap(frame.getStackItem(2)) : Wei.ZERO;
+            final long staticCost = gasCalculator.callOperationStaticGasCost(
+                frame, 0L,
+                Words.clampedToLong(frame.getStackItem(argsBase)),
+                Words.clampedToLong(frame.getStackItem(argsBase + 1)),
+                Words.clampedToLong(frame.getStackItem(argsBase + 2)),
+                Words.clampedToLong(frame.getStackItem(argsBase + 3)),
+                transferValue, alice, aliceWasWarm);
             pendingCallDelegations.put(frame, new PendingDelegationInfo(alice, T, tWasWarm, staticCost));
           } else {
             // Non-delegated alice: account-read is implied by passing checks 1+2.
