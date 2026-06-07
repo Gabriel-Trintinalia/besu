@@ -192,7 +192,7 @@ public class BlockchainReferenceTestTools {
                     // Use validateAndProcessBlock directly so we can access the error message and
                     // verify it matches the expected exception from the fixture.
                     final BlockValidator blockValidator = protocolSpec.getBlockValidator();
-                    final WitnessOperationTracer witnessTracer = new WitnessOperationTracer();
+                    final WitnessOperationTracer witnessTracer = new WitnessOperationTracer(protocolSpec.getEvm().getGasCalculator());
                     final BlockProcessingResult processingResult =
                             blockValidator.validateAndProcessBlock(
                                     protocolContext,

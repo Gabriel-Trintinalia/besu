@@ -96,7 +96,9 @@ public class EngineNewPayloadWithWitnessV5 extends EngineNewPayloadV5 {
                   blockHeader,
                   protocolContext.getWorldStateArchive(),
                   protocolContext.getBlockchain(),
-                  executionResult.getYield(), new WitnessOperationTracer());
+                  executionResult.getYield(),
+                  new WitnessOperationTracer(
+                      protocolSchedule.get().getByBlockHeader(blockHeader).getEvm().getGasCalculator()));
       if (witness.state().isEmpty()) {
         return new JsonRpcErrorResponse(reqId, RpcErrorType.INTERNAL_ERROR);
       }

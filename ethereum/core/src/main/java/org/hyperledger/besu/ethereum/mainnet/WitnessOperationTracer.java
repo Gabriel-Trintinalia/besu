@@ -18,6 +18,7 @@ import org.hyperledger.besu.datatypes.Address;
 import org.hyperledger.besu.datatypes.Hash;
 import org.hyperledger.besu.datatypes.Transaction;
 import org.hyperledger.besu.evm.frame.MessageFrame;
+import org.hyperledger.besu.evm.gascalculator.GasCalculator;
 import org.hyperledger.besu.evm.internal.Words;
 import org.hyperledger.besu.evm.operation.Operation.OperationResult;
 import org.hyperledger.besu.evm.worldstate.CodeDelegationHelper;
@@ -145,8 +146,17 @@ import org.apache.tuweni.bytes.Bytes32;
  */
 public class WitnessOperationTracer implements BlockAwareOperationTracer {
 
+  private final GasCalculator gasCalculator;
   private final Set<Address> codeAddresses = new LinkedHashSet<>();
   private final Map<Long, Hash> accessedAncestors = new LinkedHashMap<>();
+
+  /**
+   * @param gasCalculator the gas calculator for the fork being executed; used to compute memory
+   *     expansion costs when detecting whether a delegated-CALL's resolution step ran.
+   */
+  public WitnessOperationTracer(final GasCalculator gasCalculator) {
+    this.gasCalculator = gasCalculator;
+  }
 
   /**
    * Parent-state snapshot saved at {@link #traceStartBlock}. Used in {@link
@@ -393,8 +403,8 @@ public class WitnessOperationTracer implements BlockAwareOperationTracer {
             final long retLength = Words.clampedToLong(frame.getStackItem(argsBase + 3));
             final long memExp =
                 Math.max(
-                    memoryExpansionCost(frame, argsOffset, argsLength),
-                    memoryExpansionCost(frame, retOffset, retLength));
+                    gasCalculator.memoryExpansionGasCost(frame, argsOffset, argsLength),
+                    gasCalculator.memoryExpansionGasCost(frame, retOffset, retLength));
             final long valueTransferCost =
                 ((opcode == 0xF1 || opcode == 0xF2) && !frame.getStackItem(2).isZero())
                     ? CALL_VALUE_TRANSFER_GAS_COST
@@ -517,22 +527,4 @@ public class WitnessOperationTracer implements BlockAwareOperationTracer {
     return Collections.unmodifiableMap(accessedAncestors);
   }
 
-  // ---------------------------------------------------------------------------
-  // Internal helpers
-  // ---------------------------------------------------------------------------
-
-  /** Mirrors {@code FrontierGasCalculator.memoryExpansionGasCost} for use in tracePreExecution. */
-  private static long memoryExpansionCost(
-      final MessageFrame frame, final long offset, final long length) {
-    if (length == 0) return 0L;
-    final long newWords = frame.calculateMemoryExpansion(offset, length);
-    final long oldWords = frame.memoryWordSize();
-    return memoryCost(newWords) - memoryCost(oldWords);
-  }
-
-  /** Mirrors {@code FrontierGasCalculator.memoryCost}: {@code 3·words + words²/512}. */
-  private static long memoryCost(final long words) {
-    if (words == 0) return 0L;
-    return 3L * words + words * words / 512L;
-  }
 }

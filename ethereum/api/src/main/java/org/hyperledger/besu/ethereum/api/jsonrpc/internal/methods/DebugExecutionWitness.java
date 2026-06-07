@@ -114,7 +114,8 @@ public class DebugExecutionWitness extends AbstractBlockParameterOrBlockHashMeth
     // touched accounts (for state trie nodes), code addresses (for bytecodes), and accessed
     // ancestors (for block headers). This replaces the previous approach of deriving witness
     // inputs from BlockProcessingOutputs + BlockHashLookup + ContextEnteredTracker.
-    final WitnessOperationTracer witnessTracer = new WitnessOperationTracer();
+    final WitnessOperationTracer witnessTracer = new WitnessOperationTracer(
+        protocolSchedule.getByBlockHeader(blockHeader).getEvm().getGasCalculator());
 
     final BlockProcessingResult result =
         protocolSchedule
