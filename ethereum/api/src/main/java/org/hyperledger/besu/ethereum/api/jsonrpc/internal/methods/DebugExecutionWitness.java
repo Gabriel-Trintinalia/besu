@@ -60,6 +60,8 @@ public class DebugExecutionWitness extends AbstractBlockParameterOrBlockHashMeth
 
   private final ProtocolContext protocolContext;
   private final ProtocolSchedule protocolSchedule;
+  private final Blockchain blockchain;
+  private final BonsaiExecutionWitnessBuilder witnessBuilder;
 
   public DebugExecutionWitness(
       final BlockchainQueries blockchainQueries,
@@ -68,6 +70,9 @@ public class DebugExecutionWitness extends AbstractBlockParameterOrBlockHashMeth
     super(blockchainQueries);
     this.protocolContext = protocolContext;
     this.protocolSchedule = protocolSchedule;
+    blockchain = getBlockchainQueries().getBlockchain();
+    witnessBuilder =
+    new BonsaiExecutionWitnessBuilder(getBlockchainQueries().getWorldStateArchive(), blockchain);
   }
 
   @Override
@@ -97,7 +102,6 @@ public class DebugExecutionWitness extends AbstractBlockParameterOrBlockHashMeth
   @Override
   protected Object resultByBlockHash(final JsonRpcRequestContext request, final Hash blockHash) {
     final Object reqId = request.getRequest().getId();
-    final Blockchain blockchain = getBlockchainQueries().getBlockchain();
 
     // Genesis has no on-chain parent, so it cannot be re-executed and is surfaced as not found.
     final Optional<Block> maybeBlock = blockchain.getBlockByHash(blockHash);
@@ -138,8 +142,7 @@ public class DebugExecutionWitness extends AbstractBlockParameterOrBlockHashMeth
 
     final BonsaiExecutionWitnessBuilder.Witness witness;
     try {
-      witness =
-          new BonsaiExecutionWitnessBuilder(getBlockchainQueries().getWorldStateArchive(), blockchain)
+      witness = witnessBuilder
               .buildWitness(blockHeader, result.getYield().flatMap(BlockProcessingOutputs::getBlockAccessList), witnessTracer);
       if (witness.state().isEmpty()) {
         return new JsonRpcErrorResponse(reqId, RpcErrorType.INTERNAL_ERROR);
