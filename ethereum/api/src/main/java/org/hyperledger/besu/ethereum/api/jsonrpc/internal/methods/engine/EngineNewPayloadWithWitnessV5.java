@@ -90,15 +90,11 @@ public class EngineNewPayloadWithWitnessV5 extends EngineNewPayloadV5 {
               .getBlockHeader(latestValidHash)
               .orElseThrow(
                   () -> new IllegalStateException("Block header not found: " + latestValidHash));
+      final WitnessOperationTracer witnessTracer = new WitnessOperationTracer(
+          protocolSchedule.get().getByBlockHeader(blockHeader).getEvm().getGasCalculator());
       final BonsaiExecutionWitnessBuilder.Witness witness =
-          new BonsaiExecutionWitnessBuilder()
-              .buildWitness(
-                  blockHeader,
-                  protocolContext.getWorldStateArchive(),
-                  protocolContext.getBlockchain(),
-                  executionResult.getYield(),
-                  new WitnessOperationTracer(
-                      protocolSchedule.get().getByBlockHeader(blockHeader).getEvm().getGasCalculator()));
+          new BonsaiExecutionWitnessBuilder(protocolContext.getWorldStateArchive(), protocolContext.getBlockchain())
+              .buildWitness(blockHeader, executionResult.getYield(), witnessTracer);
       if (witness.state().isEmpty()) {
         return new JsonRpcErrorResponse(reqId, RpcErrorType.INTERNAL_ERROR);
       }

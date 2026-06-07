@@ -397,13 +397,8 @@ public class BlockchainReferenceTestTools {
     expectedWitnessOpt.ifPresent(
       expected -> {
         final BonsaiExecutionWitnessBuilder.Witness got =
-          new BonsaiExecutionWitnessBuilder()
-            .buildWitness(
-              block.getHeader(),
-              ctx.getWorldStateArchive(),
-              ctx.getBlockchain(),
-              processingResult.getYield(),
-              witnessTracer);
+          new BonsaiExecutionWitnessBuilder(ctx.getWorldStateArchive(), ctx.getBlockchain())
+            .buildWitness(block.getHeader(), processingResult.getYield(), witnessTracer);
 
         logWitnessDiff("state", got.state(), expected.state(), block.getHash());
         logWitnessDiff("codes", got.codes(), expected.codes(), block.getHash());

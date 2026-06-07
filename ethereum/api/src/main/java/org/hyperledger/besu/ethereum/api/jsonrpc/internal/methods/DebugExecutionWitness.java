@@ -138,13 +138,8 @@ public class DebugExecutionWitness extends AbstractBlockParameterOrBlockHashMeth
     final BonsaiExecutionWitnessBuilder.Witness witness;
     try {
       witness =
-          new BonsaiExecutionWitnessBuilder()
-              .buildWitness(
-                  blockHeader,
-                  getBlockchainQueries().getWorldStateArchive(),
-                  blockchain,
-                  result.getYield(),
-                  witnessTracer);
+          new BonsaiExecutionWitnessBuilder(getBlockchainQueries().getWorldStateArchive(), blockchain)
+              .buildWitness(blockHeader, result.getYield(), witnessTracer);
       if (witness.state().isEmpty()) {
         return new JsonRpcErrorResponse(reqId, RpcErrorType.INTERNAL_ERROR);
       }

@@ -32,9 +32,9 @@ import org.hyperledger.besu.ethereum.trie.pathbased.bonsai.cache.NoopBonsaiCache
 import org.hyperledger.besu.ethereum.trie.pathbased.bonsai.worldview.BonsaiWorldState;
 import org.hyperledger.besu.ethereum.trie.pathbased.bonsai.worldview.BonsaiWorldStateUpdateAccumulator;
 import org.hyperledger.besu.ethereum.trie.pathbased.common.provider.PathBasedWorldStateProvider;
+import org.hyperledger.besu.ethereum.worldstate.WorldStateArchive;
 import org.hyperledger.besu.ethereum.trie.pathbased.common.trielog.NoOpTrieLogManager;
 import org.hyperledger.besu.ethereum.trie.pathbased.common.worldview.WorldStateConfig;
-import org.hyperledger.besu.ethereum.worldstate.WorldStateArchive;
 import org.hyperledger.besu.evm.internal.EvmConfiguration;
 import org.hyperledger.besu.metrics.noop.NoOpMetricsSystem;
 import org.hyperledger.besu.plugin.services.trielogs.TrieLog;
@@ -61,6 +61,18 @@ public class BonsaiExecutionWitnessBuilder {
 
   public record Witness(List<String> state, List<String> codes, List<String> headers) {}
 
+  private final PathBasedWorldStateProvider pathBased;
+  private final Blockchain blockchain;
+
+  public BonsaiExecutionWitnessBuilder(
+      final WorldStateArchive worldStateArchive, final Blockchain blockchain) {
+    if (!(worldStateArchive instanceof PathBasedWorldStateProvider p)) {
+      throw new IllegalStateException("execution witness requires a PathBasedWorldStateProvider");
+    }
+    this.pathBased = p;
+    this.blockchain = blockchain;
+  }
+
   /**
    * Hybrid witness builder: uses {@link BlockProcessingOutputs} (TrieLog + BAL) for the {@code
    * state} and {@code headers} fields (same accuracy as the existing path), but uses the {@link
@@ -72,13 +84,8 @@ public class BonsaiExecutionWitnessBuilder {
    */
   public Witness buildWitness(
       final BlockHeader blockHeader,
-      final WorldStateArchive worldStateArchive,
-      final Blockchain blockchain,
       final Optional<BlockProcessingOutputs> maybeOutputs,
       final WitnessOperationTracer tracer) {
-    if (!(worldStateArchive instanceof PathBasedWorldStateProvider pathBased)) {
-      throw new IllegalStateException("execution witness requires a PathBased (Bonsai) archive");
-    }
     final TrieLog trieLog =
         pathBased
             .getTrieLogManager()
