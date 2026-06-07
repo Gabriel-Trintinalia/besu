@@ -113,7 +113,7 @@ public class BonsaiExecutionWitnessBuilder {
     try (worldState) {
       final List<String> state = buildTrieNodes(blockHeader, trieLog, ws, maybeBlockAccessList);
       final List<String> codes = buildCodes(ws, tracer.getCodeAddresses());
-      final List<String> headers = buildHeaders(blockchain, tracer.getAccessedAncestors());
+      final List<String> headers = buildHeaders(blockchain, tracer.getOldestAccessedAncestor());
       return new Witness(state, codes, headers);
     } catch (final IllegalStateException e) {
       throw e;
@@ -154,8 +154,7 @@ public class BonsaiExecutionWitnessBuilder {
     final BonsaiWorldStateUpdateAccumulator updater =
         (BonsaiWorldStateUpdateAccumulator) witnessWorldState.updater();
 
-    // Prefer BAL when present (Amsterdam+): it includes read-only SLOAD slots that TrieLog misses.
-    // Fall back to TrieLog alone for pre-Amsterdam blocks.
+    // Prefer BAL when present (Amsterdam+) and fall back to TrieLog alone for pre-Amsterdam blocks.
     if (maybeBal.isPresent()) {
       maybeBal.get().accountChanges().forEach(ac -> {
         updater.getAccount(ac.address());
@@ -197,21 +196,13 @@ public class BonsaiExecutionWitnessBuilder {
   }
 
   /**
-   * Returns RLP-encoded block headers for every ancestor whose hash was observed during block
-   * execution. At minimum the parent header is always present; additional entries are added for any
-   * ancestor resolved while serving {@code BLOCKHASH}. Headers are ordered ascending by block
-   * number as required by EIP-8025.
+   * Returns RLP-encoded headers for every block from {@code oldestAncestor} up to (but not
+   * including) the chain head, ordered ascending by block number as required by EIP-8025.
    */
-  private List<String> buildHeaders(
-      final Blockchain blockchain, final Map<Long, Hash> accessedAncestors) {
-    // accessedAncestors
-    long oldestAncestor = accessedAncestors.keySet().stream().min(Long::compare).orElseThrow();
-
-    // for oldestAncestor until parent of blockHeader, get header for each accessed ancestor number and hash
-    List<String> result = new ArrayList<>();
+  private List<String> buildHeaders(final Blockchain blockchain, final long oldestAncestor) {
+    final List<String> result = new ArrayList<>();
     for (long number = oldestAncestor; number < blockchain.getChainHeadBlockNumber(); number++) {
-      BlockHeader header = blockchain.getBlockHeader(number).orElseThrow();
-      result.add(RLP.encode(header::writeTo).toHexString());
+      result.add(RLP.encode(blockchain.getBlockHeader(number).orElseThrow()::writeTo).toHexString());
     }
     return result;
   }

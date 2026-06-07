@@ -43,48 +43,13 @@ import org.apache.tuweni.bytes.Bytes32;
  * Collects the contract bytecodes ({@code codes}) and ancestor block headers ({@code headers})
  * that a stateless executor needs to re-execute a block, as defined by EIP-8025.
  */
-// Determines which contract bytecodes and ancestor block headers a stateless executor needs to
-// re-execute a block, producing the `codes` and `headers` fields of an EIP-8025 execution witness.
-//
-// --- Stateless execution model ---
-// A stateless executor receives the block, a state witness (trie nodes proving every touched
-// account and storage slot), a list of contract bytecodes (`codes`), and ancestor block headers
-// (`headers`). It has no local database. Every piece of data it needs must be derivable from those
-// four inputs. This tracer decides exactly which bytecodes and headers are required.
-//
-// --- Why bytecodes must be explicit ---
-// The state witness proves account fields (nonce, balance, storageRoot, codeHash) via Merkle paths,
-// but not the bytecode itself — only its hash. The executor knows an account has code but cannot
-// reconstruct the instructions. The `codes` list supplies bytecodes so the executor can:
-//   1. Load and run the bytecode of every contract it calls (MESSAGE_CALL frames).
-//   2. Serve EXTCODESIZE / EXTCODECOPY without a local database.
-//   3. Read EIP-7702 delegation designators (0xef0100<address>) to resolve call targets
-//      and compute delegation-resolution gas.
-//   4. Verify intrinsic gas for EIP-7702 transactions, which depends on whether each authority
-//      already held non-empty code before the block started.
-//
-// --- Sources of required bytecodes (`codes` field) ---
-// Four hooks collect addresses:
-//   traceStartTransaction  — transaction sender, EIP-7702 authorities (pre-block state)
-//   traceContextEnter      — MESSAGE_CALL frame entry (contract + optional 7702 delegation target)
-//   tracePreExecution      — EXTCODESIZE, EXTCODECOPY, CALL-family (deferred; committed in post)
-//   tracePostExecution     — commits deferred addresses only when the opcode did not OOG
-//
-// --- Sources of required ancestor headers (`headers` field) ---
-// BLOCKHASH and the EIP-2935 history contract expose ancestor hashes to contracts. The executor
-// needs the corresponding headers to verify them. The parent header is always required. Additional
-// ancestors are recorded whenever a successful BLOCKHASH pushes a non-zero result.
-//
-// --- Timing constraint: EIP-7702 delegation processing precedes tracing ---
-// EIP-7702 set-code transactions apply their authorization list before EVM execution begins. By the
-// time traceStartTransaction fires, any authority whose authorization succeeded already has its
-// post-delegation code in the world state. To see pre-block code (what the intrinsic gas formula
-// observed) we use the parent-state snapshot captured in traceStartBlock.
 public class WitnessOperationTracer implements BlockAwareOperationTracer {
 
   private final GasCalculator gasCalculator;
   private final Set<Address> codeAddresses = new LinkedHashSet<>();
-  private final Map<Long, Hash> accessedAncestors = new LinkedHashMap<>();
+  // Oldest block number (inclusive) whose header the stateless executor must receive. Initialized
+  // to the parent block number (always required) and extended left by each successful BLOCKHASH.
+  private long oldestAccessedAncestor = Long.MAX_VALUE;
 
   /** @param gasCalculator the gas calculator for the fork being executed. */
   // gasCalculator for the fork being executed; used to compute memory expansion costs when
@@ -134,10 +99,6 @@ public class WitnessOperationTracer implements BlockAwareOperationTracer {
   private final IdentityHashMap<MessageFrame, Address> pendingCodeAddr =
       new IdentityHashMap<>();
 
-  // ---------------------------------------------------------------------------
-  // Block lifecycle
-  // ---------------------------------------------------------------------------
-
   @Override
   public void traceStartBlock(
       final WorldView worldView,
@@ -160,12 +121,8 @@ public class WitnessOperationTracer implements BlockAwareOperationTracer {
   private void recordParentHeader(final ProcessableBlockHeader header) {
     // Parent is unconditionally required: the stateless executor needs it to verify the block's
     // parentHash field and to seed the EIP-2935 history contract.
-    accessedAncestors.put(header.getNumber() - 1, header.getParentHash());
+    oldestAccessedAncestor = header.getNumber() - 1;
   }
-
-  // ---------------------------------------------------------------------------
-  // Transaction start — sender code and EIP-7702 authority codes
-  // ---------------------------------------------------------------------------
 
   /** Records sender code and EIP-7702 authority pre-block codes needed for intrinsic gas replay. */
   @Override
@@ -196,10 +153,6 @@ public class WitnessOperationTracer implements BlockAwareOperationTracer {
     }
   }
 
-  // ---------------------------------------------------------------------------
-  // Frame entry — executed contract and its 7702 delegation target
-  // ---------------------------------------------------------------------------
-
   /** Records the bytecode of each MESSAGE_CALL contract and its EIP-7702 delegation target. */
   @Override
   public void traceContextEnter(final MessageFrame frame) {
@@ -222,10 +175,6 @@ public class WitnessOperationTracer implements BlockAwareOperationTracer {
       codeAddresses.add(CodeDelegationHelper.getTargetAddress(code));
     }
   }
-
-  // ---------------------------------------------------------------------------
-  // Opcode pre-execution — record pending addresses / block numbers
-  // ---------------------------------------------------------------------------
 
   /** Captures target addresses and block numbers before each opcode executes, deferred to post. */
   @Override
@@ -285,10 +234,6 @@ public class WitnessOperationTracer implements BlockAwareOperationTracer {
     }
   }
 
-  // ---------------------------------------------------------------------------
-  // Opcode post-execution — commit addresses / headers if the opcode succeeded
-  // ---------------------------------------------------------------------------
-
   /** Commits deferred addresses and headers only when the preceding opcode did not OOG. */
   @Override
   public void tracePostExecution(final MessageFrame frame, final OperationResult operationResult) {
@@ -298,7 +243,7 @@ public class WitnessOperationTracer implements BlockAwareOperationTracer {
       if (operationResult.getHaltReason() == null && frame.stackSize() >= 1) {
         final Bytes32 hashBytes = Bytes32.leftPad(frame.getStackItem(0));
         if (!hashBytes.isZero()) {
-          accessedAncestors.put(pendingBlockHashNumber, Hash.wrap(hashBytes));
+          oldestAccessedAncestor = Math.min(oldestAccessedAncestor, pendingBlockHashNumber);
         }
       }
       pendingBlockHashNumber = -1;
@@ -336,18 +281,13 @@ public class WitnessOperationTracer implements BlockAwareOperationTracer {
     }
   }
 
-  // ---------------------------------------------------------------------------
-  // Result accessors
-  // ---------------------------------------------------------------------------
-
   /** Returns addresses whose bytecode must appear in the witness {@code codes} list. */
   public Set<Address> getCodeAddresses() {
     return Collections.unmodifiableSet(codeAddresses);
   }
 
-  /** Returns block-number → hash pairs that must appear in the witness {@code headers} list. */
-  public Map<Long, Hash> getAccessedAncestors() {
-    return Collections.unmodifiableMap(accessedAncestors);
+  /** Returns the oldest block number whose header must appear in the witness {@code headers} list. */
+  public long getOldestAccessedAncestor() {
+    return oldestAccessedAncestor;
   }
-
 }
