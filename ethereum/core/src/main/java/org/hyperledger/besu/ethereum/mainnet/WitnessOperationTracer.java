@@ -57,6 +57,10 @@ public class WitnessOperationTracer implements BlockAwareOperationTracer {
   private final Set<Address> codeAddresses = new LinkedHashSet<>();
   private final Map<Long, Hash> accessedAncestors = new LinkedHashMap<>();
 
+  // Parent-state view saved in traceStartBlock; used in traceStartTransaction to look up
+  // EIP-7702 authority codes from the pre-block state (before delegation processing cleared them).
+  private WorldView parentWorldView = null;
+
   // Transient: block number from BLOCKHASH pre-execution; consumed in tracePostExecution
   private long pendingBlockHashNumber = -1;
 
@@ -98,6 +102,7 @@ public class WitnessOperationTracer implements BlockAwareOperationTracer {
       final BlockHeader blockHeader,
       final BlockBody blockBody,
       final Address miningBeneficiary) {
+    parentWorldView = worldView;
     recordParentAndMiner(blockHeader);
   }
 
@@ -106,6 +111,7 @@ public class WitnessOperationTracer implements BlockAwareOperationTracer {
       final WorldView worldView,
       final ProcessableBlockHeader processableBlockHeader,
       final Address miningBeneficiary) {
+    parentWorldView = worldView;
     recordParentAndMiner(processableBlockHeader);
   }
 
@@ -123,10 +129,17 @@ public class WitnessOperationTracer implements BlockAwareOperationTracer {
       codeAddresses.add(sender);
     }
 
-    // EIP-7702: for each authorization authority whose code is currently a delegation designator,
-    // add the authority so its designation code appears in the witness for intrinsic gas
-    // verification. Only add the authority itself — never the delegation target (targets appear
-    // in codes only when their account is accessed for state proof, not for execution).
+    // EIP-7702: for each authorization authority that has any non-empty code in the pre-block
+    // state, add the authority so its code appears in the witness for intrinsic gas verification.
+    // Stateless verifiers need the pre-existing code (delegation designator or otherwise) to
+    // reproduce the intrinsic gas calculation. Only the authority itself is added — never the
+    // delegation target (targets appear in codes only when accessed during execution).
+    // Check authority codes from the PARENT world state (pre-block), not the current worldView.
+    // EIP-7702 delegation processing runs before traceStartTransaction is called, so by the time
+    // we reach here, a successfully-cleared authority's code is already empty in worldView.
+    // Using parentWorldView ensures we see the pre-block designation code — which is what the
+    // witness must include for intrinsic gas verification of the authorization.
+    final WorldView authorityView = parentWorldView != null ? parentWorldView : worldView;
     transaction
         .getCodeDelegationList()
         .ifPresent(
@@ -137,15 +150,15 @@ public class WitnessOperationTracer implements BlockAwareOperationTracer {
                             .authorizer()
                             .ifPresent(
                                 auth -> {
-                                  final var authAccount = worldView.get(auth);
+                                  final var authAccount = authorityView.get(auth);
                                   if (authAccount == null
                                       || authAccount.getCodeHash().equals(Hash.EMPTY)) {
                                     return;
                                   }
-                                  if (CodeDelegationHelper.hasCodeDelegation(
-                                      authAccount.getCode())) {
-                                    codeAddresses.add(auth);
-                                  }
+                                  // Include authority if it has any non-empty code (not just
+                                  // delegation designators) — the witness verifier needs the
+                                  // pre-existing code to verify intrinsic gas computation.
+                                  codeAddresses.add(auth);
                                 })));
   }
 
