@@ -19,6 +19,7 @@ import static org.junit.jupiter.api.Assumptions.assumeFalse;
 
 import org.hyperledger.besu.consensus.merge.blockcreation.ReferenceTestMergeBlockCreator;
 import org.hyperledger.besu.datatypes.Wei;
+import org.hyperledger.besu.ethereum.BlockProcessingOutputs;
 import org.hyperledger.besu.ethereum.BlockProcessingResult;
 import org.hyperledger.besu.ethereum.BlockValidator;
 import org.hyperledger.besu.ethereum.ProtocolContext;
@@ -398,7 +399,8 @@ public class BlockchainReferenceTestTools {
       expected -> {
         final BonsaiExecutionWitnessBuilder.Witness got =
           new BonsaiExecutionWitnessBuilder(ctx.getWorldStateArchive(), ctx.getBlockchain())
-            .buildWitness(block.getHeader(), processingResult.getYield(), witnessTracer);
+            .buildWitness(block.getHeader(), processingResult.getYield().flatMap(
+              BlockProcessingOutputs::getBlockAccessList), witnessTracer);
 
         logWitnessDiff("state", got.state(), expected.state(), block.getHash());
         logWitnessDiff("codes", got.codes(), expected.codes(), block.getHash());

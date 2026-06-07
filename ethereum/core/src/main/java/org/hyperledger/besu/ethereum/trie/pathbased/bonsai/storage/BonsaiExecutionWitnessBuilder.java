@@ -18,7 +18,6 @@ import static org.hyperledger.besu.ethereum.trie.pathbased.common.provider.World
 
 import org.hyperledger.besu.datatypes.Address;
 import org.hyperledger.besu.datatypes.Hash;
-import org.hyperledger.besu.datatypes.StorageSlotKey;
 import org.hyperledger.besu.ethereum.BlockProcessingOutputs;
 import org.hyperledger.besu.ethereum.chain.Blockchain;
 import org.hyperledger.besu.ethereum.mainnet.WitnessOperationTracer;
@@ -40,15 +39,11 @@ import org.hyperledger.besu.metrics.noop.NoOpMetricsSystem;
 import org.hyperledger.besu.plugin.services.trielogs.TrieLog;
 
 import java.util.ArrayList;
-import java.util.LinkedHashMap;
-import java.util.LinkedHashSet;
 import java.util.List;
 import java.util.Map;
 import java.util.Optional;
 import java.util.Set;
-import java.util.TreeSet;
 import java.util.concurrent.ConcurrentHashMap;
-import java.util.stream.Collectors;
 
 import org.apache.tuweni.bytes.Bytes;
 
@@ -61,15 +56,15 @@ public class BonsaiExecutionWitnessBuilder {
 
   public record Witness(List<String> state, List<String> codes, List<String> headers) {}
 
-  private final PathBasedWorldStateProvider pathBased;
+  private final PathBasedWorldStateProvider worldStateProvider;
   private final Blockchain blockchain;
 
   public BonsaiExecutionWitnessBuilder(
       final WorldStateArchive worldStateArchive, final Blockchain blockchain) {
-    if (!(worldStateArchive instanceof PathBasedWorldStateProvider p)) {
+    if (!(worldStateArchive instanceof PathBasedWorldStateProvider pathBasedWorldStateProvider)) {
       throw new IllegalStateException("execution witness requires a PathBasedWorldStateProvider");
     }
-    this.pathBased = p;
+    this.worldStateProvider = pathBasedWorldStateProvider;
     this.blockchain = blockchain;
   }
 
@@ -84,10 +79,10 @@ public class BonsaiExecutionWitnessBuilder {
    */
   public Witness buildWitness(
       final BlockHeader blockHeader,
-      final Optional<BlockProcessingOutputs> maybeOutputs,
+      final Optional<BlockAccessList> maybeBlockAccessList,
       final WitnessOperationTracer tracer) {
     final TrieLog trieLog =
-        pathBased
+        worldStateProvider
             .getTrieLogManager()
             .getTrieLogLayer(blockHeader.getHash())
             .orElseThrow(
@@ -104,7 +99,7 @@ public class BonsaiExecutionWitnessBuilder {
                         "Parent header not found: " + blockHeader.getParentHash()));
 
     final MutableWorldState worldState =
-        pathBased
+        worldStateProvider
             .getWorldState(withBlockHeaderAndNoUpdateNodeHead(parentHeader))
             .orElseThrow(
                 () ->
@@ -115,12 +110,8 @@ public class BonsaiExecutionWitnessBuilder {
       throw new IllegalStateException("parent world state is not a BonsaiWorldState");
     }
 
-    try (ws) {
-      final Optional<BlockAccessList> maybeBlockAccessList =
-          maybeOutputs.flatMap(BlockProcessingOutputs::getBlockAccessList);
-      final Map<Address, Set<StorageSlotKey>> touchedSlots =
-          resolveAccounts(trieLog, maybeBlockAccessList);
-      final List<String> state = buildTrieNodes(blockHeader, trieLog, ws, touchedSlots);
+    try (worldState) {
+      final List<String> state = buildTrieNodes(blockHeader, trieLog, ws, maybeBlockAccessList);
       final List<String> codes = buildCodes(ws, tracer.getCodeAddresses());
       final List<String> headers = buildHeaders(blockchain, tracer.getAccessedAncestors());
       return new Witness(state, codes, headers);
@@ -134,49 +125,16 @@ public class BonsaiExecutionWitnessBuilder {
 
 
   /**
-   * Returns address → touched storage slots for witness construction.
-   *
-   * <p>Always starts from the trie log (captures all changed accounts, including gas payers not
-   * present in the BAL). When a {@link BlockAccessList} is present (Amsterdam+) it is merged on
-   * top to include read-only slots that are not recorded in the trie log.
-   */
-  private Map<Address, Set<StorageSlotKey>> resolveAccounts(
-      final TrieLog trieLog, final Optional<BlockAccessList> maybeBal) {
-    if (maybeBal.isPresent()) {
-      final Map<Address, Set<StorageSlotKey>> result = new LinkedHashMap<>();
-      maybeBal
-          .get()
-          .accountChanges()
-          .forEach(
-              ac -> {
-                final Set<StorageSlotKey> slots = new LinkedHashSet<>();
-                ac.storageReads().forEach(sr -> slots.add(sr.slot()));
-                ac.storageChanges().forEach(sc -> slots.add(sc.slot()));
-                result.put(ac.address(), slots);
-              });
-      return result;
-    }
-    final Map<Address, Set<StorageSlotKey>> result = new LinkedHashMap<>();
-    trieLog
-        .getAccountChanges()
-        .forEach(
-            (address, __) ->
-                result.put(
-                    address, new LinkedHashSet<>(trieLog.getStorageChanges(address).keySet())));
-    return result;
-  }
-
-  /**
-   * Collects the trie nodes required to prove the given {@code touchedSlots} set. A throw-away
-   * {@link BonsaiWorldStateWitnessStorage} wraps the parent storage so that every trie-node read
-   * issued during state access and the subsequent {@code rollForward} + {@code persist} is
-   * intercepted and recorded. Returns the collected nodes as sorted hex strings.
+   * Collects the trie nodes required to re-execute the block. A throw-away {@link
+   * BonsaiWorldStateWitnessStorage} intercepts every trie-node read issued during account/slot
+   * access and the subsequent {@code rollForward} + {@code persist}. Returns nodes as sorted hex
+   * strings.
    */
   private List<String> buildTrieNodes(
       final BlockHeader blockHeader,
       final TrieLog trieLog,
       final BonsaiWorldState worldView,
-      final Map<Address, Set<StorageSlotKey>> touchedSlots) {
+      final Optional<BlockAccessList> maybeBal) {
 
     final BonsaiWorldStateWitnessStorage witnessStorage =
         new BonsaiWorldStateWitnessStorage(
@@ -196,11 +154,21 @@ public class BonsaiExecutionWitnessBuilder {
     final BonsaiWorldStateUpdateAccumulator updater =
         (BonsaiWorldStateUpdateAccumulator) witnessWorldState.updater();
 
-    touchedSlots.forEach(
-        (address, slots) -> {
-          updater.getAccount(address);
-          slots.forEach(slot -> updater.getStorageValueByStorageSlotKey(address, slot));
-        });
+    // Prefer BAL when present (Amsterdam+): it includes read-only SLOAD slots that TrieLog misses.
+    // Fall back to TrieLog alone for pre-Amsterdam blocks.
+    if (maybeBal.isPresent()) {
+      maybeBal.get().accountChanges().forEach(ac -> {
+        updater.getAccount(ac.address());
+        ac.storageReads().forEach(sr -> updater.getStorageValueByStorageSlotKey(ac.address(), sr.slot()));
+        ac.storageChanges().forEach(sc -> updater.getStorageValueByStorageSlotKey(ac.address(), sc.slot()));
+      });
+    } else {
+      trieLog.getAccountChanges().forEach((address, __) -> {
+        updater.getAccount(address);
+        trieLog.getStorageChanges(address).keySet()
+            .forEach(slot -> updater.getStorageValueByStorageSlotKey(address, slot));
+      });
+    }
 
     updater.rollForward(trieLog);
     updater.commit();

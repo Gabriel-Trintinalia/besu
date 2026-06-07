@@ -15,6 +15,7 @@
 package org.hyperledger.besu.ethereum.api.jsonrpc.internal.methods;
 
 import org.hyperledger.besu.datatypes.Hash;
+import org.hyperledger.besu.ethereum.BlockProcessingOutputs;
 import org.hyperledger.besu.ethereum.BlockProcessingResult;
 import org.hyperledger.besu.ethereum.ProtocolContext;
 import org.hyperledger.besu.ethereum.api.jsonrpc.RpcMethod;
@@ -139,7 +140,7 @@ public class DebugExecutionWitness extends AbstractBlockParameterOrBlockHashMeth
     try {
       witness =
           new BonsaiExecutionWitnessBuilder(getBlockchainQueries().getWorldStateArchive(), blockchain)
-              .buildWitness(blockHeader, result.getYield(), witnessTracer);
+              .buildWitness(blockHeader, result.getYield().flatMap(BlockProcessingOutputs::getBlockAccessList), witnessTracer);
       if (witness.state().isEmpty()) {
         return new JsonRpcErrorResponse(reqId, RpcErrorType.INTERNAL_ERROR);
       }

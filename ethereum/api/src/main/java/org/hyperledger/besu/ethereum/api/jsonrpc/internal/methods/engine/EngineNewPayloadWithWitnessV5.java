@@ -18,6 +18,7 @@ import static org.hyperledger.besu.ethereum.api.jsonrpc.internal.methods.Executi
 
 import org.hyperledger.besu.consensus.merge.blockcreation.MergeMiningCoordinator;
 import org.hyperledger.besu.datatypes.Hash;
+import org.hyperledger.besu.ethereum.BlockProcessingOutputs;
 import org.hyperledger.besu.ethereum.BlockProcessingResult;
 import org.hyperledger.besu.ethereum.ProtocolContext;
 import org.hyperledger.besu.ethereum.api.jsonrpc.RpcMethod;
@@ -94,7 +95,7 @@ public class EngineNewPayloadWithWitnessV5 extends EngineNewPayloadV5 {
           protocolSchedule.get().getByBlockHeader(blockHeader).getEvm().getGasCalculator());
       final BonsaiExecutionWitnessBuilder.Witness witness =
           new BonsaiExecutionWitnessBuilder(protocolContext.getWorldStateArchive(), protocolContext.getBlockchain())
-              .buildWitness(blockHeader, executionResult.getYield(), witnessTracer);
+              .buildWitness(blockHeader, executionResult.getYield().flatMap(BlockProcessingOutputs::getBlockAccessList), witnessTracer);
       if (witness.state().isEmpty()) {
         return new JsonRpcErrorResponse(reqId, RpcErrorType.INTERNAL_ERROR);
       }
