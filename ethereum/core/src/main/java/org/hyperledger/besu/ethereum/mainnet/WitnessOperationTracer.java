@@ -31,6 +31,7 @@ import java.util.Collections;
 import java.util.IdentityHashMap;
 import java.util.LinkedHashMap;
 import java.util.LinkedHashSet;
+import java.util.List;
 import java.util.Map;
 import java.util.Set;
 
@@ -196,24 +197,13 @@ public class WitnessOperationTracer implements BlockAwareOperationTracer {
       new IdentityHashMap<>();
 
   /**
-   * EXTCODESIZE / EXTCODECOPY target address captured in {@link #tracePreExecution}; committed to
-   * {@link #codeAddresses} in {@link #tracePostExecution} only when the opcode did not OOG (i.e.
-   * {@code haltReason == null}). An OOG abort means the bytecode was never accessed and the
-   * stateless executor does not need it.
+   * Address pending from the last EXTCODESIZE, EXTCODECOPY, or non-delegated CALL opcode in a
+   * frame. Captured in {@link #tracePreExecution} and committed to {@link #codeAddresses} in
+   * {@link #tracePostExecution} only when the opcode did not OOG ({@code haltReason == null}).
+   * Opcodes execute sequentially within a frame, so at most one entry exists per frame at a time.
+   * Delegated CALL targets are handled separately via {@link #pendingCallDelegations}.
    */
-  private final IdentityHashMap<MessageFrame, Address> pendingExtcodeAddr =
-      new IdentityHashMap<>();
-
-  /**
-   * Non-delegated CALL target address captured in {@link #tracePreExecution}. {@code
-   * AbstractCallOperation.execute()} calls {@code getAccount(to)} before the balance / depth check,
-   * so the target's code is accessed even when the call is a soft failure (returns without creating
-   * a child frame). We commit to {@link #codeAddresses} in {@link #tracePostExecution} when
-   * {@code haltReason == null}, which means at least the pre-read gas checks (checks 1 and 2)
-   * passed and the account was read. Delegated targets are handled separately via
-   * {@link #pendingCallDelegations}.
-   */
-  private final IdentityHashMap<MessageFrame, Address> pendingNonDelegCallAddr =
+  private final IdentityHashMap<MessageFrame, Address> pendingCodeAddr =
       new IdentityHashMap<>();
 
   // ---------------------------------------------------------------------------
@@ -278,27 +268,16 @@ public class WitnessOperationTracer implements BlockAwareOperationTracer {
     }
 
     final WorldView authorityView = parentWorldView != null ? parentWorldView : worldView;
-    transaction
-        .getCodeDelegationList()
-        .ifPresent(
-            list ->
-                list.forEach(
-                    delegation ->
-                        delegation
-                            .authorizer()
-                            .ifPresent(
-                                auth -> {
-                                  final var authAccount = authorityView.get(auth);
-                                  if (authAccount == null
-                                      || authAccount.getCodeHash().equals(Hash.EMPTY)) {
-                                    return;
-                                  }
-                                  // Any non-empty pre-block code on the authority must be in the
-                                  // witness so the stateless executor can reproduce the intrinsic
-                                  // gas check. This includes plain 0x00 code, non-designator code,
-                                  // and delegation designators alike.
-                                  codeAddresses.add(auth);
-                                })));
+    for (final var delegation : transaction.getCodeDelegationList().orElse(List.of())) {
+      delegation.authorizer().ifPresent(auth -> {
+        final var authAccount = authorityView.get(auth);
+        // Any non-empty pre-block code must be in the witness so the stateless executor can
+        // reproduce the intrinsic gas check (plain 0x00, non-designator, and designator alike).
+        if (authAccount != null && !authAccount.getCodeHash().equals(Hash.EMPTY)) {
+          codeAddresses.add(auth);
+        }
+      });
+    }
   }
 
   // ---------------------------------------------------------------------------
@@ -322,16 +301,14 @@ public class WitnessOperationTracer implements BlockAwareOperationTracer {
    */
   @Override
   public void traceContextEnter(final MessageFrame frame) {
-    if (frame.getType() == MessageFrame.Type.MESSAGE_CALL) {
-      final Address contract = frame.getContractAddress();
-      codeAddresses.add(contract);
-      final var account = frame.getWorldUpdater().get(contract);
-      if (account != null) {
-        final var code = account.getCode();
-        if (CodeDelegationHelper.hasCodeDelegation(code)) {
-          codeAddresses.add(CodeDelegationHelper.getTargetAddress(code));
-        }
-      }
+    if (frame.getType() != MessageFrame.Type.MESSAGE_CALL) return;
+    final Address contract = frame.getContractAddress();
+    codeAddresses.add(contract);
+    final var account = frame.getWorldUpdater().get(contract);
+    if (account == null) return;
+    final var code = account.getCode();
+    if (CodeDelegationHelper.hasCodeDelegation(code)) {
+      codeAddresses.add(CodeDelegationHelper.getTargetAddress(code));
     }
   }
 
@@ -385,7 +362,7 @@ public class WitnessOperationTracer implements BlockAwareOperationTracer {
     switch (opcode) {
       case 0x3B, 0x3C -> { // EXTCODESIZE, EXTCODECOPY
         if (frame.stackSize() >= 1) {
-          pendingExtcodeAddr.put(frame, Words.toAddress(frame.getStackItem(0)));
+          pendingCodeAddr.put(frame, Words.toAddress(frame.getStackItem(0)));
         }
       }
       case 0x40 -> { // BLOCKHASH
@@ -426,7 +403,7 @@ public class WitnessOperationTracer implements BlockAwareOperationTracer {
             pendingCallDelegations.put(frame, new PendingDelegationInfo(alice, T, tWasWarm, staticCost));
           } else {
             // Non-delegated alice: account-read is implied by passing checks 1+2.
-            pendingNonDelegCallAddr.put(frame, alice);
+            pendingCodeAddr.put(frame, alice);
           }
         }
       }
@@ -491,14 +468,9 @@ public class WitnessOperationTracer implements BlockAwareOperationTracer {
       pendingBlockHashNumber = -1;
     }
 
-    final Address nonDelegAddr = pendingNonDelegCallAddr.remove(frame);
-    if (nonDelegAddr != null && operationResult.getHaltReason() == null) {
-      codeAddresses.add(nonDelegAddr);
-    }
-
-    final Address extcodeAddr = pendingExtcodeAddr.remove(frame);
-    if (extcodeAddr != null && operationResult.getHaltReason() == null) {
-      codeAddresses.add(extcodeAddr);
+    final Address pendingAddr = pendingCodeAddr.remove(frame);
+    if (pendingAddr != null && operationResult.getHaltReason() == null) {
+      codeAddresses.add(pendingAddr);
     }
 
     final PendingDelegationInfo info = pendingCallDelegations.remove(frame);
