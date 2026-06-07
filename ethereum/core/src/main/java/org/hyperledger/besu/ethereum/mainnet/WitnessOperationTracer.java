@@ -195,7 +195,7 @@ public class WitnessOperationTracer implements BlockAwareOperationTracer {
         }
       }
       case 0x40 -> { // BLOCKHASH — capture requested block number; hash read in tracePostExecution
-        if (frame.stackSize() >= 1) pendingBlockHashNumber = frame.getStackItem(0).toLong();
+        if (frame.stackSize() >= 1) pendingBlockHashNumber = Words.clampedToLong(frame.getStackItem(0));
       }
       case 0xF1, 0xF2, 0xF4, 0xFA -> {
         // CALL/CALLCODE/DELEGATECALL/STATICCALL: AbstractCallOperation.execute() reads the target
