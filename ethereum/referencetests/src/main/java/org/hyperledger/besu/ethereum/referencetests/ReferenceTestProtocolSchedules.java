@@ -14,8 +14,6 @@
  */
 package org.hyperledger.besu.ethereum.referencetests;
 
-import org.hyperledger.besu.config.BlobSchedule;
-import org.hyperledger.besu.config.BlobScheduleOptions;
 import org.hyperledger.besu.config.GenesisConfigOptions;
 import org.hyperledger.besu.config.StubGenesisConfigOptions;
 import org.hyperledger.besu.ethereum.chain.BadBlockManager;
@@ -156,23 +154,9 @@ public class ReferenceTestProtocolSchedules {
                     "Prague", createSchedule(genesisStub.clone().pragueTime(0), evmConfiguration)),
                 Map.entry(
                     "Osaka", createSchedule(genesisStub.clone().osakaTime(0), evmConfiguration)),
-            Map.entry(
-              "Amsterdam",
-              createSchedule(
-                genesisStub
-                  .clone()
-                  // BPO1-5 timestamps must be present so applyBlobSchedule() fires
-                  // for each BPO fork. BPO2 carries the blob schedule used by
-                  // Amsterdam-network fixtures (target=14, max=21 = BPO2_DEFAULT).
-                  .bpo1Time(0)
-                  .bpo2Time(0)
-                  .bpo3Time(0)
-                  .bpo4Time(0)
-                  .bpo5Time(0)
-                  .amsterdamTime(0)
-                  .blobScheduleOptions(
-                    BlobScheduleOptions.of(Map.of("bpo2", BlobSchedule.BPO2_DEFAULT))),
-                evmConfiguration)),
+                Map.entry(
+                    "Amsterdam",
+                    createSchedule(genesisStub.clone().amsterdamTime(0), evmConfiguration)),
                 Map.entry(
                     "Bogota",
                     createSchedule(genesisStub.clone().futureEipsTime(0), evmConfiguration)),
