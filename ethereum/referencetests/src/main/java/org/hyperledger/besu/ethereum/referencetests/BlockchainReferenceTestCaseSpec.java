@@ -406,31 +406,4 @@ public class BlockchainReferenceTestCaseSpec {
       return blobScheduleOptions;
     }
   }
-
-  @JsonIgnoreProperties(ignoreUnknown = true)
-  public static class SpecConfig {
-    private final Optional<BlobScheduleOptions> blobScheduleOptions;
-
-    @JsonCreator
-    public SpecConfig(
-        @JsonProperty("blobSchedule") final Map<String, Map<String, String>> blobSchedule) {
-      if (blobSchedule == null || blobSchedule.isEmpty()) {
-        this.blobScheduleOptions = Optional.empty();
-      } else {
-        final ObjectNode root = JsonUtil.createEmptyObjectNode();
-        blobSchedule.forEach(
-            (fork, params) -> {
-              final ObjectNode forkNode = root.putObject(fork.toLowerCase(Locale.ROOT));
-              params.forEach(
-                  (key, hexValue) ->
-                      forkNode.put(key.toLowerCase(Locale.ROOT), Long.decode(hexValue).intValue()));
-            });
-        this.blobScheduleOptions = Optional.of(new BlobScheduleOptions(root));
-      }
-    }
-
-    public Optional<BlobScheduleOptions> getBlobScheduleOptions() {
-      return blobScheduleOptions;
-    }
-  }
 }
