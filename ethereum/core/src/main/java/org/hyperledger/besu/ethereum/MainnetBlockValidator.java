@@ -14,6 +14,7 @@
  */
 package org.hyperledger.besu.ethereum;
 
+import org.hyperledger.besu.datatypes.Hash;
 import org.hyperledger.besu.ethereum.chain.BadBlockCause;
 import org.hyperledger.besu.ethereum.chain.MutableBlockchain;
 import org.hyperledger.besu.ethereum.core.Block;
@@ -31,9 +32,11 @@ import org.hyperledger.besu.ethereum.mainnet.block.access.list.BlockAccessList;
 import org.hyperledger.besu.ethereum.trie.MerkleTrieException;
 import org.hyperledger.besu.ethereum.trie.pathbased.common.provider.WorldStateQueryParams;
 import org.hyperledger.besu.plugin.services.exception.StorageException;
+import org.hyperledger.besu.plugin.services.tracer.BlockAwareOperationTracer;
 
 import java.util.ArrayList;
 import java.util.List;
+import java.util.Map;
 import java.util.Optional;
 import java.util.OptionalLong;
 
@@ -219,6 +222,8 @@ public class MainnetBlockValidator implements BlockValidator {
             result.getYield().flatMap(BlockProcessingOutputs::getBlockAccessList);
         long cumulativeBlockGasUsed =
             result.getYield().map(BlockProcessingOutputs::getCumulativeBlockGasUsed).orElse(0L);
+        Map<Long, Hash> accessedAncestors =
+            result.getYield().map(BlockProcessingOutputs::getAccessedAncestors).orElse(Map.of());
         if (!blockBodyValidator.validateBody(
             context,
             block,
@@ -240,7 +245,8 @@ public class MainnetBlockValidator implements BlockValidator {
                     receipts,
                     maybeRequests,
                     processedBlockAccessList,
-                    cumulativeBlockGasUsed)),
+                    cumulativeBlockGasUsed,
+                    accessedAncestors)),
             result.getNbParallelizedTransactions());
       }
     } catch (MerkleTrieException ex) {
@@ -321,6 +327,147 @@ public class MainnetBlockValidator implements BlockValidator {
 
     return blockProcessor.processBlock(
         context, context.getBlockchain(), worldState, block, blockAccessList);
+  }
+
+  protected BlockProcessingResult processBlock(
+      final ProtocolContext context,
+      final MutableWorldState worldState,
+      final Block block,
+      final Optional<BlockAccessList> blockAccessList,
+      final BlockAwareOperationTracer tracer) {
+
+    return blockProcessor.processBlock(
+        context, context.getBlockchain(), worldState, block, blockAccessList, tracer);
+  }
+
+  @Override
+  public BlockProcessingResult validateAndProcessBlock(
+      final ProtocolContext context,
+      final Block block,
+      final HeaderValidationMode headerValidationMode,
+      final HeaderValidationMode ommerValidationMode,
+      final Optional<BlockAccessList> blockAccessList,
+      final boolean shouldPersist,
+      final boolean shouldRecordBadBlock,
+      final BlockAwareOperationTracer tracer) {
+
+    final int blockSize = block.getSize();
+    if (blockSize > maxRlpBlockSize) {
+      final String errorMessage =
+          "Block size of " + blockSize + " bytes exceeds limit of " + maxRlpBlockSize + " bytes";
+      var retval = new BlockProcessingResult(errorMessage);
+      handleFailedBlockProcessing(block, blockAccessList, retval, true, context);
+      return retval;
+    }
+
+    final BlockHeader header = block.getHeader();
+    final BlockHeader parentHeader;
+
+    try {
+      final MutableBlockchain blockchain = context.getBlockchain();
+      final Optional<BlockHeader> maybeParentHeader =
+          blockchain.getBlockHeader(header.getParentHash());
+      if (maybeParentHeader.isEmpty()) {
+        var retval =
+            new BlockProcessingResult(
+                "Parent block with hash " + header.getParentHash() + " not present");
+        handleFailedBlockProcessing(block, blockAccessList, retval, false, context);
+        return retval;
+      }
+      parentHeader = maybeParentHeader.get();
+
+      if (!blockHeaderValidator.validateHeader(
+          header, parentHeader, context, headerValidationMode)) {
+        final String error = String.format("Header validation failed (%s)", headerValidationMode);
+        var retval = new BlockProcessingResult(error);
+        handleFailedBlockProcessing(block, blockAccessList, retval, shouldRecordBadBlock, context);
+        return retval;
+      }
+    } catch (StorageException ex) {
+      var retval = new BlockProcessingResult(Optional.empty(), ex);
+      handleFailedBlockProcessing(block, blockAccessList, retval, false, context);
+      return retval;
+    }
+
+    final WorldStateQueryParams worldStateQueryParams =
+        WorldStateQueryParams.newBuilder()
+            .withBlockHeader(parentHeader)
+            .withShouldWorldStateUpdateHead(shouldPersist)
+            .build();
+    try (final var worldState =
+        context.getWorldStateArchive().getWorldState(worldStateQueryParams).orElse(null)) {
+
+      if (worldState == null) {
+        var retval =
+            BlockProcessingResult.worldStateUnavailable(
+                "Unable to process block because parent world state "
+                    + parentHeader.getStateRoot()
+                    + " is not available");
+        handleFailedBlockProcessing(block, blockAccessList, retval, false, context);
+        return retval;
+      }
+
+      if (!blockAccessListValidator.validate(
+          blockAccessList, block.getHeader(), block.getBody().getTransactions().size())) {
+        var result =
+            new BlockProcessingResult(
+                String.format(
+                    "Block access list validation failed for block %s",
+                    block.getHeader().getBlockHash()));
+        handleFailedBlockProcessing(block, blockAccessList, result, shouldRecordBadBlock, context);
+        return result;
+      }
+
+      var result = processBlock(context, worldState, block, blockAccessList, tracer);
+      if (result.isFailed()) {
+        handleFailedBlockProcessing(block, blockAccessList, result, shouldRecordBadBlock, context);
+        return result;
+      } else {
+        List<TransactionReceipt> receipts =
+            result.getYield().map(BlockProcessingOutputs::getReceipts).orElse(new ArrayList<>());
+        Optional<List<Request>> maybeRequests =
+            result.getYield().flatMap(BlockProcessingOutputs::getRequests);
+        Optional<BlockAccessList> processedBlockAccessList =
+            result.getYield().flatMap(BlockProcessingOutputs::getBlockAccessList);
+        long cumulativeBlockGasUsed =
+            result.getYield().map(BlockProcessingOutputs::getCumulativeBlockGasUsed).orElse(0L);
+        Map<Long, Hash> accessedAncestors =
+            result.getYield().map(BlockProcessingOutputs::getAccessedAncestors).orElse(Map.of());
+        if (!blockBodyValidator.validateBody(
+            context,
+            block,
+            receipts,
+            worldState.rootHash(),
+            ommerValidationMode,
+            BodyValidationMode.FULL,
+            OptionalLong.of(cumulativeBlockGasUsed))) {
+          result = new BlockProcessingResult("failed to validate output of imported block");
+          handleFailedBlockProcessing(
+              block, blockAccessList, result, shouldRecordBadBlock, context);
+          return result;
+        }
+
+        return new BlockProcessingResult(
+            Optional.of(
+                new BlockProcessingOutputs(
+                    worldState,
+                    receipts,
+                    maybeRequests,
+                    processedBlockAccessList,
+                    cumulativeBlockGasUsed,
+                    accessedAncestors)),
+            result.getNbParallelizedTransactions());
+      }
+    } catch (MerkleTrieException ex) {
+      context.getWorldStateArchive().heal(ex.getMaybeAddress(), ex.getLocation());
+      return new BlockProcessingResult(Optional.empty(), ex);
+    } catch (StorageException ex) {
+      var retval = new BlockProcessingResult(Optional.empty(), ex);
+      handleFailedBlockProcessing(block, blockAccessList, retval, false, context);
+      return retval;
+    } catch (Exception ex) {
+      throw new RuntimeException(ex);
+    }
   }
 
   @Override

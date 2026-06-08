@@ -100,9 +100,10 @@ public class SystemCallProcessor {
             inputData,
             accessLocationTracker);
 
+    final OperationTracer tracer = context.getOperationTracer();
     Deque<MessageFrame> stack = frame.getMessageFrameStack();
     while (!stack.isEmpty()) {
-      processor.process(stack.peekFirst(), OperationTracer.NO_TRACING);
+      processor.process(stack.peekFirst(), tracer);
     }
 
     accessLocationTracker.ifPresent(

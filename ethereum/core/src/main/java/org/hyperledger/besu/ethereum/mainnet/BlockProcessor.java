@@ -22,6 +22,7 @@ import org.hyperledger.besu.ethereum.core.Block;
 import org.hyperledger.besu.ethereum.core.MutableWorldState;
 import org.hyperledger.besu.ethereum.core.TransactionReceipt;
 import org.hyperledger.besu.ethereum.mainnet.block.access.list.BlockAccessList;
+import org.hyperledger.besu.plugin.services.tracer.BlockAwareOperationTracer;
 
 import java.util.List;
 import java.util.Optional;
@@ -119,6 +120,27 @@ public interface BlockProcessor {
       final Block block,
       final Optional<BlockAccessList> blockAccessList,
       final AbstractBlockProcessor.PreprocessingFunction preprocessingBlockFunction);
+
+  /**
+   * Processes the block with an explicit operation tracer, bypassing the plugin-based import
+   * tracer. Used by debug tooling (e.g. {@code debug_executionWitness}) that needs to observe EVM
+   * execution without interfering with the normal import tracer.
+   *
+   * @param protocolContext the current context of the protocol
+   * @param blockchain the blockchain to append the block to
+   * @param worldState the world state to apply changes to
+   * @param block the block to process
+   * @param blockAccessList the optional block access list
+   * @param tracer the tracer to use for this execution (replaces the plugin-based import tracer)
+   * @return the block processing result
+   */
+  BlockProcessingResult processBlock(
+      final ProtocolContext protocolContext,
+      final Blockchain blockchain,
+      final MutableWorldState worldState,
+      final Block block,
+      final Optional<BlockAccessList> blockAccessList,
+      final BlockAwareOperationTracer tracer);
 
   /**
    * Get ommer reward in ${@link Wei}

@@ -155,8 +155,7 @@ public class AccountChangesJson {
     }
 
     public NonceChange toNonceChange() {
-      return new NonceChange(
-          decodeIndex(blockAccessIndex), postNonce != null ? Long.decode(postNonce) : 0L);
+      return new NonceChange(decodeIndex(blockAccessIndex), decodeIndex(postNonce));
     }
   }
 
