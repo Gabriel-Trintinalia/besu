@@ -166,7 +166,16 @@ public class ReferenceTestProtocolSchedules {
                     "BPO5", createSchedule(genesisStub.clone().bpo5Time(0), evmConfiguration)),
                 Map.entry(
                     "Amsterdam",
-                    createSchedule(genesisStub.clone().amsterdamTime(0), evmConfiguration)),
+                    createSchedule(
+                        genesisStub
+                            .clone()
+                            .bpo1Time(0)
+                            .bpo2Time(0)
+                            .bpo3Time(0)
+                            .bpo4Time(0)
+                            .bpo5Time(0)
+                            .amsterdamTime(0),
+                        evmConfiguration)),
                 Map.entry(
                     "Bogota",
                     createSchedule(genesisStub.clone().futureEipsTime(0), evmConfiguration)),
