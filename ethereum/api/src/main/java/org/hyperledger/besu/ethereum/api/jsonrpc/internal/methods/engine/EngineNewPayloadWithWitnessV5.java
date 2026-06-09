@@ -26,8 +26,8 @@ import org.hyperledger.besu.ethereum.api.jsonrpc.internal.response.JsonRpcErrorR
 import org.hyperledger.besu.ethereum.api.jsonrpc.internal.response.JsonRpcResponse;
 import org.hyperledger.besu.ethereum.api.jsonrpc.internal.response.JsonRpcSuccessResponse;
 import org.hyperledger.besu.ethereum.api.jsonrpc.internal.response.RpcErrorType;
+import org.hyperledger.besu.ethereum.api.jsonrpc.internal.results.EngineExecutionWitnessResult;
 import org.hyperledger.besu.ethereum.api.jsonrpc.internal.results.EnginePayloadWithWitnessResult;
-import org.hyperledger.besu.ethereum.api.jsonrpc.internal.results.SszExecutionWitnessResult;
 import org.hyperledger.besu.ethereum.core.BlockHeader;
 import org.hyperledger.besu.ethereum.eth.manager.EthPeers;
 import org.hyperledger.besu.ethereum.mainnet.ProtocolSchedule;
@@ -110,7 +110,8 @@ public class EngineNewPayloadWithWitnessV5 extends EngineNewPayloadV5 {
               VALID,
               latestValidHash,
               Optional.empty(),
-              new SszExecutionWitnessResult(witness.state(), witness.codes(), witness.headers())));
+              new EngineExecutionWitnessResult(
+                  witness.state(), witness.codes(), witness.headers())));
     } catch (final IllegalStateException e) {
       return new JsonRpcErrorResponse(reqId, RpcErrorType.INTERNAL_ERROR);
     }

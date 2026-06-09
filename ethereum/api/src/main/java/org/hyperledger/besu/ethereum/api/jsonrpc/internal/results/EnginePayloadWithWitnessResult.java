@@ -56,13 +56,13 @@ public class EnginePayloadWithWitnessResult {
 
   @JsonProperty("witness")
   @JsonInclude(Include.NON_NULL)
-  private final SszExecutionWitnessResult witness;
+  private final EngineExecutionWitnessResult witness;
 
   public EnginePayloadWithWitnessResult(
       final EngineStatus status,
       final Hash latestValidHash,
       final Optional<String> validationError,
-      final SszExecutionWitnessResult witness) {
+      final EngineExecutionWitnessResult witness) {
     this.status = new EnginePayloadStatusResult(status, latestValidHash, validationError);
     this.witness = witness;
   }
@@ -72,7 +72,7 @@ public class EnginePayloadWithWitnessResult {
     return status;
   }
 
-  public SszExecutionWitnessResult getWitness() {
+  public EngineExecutionWitnessResult getWitness() {
     return witness;
   }
 }

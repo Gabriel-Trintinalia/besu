@@ -27,6 +27,7 @@ import org.hyperledger.besu.ethereum.api.jsonrpc.RpcMethod;
 import org.hyperledger.besu.ethereum.api.jsonrpc.internal.response.JsonRpcErrorResponse;
 import org.hyperledger.besu.ethereum.api.jsonrpc.internal.response.JsonRpcResponse;
 import org.hyperledger.besu.ethereum.api.jsonrpc.internal.response.RpcErrorType;
+import org.hyperledger.besu.ethereum.api.jsonrpc.internal.results.EngineExecutionWitnessResult;
 import org.hyperledger.besu.ethereum.chain.MutableBlockchain;
 import org.hyperledger.besu.ethereum.core.BlockHeader;
 import org.hyperledger.besu.ethereum.core.BlockHeaderTestFixture;
@@ -40,9 +41,11 @@ import org.hyperledger.besu.evm.gascalculator.GasCalculator;
 import org.hyperledger.besu.metrics.noop.NoOpMetricsSystem;
 import org.hyperledger.besu.plugin.services.trielogs.TrieLog;
 
+import java.util.List;
 import java.util.Map;
 import java.util.Optional;
 
+import com.fasterxml.jackson.databind.ObjectMapper;
 import io.vertx.core.Vertx;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
@@ -50,6 +53,7 @@ import org.mockito.junit.jupiter.MockitoExtension;
 
 @ExtendWith(MockitoExtension.class)
 class EngineNewPayloadWithWitnessV5Test {
+  private static final ObjectMapper MAPPER = new ObjectMapper();
 
   @Test
   void nameIsEngineNewPayloadWithWitnessV5() {
@@ -154,5 +158,33 @@ class EngineNewPayloadWithWitnessV5Test {
         mock(EthPeers.class),
         mock(EngineCallListener.class),
         new NoOpMetricsSystem());
+  }
+
+  @Test
+  void encodeEmptyWitness() {
+    final EngineExecutionWitnessResult result =
+        new EngineExecutionWitnessResult(List.of(), List.of(), List.of());
+
+    assertThat(result.getValue()).isEqualTo("0xc3c0c0c0");
+  }
+
+  @Test
+  void encodeMultipleItems() {
+    final EngineExecutionWitnessResult result =
+        new EngineExecutionWitnessResult(
+            List.of("0xaaaa", "0xbbbbbb"), List.of("0x6001"), List.of("0xf902"));
+
+    assertThat(result.getValue()).isEqualTo("0xd0c382f902c3826001c782aaaa83bbbbbb");
+  }
+
+  @Test
+  void jacksonSerializesAsHexStringNotObject() throws Exception {
+    final EngineExecutionWitnessResult result =
+        new EngineExecutionWitnessResult(List.of(), List.of(), List.of());
+
+    final String json = MAPPER.writeValueAsString(result);
+
+    assertThat(json).startsWith("\"0x");
+    assertThat(json).doesNotContain("{");
   }
 }
