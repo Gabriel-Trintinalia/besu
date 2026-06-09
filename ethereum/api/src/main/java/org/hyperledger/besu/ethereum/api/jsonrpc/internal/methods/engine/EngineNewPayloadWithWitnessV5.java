@@ -27,7 +27,7 @@ import org.hyperledger.besu.ethereum.api.jsonrpc.internal.response.JsonRpcRespon
 import org.hyperledger.besu.ethereum.api.jsonrpc.internal.response.JsonRpcSuccessResponse;
 import org.hyperledger.besu.ethereum.api.jsonrpc.internal.response.RpcErrorType;
 import org.hyperledger.besu.ethereum.api.jsonrpc.internal.results.EnginePayloadWithWitnessResult;
-import org.hyperledger.besu.ethereum.api.jsonrpc.internal.results.ExecutionWitnessResult;
+import org.hyperledger.besu.ethereum.api.jsonrpc.internal.results.SszExecutionWitnessResult;
 import org.hyperledger.besu.ethereum.core.BlockHeader;
 import org.hyperledger.besu.ethereum.eth.manager.EthPeers;
 import org.hyperledger.besu.ethereum.mainnet.ProtocolSchedule;
@@ -91,11 +91,16 @@ public class EngineNewPayloadWithWitnessV5 extends EngineNewPayloadV5 {
               .getBlockHeader(latestValidHash)
               .orElseThrow(
                   () -> new IllegalStateException("Block header not found: " + latestValidHash));
-      final WitnessOperationTracer witnessTracer = new WitnessOperationTracer(
-          protocolSchedule.get().getByBlockHeader(blockHeader).getEvm().getGasCalculator());
+      final WitnessOperationTracer witnessTracer =
+          new WitnessOperationTracer(
+              protocolSchedule.get().getByBlockHeader(blockHeader).getGasCalculator());
       final BonsaiExecutionWitnessBuilder.Witness witness =
-          new BonsaiExecutionWitnessBuilder(protocolContext.getWorldStateArchive(), protocolContext.getBlockchain())
-              .buildWitness(blockHeader, executionResult.getYield().flatMap(BlockProcessingOutputs::getBlockAccessList), witnessTracer);
+          new BonsaiExecutionWitnessBuilder(
+                  protocolContext.getWorldStateArchive(), protocolContext.getBlockchain())
+              .buildWitness(
+                  blockHeader,
+                  executionResult.getYield().flatMap(BlockProcessingOutputs::getBlockAccessList),
+                  witnessTracer);
       if (witness.state().isEmpty()) {
         return new JsonRpcErrorResponse(reqId, RpcErrorType.INTERNAL_ERROR);
       }
@@ -105,7 +110,7 @@ public class EngineNewPayloadWithWitnessV5 extends EngineNewPayloadV5 {
               VALID,
               latestValidHash,
               Optional.empty(),
-              new ExecutionWitnessResult(witness.state(), witness.codes(), witness.headers())));
+              new SszExecutionWitnessResult(witness.state(), witness.codes(), witness.headers())));
     } catch (final IllegalStateException e) {
       return new JsonRpcErrorResponse(reqId, RpcErrorType.INTERNAL_ERROR);
     }

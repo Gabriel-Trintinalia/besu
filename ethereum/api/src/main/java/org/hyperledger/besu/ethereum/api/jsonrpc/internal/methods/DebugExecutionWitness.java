@@ -43,8 +43,8 @@ import java.util.Optional;
  *
  * <p>Re-execution is required (rather than reading a stored witness) because state-access patterns
  * (SLOAD/SSTORE, BALANCE, CALL targets, BLOCKHASH ancestors) are only observable at execution time
- * and are not persisted separately. A {@link WitnessOperationTracer} is wired into re-execution
- * to collect all three witness inputs in a single pass: touched accounts (state trie nodes), code
+ * and are not persisted separately. A {@link WitnessOperationTracer} is wired into re-execution to
+ * collect all three witness inputs in a single pass: touched accounts (state trie nodes), code
  * addresses (bytecodes), and accessed ancestors (block headers).
  *
  * <p>Error responses:
@@ -72,7 +72,8 @@ public class DebugExecutionWitness extends AbstractBlockParameterOrBlockHashMeth
     this.protocolSchedule = protocolSchedule;
     blockchain = getBlockchainQueries().getBlockchain();
     witnessBuilder =
-    new BonsaiExecutionWitnessBuilder(getBlockchainQueries().getWorldStateArchive(), blockchain);
+        new BonsaiExecutionWitnessBuilder(
+            getBlockchainQueries().getWorldStateArchive(), blockchain);
   }
 
   @Override
@@ -119,8 +120,9 @@ public class DebugExecutionWitness extends AbstractBlockParameterOrBlockHashMeth
     // touched accounts (for state trie nodes), code addresses (for bytecodes), and accessed
     // ancestors (for block headers). This replaces the previous approach of deriving witness
     // inputs from BlockProcessingOutputs + BlockHashLookup + ContextEnteredTracker.
-    final WitnessOperationTracer witnessTracer = new WitnessOperationTracer(
-        protocolSchedule.getByBlockHeader(blockHeader).getEvm().getGasCalculator());
+    final WitnessOperationTracer witnessTracer =
+        new WitnessOperationTracer(
+            protocolSchedule.getByBlockHeader(blockHeader).getGasCalculator());
 
     final BlockProcessingResult result =
         protocolSchedule
@@ -142,8 +144,11 @@ public class DebugExecutionWitness extends AbstractBlockParameterOrBlockHashMeth
 
     final BonsaiExecutionWitnessBuilder.Witness witness;
     try {
-      witness = witnessBuilder
-              .buildWitness(blockHeader, result.getYield().flatMap(BlockProcessingOutputs::getBlockAccessList), witnessTracer);
+      witness =
+          witnessBuilder.buildWitness(
+              blockHeader,
+              result.getYield().flatMap(BlockProcessingOutputs::getBlockAccessList),
+              witnessTracer);
       if (witness.state().isEmpty()) {
         return new JsonRpcErrorResponse(reqId, RpcErrorType.INTERNAL_ERROR);
       }

@@ -15,6 +15,7 @@
 package org.hyperledger.besu.ethereum.api.jsonrpc.internal.methods.engine;
 
 import static org.assertj.core.api.Assertions.assertThat;
+import static org.mockito.Mockito.lenient;
 import static org.mockito.Mockito.mock;
 import static org.mockito.Mockito.when;
 
@@ -31,8 +32,13 @@ import org.hyperledger.besu.ethereum.core.BlockHeader;
 import org.hyperledger.besu.ethereum.core.BlockHeaderTestFixture;
 import org.hyperledger.besu.ethereum.eth.manager.EthPeers;
 import org.hyperledger.besu.ethereum.mainnet.ProtocolSchedule;
+import org.hyperledger.besu.ethereum.mainnet.ProtocolSpec;
+import org.hyperledger.besu.ethereum.trie.pathbased.common.provider.PathBasedWorldStateProvider;
+import org.hyperledger.besu.ethereum.trie.pathbased.common.trielog.TrieLogManager;
 import org.hyperledger.besu.ethereum.worldstate.WorldStateArchive;
+import org.hyperledger.besu.evm.gascalculator.GasCalculator;
 import org.hyperledger.besu.metrics.noop.NoOpMetricsSystem;
+import org.hyperledger.besu.plugin.services.trielogs.TrieLog;
 
 import java.util.Map;
 import java.util.Optional;
@@ -54,15 +60,10 @@ class EngineNewPayloadWithWitnessV5Test {
 
   @Test
   void buildValidResponseReturnsErrorWhenWitnessCannotBeBuilt() {
-    // World state archive is a plain WorldStateArchive (not path-based) so
-    // BonsaiExecutionWitnessBuilder returns empty — must surface as INTERNAL_ERROR.
-    final BlockHeader parent = new BlockHeaderTestFixture().number(0).buildHeader();
-    final BlockHeader header =
-        new BlockHeaderTestFixture().number(1).parentHash(parent.getHash()).buildHeader();
+    final BlockHeader header = new BlockHeaderTestFixture().number(1).buildHeader();
 
     final MutableBlockchain blockchain = mock(MutableBlockchain.class);
     when(blockchain.getBlockHeader(header.getHash())).thenReturn(Optional.of(header));
-    when(blockchain.getBlockHeader(parent.getHash())).thenReturn(Optional.of(parent));
 
     final ProtocolContext protocolContext = mock(ProtocolContext.class);
     when(protocolContext.getBlockchain()).thenReturn(blockchain);
@@ -84,6 +85,12 @@ class EngineNewPayloadWithWitnessV5Test {
   @Test
   void buildValidResponseReturnsErrorWhenParentHeaderMissing() {
     final BlockHeader header = new BlockHeaderTestFixture().number(1).buildHeader();
+    final TrieLogManager trieLogManager = mock(TrieLogManager.class);
+    when(trieLogManager.getTrieLogLayer(header.getHash()))
+        .thenReturn(Optional.of(mock(TrieLog.class)));
+
+    final PathBasedWorldStateProvider pathBasedProvider = mock(PathBasedWorldStateProvider.class);
+    when(pathBasedProvider.getTrieLogManager()).thenReturn(trieLogManager);
 
     final MutableBlockchain blockchain = mock(MutableBlockchain.class);
     when(blockchain.getBlockHeader(header.getHash())).thenReturn(Optional.of(header));
@@ -91,6 +98,7 @@ class EngineNewPayloadWithWitnessV5Test {
 
     final ProtocolContext protocolContext = mock(ProtocolContext.class);
     when(protocolContext.getBlockchain()).thenReturn(blockchain);
+    when(protocolContext.getWorldStateArchive()).thenReturn(pathBasedProvider);
 
     final EngineNewPayloadWithWitnessV5 method = newMethod(protocolContext);
     final BlockProcessingResult result =
@@ -129,8 +137,15 @@ class EngineNewPayloadWithWitnessV5Test {
   }
 
   private static EngineNewPayloadWithWitnessV5 newMethod(final ProtocolContext protocolContext) {
+    final GasCalculator gasCalculator = mock(GasCalculator.class);
+    final ProtocolSpec protocolSpec = mock(ProtocolSpec.class);
+    lenient().when(protocolSpec.getGasCalculator()).thenReturn(gasCalculator);
+
     final ProtocolSchedule schedule = mock(ProtocolSchedule.class);
     when(schedule.milestoneFor(org.mockito.ArgumentMatchers.any())).thenReturn(Optional.empty());
+    lenient()
+        .when(schedule.getByBlockHeader(org.mockito.ArgumentMatchers.any()))
+        .thenReturn(protocolSpec);
     return new EngineNewPayloadWithWitnessV5(
         mock(Vertx.class),
         schedule,

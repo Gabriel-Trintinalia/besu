@@ -39,13 +39,12 @@ import com.fasterxml.jackson.annotation.JsonUnwrapped;
  *   "status": "VALID",
  *   "latestValidHash": "0xabc123…",
  *   "validationError": null,
- *   "witness": {
- *     "state":   ["0x…", "0x…"],
- *     "codes":   ["0x…"],
- *     "headers": ["0x…", "0x…"]
- *   }
+ *   "witness": "0x…"
  * }
  * }</pre>
+ *
+ * <p>The {@code witness} value is an SSZ-encoded {@code ExecutionWitness} container as defined in
+ * EIP-8025.
  *
  * <p>The {@code witness} field is omitted ({@link Include#NON_NULL}) when the payload was not
  * VALID, matching the standard {@code engine_newPayloadV5} wire format for non-success responses.
@@ -57,13 +56,13 @@ public class EnginePayloadWithWitnessResult {
 
   @JsonProperty("witness")
   @JsonInclude(Include.NON_NULL)
-  private final ExecutionWitnessResult witness;
+  private final SszExecutionWitnessResult witness;
 
   public EnginePayloadWithWitnessResult(
       final EngineStatus status,
       final Hash latestValidHash,
       final Optional<String> validationError,
-      final ExecutionWitnessResult witness) {
+      final SszExecutionWitnessResult witness) {
     this.status = new EnginePayloadStatusResult(status, latestValidHash, validationError);
     this.witness = witness;
   }
@@ -73,7 +72,7 @@ public class EnginePayloadWithWitnessResult {
     return status;
   }
 
-  public ExecutionWitnessResult getWitness() {
+  public SszExecutionWitnessResult getWitness() {
     return witness;
   }
 }
