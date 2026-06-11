@@ -88,9 +88,9 @@ public abstract class AbstractEngineNewPayload extends ExecutionEngineJsonRpcMet
   private static final Hash OMMERS_HASH_CONSTANT = Hash.EMPTY_LIST_HASH;
   private static final Logger LOG = LoggerFactory.getLogger(AbstractEngineNewPayload.class);
   private static final BlockHeaderFunctions headerFunctions = new MainnetBlockHeaderFunctions();
-  private final MergeMiningCoordinator mergeCoordinator;
+  protected final MergeMiningCoordinator mergeCoordinator;
   private final EthPeers ethPeers;
-  private long lastExecutionTimeInNs = 0L;
+  protected long lastExecutionTimeInNs = 0L;
 
   protected final Optional<Long> amsterdamMilestone;
 
@@ -375,7 +375,22 @@ public abstract class AbstractEngineNewPayload extends ExecutionEngineJsonRpcMet
       return respondWith(reqId, blockParam, null, ACCEPTED);
     }
 
-    // execute block and return result response
+    return executeAndRespond(
+        reqId,
+        blockParam,
+        block,
+        maybeBlockAccessList,
+        blobTransactions,
+        latestValidAncestor.get());
+  }
+
+  protected JsonRpcResponse executeAndRespond(
+      final Object reqId,
+      final EnginePayloadParameter blockParam,
+      final Block block,
+      final Optional<BlockAccessList> maybeBlockAccessList,
+      final List<Transaction> blobTransactions,
+      final Hash latestValidAncestor) {
     final long startTimeNs = System.nanoTime();
     final BlockProcessingResult executionResult =
         mergeCoordinator.rememberBlock(block, maybeBlockAccessList);
@@ -390,25 +405,19 @@ public abstract class AbstractEngineNewPayload extends ExecutionEngineJsonRpcMet
               .sum(),
           lastExecutionTimeInNs,
           executionResult.getNbParallelizedTransactions());
-      final Hash validHash = newBlockHeader.getHash();
+      final Hash validHash = block.getHeader().getHash();
       logEnginePayloadResponse(blockParam, validHash, VALID);
       return buildValidResponse(reqId, validHash, executionResult);
     } else {
       if (executionResult.causedBy().isPresent()) {
         Throwable causedBy = executionResult.causedBy().get();
         if (causedBy instanceof StorageException || causedBy instanceof MerkleTrieException) {
-          RpcErrorType error = RpcErrorType.INTERNAL_ERROR;
-          JsonRpcErrorResponse response = new JsonRpcErrorResponse(reqId, error);
-          return response;
+          return new JsonRpcErrorResponse(reqId, RpcErrorType.INTERNAL_ERROR);
         }
       }
       LOG.debug("New payload is invalid: {}", executionResult.errorMessage.get());
       return respondWithInvalid(
-          reqId,
-          blockParam,
-          latestValidAncestor.get(),
-          INVALID,
-          executionResult.errorMessage.get());
+          reqId, blockParam, latestValidAncestor, INVALID, executionResult.errorMessage.get());
     }
   }
 
@@ -490,7 +499,7 @@ public abstract class AbstractEngineNewPayload extends ExecutionEngineJsonRpcMet
         requestId, new EnginePayloadStatusResult(status, latestValidHash, Optional.empty()));
   }
 
-  private void logEnginePayloadResponse(
+  protected void logEnginePayloadResponse(
       final EnginePayloadParameter param, final Hash latestValidHash, final EngineStatus status) {
     LOG.atDebug()
         .setMessage(
@@ -721,7 +730,7 @@ public abstract class AbstractEngineNewPayload extends ExecutionEngineJsonRpcMet
                 .collect(Collectors.toList()));
   }
 
-  private void logImportedBlockInfo(
+  protected void logImportedBlockInfo(
       final Block block,
       final int blobCount,
       final long timeInNs,

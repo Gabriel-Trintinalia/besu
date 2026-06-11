@@ -14,6 +14,7 @@
  */
 package org.hyperledger.besu.ethereum.api.jsonrpc.internal.methods.engine;
 
+import static org.hyperledger.besu.ethereum.api.jsonrpc.internal.methods.ExecutionEngineJsonRpcMethod.EngineStatus.INVALID;
 import static org.hyperledger.besu.ethereum.api.jsonrpc.internal.methods.ExecutionEngineJsonRpcMethod.EngineStatus.VALID;
 
 import org.hyperledger.besu.consensus.merge.blockcreation.MergeMiningCoordinator;
@@ -22,36 +23,40 @@ import org.hyperledger.besu.ethereum.BlockProcessingOutputs;
 import org.hyperledger.besu.ethereum.BlockProcessingResult;
 import org.hyperledger.besu.ethereum.ProtocolContext;
 import org.hyperledger.besu.ethereum.api.jsonrpc.RpcMethod;
+import org.hyperledger.besu.ethereum.api.jsonrpc.internal.parameters.EnginePayloadParameter;
 import org.hyperledger.besu.ethereum.api.jsonrpc.internal.response.JsonRpcErrorResponse;
 import org.hyperledger.besu.ethereum.api.jsonrpc.internal.response.JsonRpcResponse;
 import org.hyperledger.besu.ethereum.api.jsonrpc.internal.response.JsonRpcSuccessResponse;
 import org.hyperledger.besu.ethereum.api.jsonrpc.internal.response.RpcErrorType;
 import org.hyperledger.besu.ethereum.api.jsonrpc.internal.results.EngineExecutionWitnessResult;
 import org.hyperledger.besu.ethereum.api.jsonrpc.internal.results.EnginePayloadWithWitnessResult;
+import org.hyperledger.besu.ethereum.core.Block;
 import org.hyperledger.besu.ethereum.core.BlockHeader;
+import org.hyperledger.besu.ethereum.core.Transaction;
 import org.hyperledger.besu.ethereum.eth.manager.EthPeers;
 import org.hyperledger.besu.ethereum.mainnet.ProtocolSchedule;
 import org.hyperledger.besu.ethereum.mainnet.WitnessOperationTracer;
+import org.hyperledger.besu.ethereum.mainnet.block.access.list.BlockAccessList;
+import org.hyperledger.besu.ethereum.trie.MerkleTrieException;
 import org.hyperledger.besu.ethereum.trie.pathbased.bonsai.storage.BonsaiExecutionWitnessBuilder;
 import org.hyperledger.besu.plugin.services.MetricsSystem;
+import org.hyperledger.besu.plugin.services.exception.StorageException;
 
+import java.util.List;
 import java.util.Optional;
 
 import io.vertx.core.Vertx;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 
 /**
  * Implements {@code engine_newPayloadWithWitnessV5}: same request/response shape as {@code
  * engine_newPayloadV5} but the success response additionally carries an EIP-8025 execution witness
  * for the imported block.
- *
- * <p>The witness is assembled immediately after the block is imported by reading the trie log and
- * block access list produced during execution (both available via {@link
- * org.hyperledger.besu.ethereum.BlockProcessingOutputs}). If the witness cannot be built — for
- * example because the world-state archive is not path-based — a {@link JsonRpcErrorResponse} with
- * {@code INTERNAL_ERROR} is returned so callers receive a clear error rather than a silently empty
- * witness.
  */
 public class EngineNewPayloadWithWitnessV5 extends EngineNewPayloadV5 {
+
+  private static final Logger LOG = LoggerFactory.getLogger(EngineNewPayloadWithWitnessV5.class);
 
   public EngineNewPayloadWithWitnessV5(
       final Vertx vertx,
@@ -77,23 +82,65 @@ public class EngineNewPayloadWithWitnessV5 extends EngineNewPayloadV5 {
   }
 
   /**
-   * Builds the EIP-8025 witness and returns either a success response carrying {@link
-   * EnginePayloadWithWitnessResult} or a {@link JsonRpcErrorResponse} with {@code INTERNAL_ERROR}
-   * when the witness cannot be built or has an empty {@code state} list.
+   * Overrides execution to wire a {@link WitnessOperationTracer} directly into block processing so
+   * it observes all EVM frames — including system-contract calls (EIP-2935, EIP-4788, EIP-7002,
+   * EIP-7251) — during the single import pass. No re-execution needed.
    */
   @Override
-  protected JsonRpcResponse buildValidResponse(
-      final Object reqId, final Hash latestValidHash, final BlockProcessingResult executionResult) {
+  protected JsonRpcResponse executeAndRespond(
+      final Object reqId,
+      final EnginePayloadParameter blockParam,
+      final Block block,
+      final Optional<BlockAccessList> maybeBlockAccessList,
+      final List<Transaction> blobTransactions,
+      final Hash latestValidAncestor) {
+    final WitnessOperationTracer witnessTracer =
+        new WitnessOperationTracer(
+            protocolSchedule.get().getByBlockHeader(block.getHeader()).getGasCalculator());
+
+    final long startTimeNs = System.nanoTime();
+    final BlockProcessingResult executionResult =
+        mergeCoordinator.rememberBlock(block, maybeBlockAccessList, witnessTracer);
+
+    if (executionResult.isSuccessful()) {
+      lastExecutionTimeInNs = System.nanoTime() - startTimeNs;
+      logImportedBlockInfo(
+          block,
+          blobTransactions.stream()
+              .map(Transaction::getVersionedHashes)
+              .flatMap(Optional::stream)
+              .mapToInt(List::size)
+              .sum(),
+          lastExecutionTimeInNs,
+          executionResult.getNbParallelizedTransactions());
+      final Hash validHash = block.getHeader().getHash();
+      logEnginePayloadResponse(blockParam, validHash, VALID);
+      return buildWitnessResponse(reqId, validHash, executionResult, witnessTracer);
+    } else {
+      if (executionResult.causedBy().isPresent()) {
+        final Throwable causedBy = executionResult.causedBy().get();
+        if (causedBy instanceof StorageException || causedBy instanceof MerkleTrieException) {
+          return new JsonRpcErrorResponse(reqId, RpcErrorType.INTERNAL_ERROR);
+        }
+      }
+      LOG.debug("New payload is invalid: {}", executionResult.errorMessage.get());
+      return respondWithInvalid(
+          reqId, blockParam, latestValidAncestor, INVALID, executionResult.errorMessage.get());
+    }
+  }
+
+  private JsonRpcResponse buildWitnessResponse(
+      final Object reqId,
+      final Hash validHash,
+      final BlockProcessingResult executionResult,
+      final WitnessOperationTracer witnessTracer) {
     try {
       final BlockHeader blockHeader =
           protocolContext
               .getBlockchain()
-              .getBlockHeader(latestValidHash)
-              .orElseThrow(
-                  () -> new IllegalStateException("Block header not found: " + latestValidHash));
-      final WitnessOperationTracer witnessTracer =
-          new WitnessOperationTracer(
-              protocolSchedule.get().getByBlockHeader(blockHeader).getGasCalculator());
+              .getBlockHeader(validHash)
+              .orElseThrow(() -> new IllegalStateException("Block header not found: " + validHash));
+
       final BonsaiExecutionWitnessBuilder.Witness witness =
           new BonsaiExecutionWitnessBuilder(
                   protocolContext.getWorldStateArchive(), protocolContext.getBlockchain())
@@ -108,7 +155,7 @@ public class EngineNewPayloadWithWitnessV5 extends EngineNewPayloadV5 {
           reqId,
           new EnginePayloadWithWitnessResult(
               VALID,
-              latestValidHash,
+              validHash,
               Optional.empty(),
               new EngineExecutionWitnessResult(
                   witness.state(), witness.codes(), witness.headers())));

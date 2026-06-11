@@ -15,7 +15,6 @@
 package org.hyperledger.besu.ethereum.api.jsonrpc.internal.results;
 
 import org.hyperledger.besu.ethereum.rlp.RLP;
-import org.hyperledger.besu.ethereum.rlp.RLPOutput;
 
 import java.util.List;
 
@@ -40,9 +39,9 @@ public class EngineExecutionWitnessResult {
         RLP.encode(
                 out -> {
                   out.startList();
-                  writeBytesList(out, headers);
-                  writeBytesList(out, codes);
-                  writeBytesList(out, state);
+                  out.writeList(headers, (item, o) -> o.writeBytes(Bytes.fromHexString(item)));
+                  out.writeList(codes, (item, o) -> o.writeBytes(Bytes.fromHexString(item)));
+                  out.writeList(state, (item, o) -> o.writeBytes(Bytes.fromHexString(item)));
                   out.endList();
                 })
             .toHexString();
@@ -51,13 +50,5 @@ public class EngineExecutionWitnessResult {
   @JsonValue
   public String getValue() {
     return hexValue;
-  }
-
-  private static void writeBytesList(final RLPOutput out, final List<String> hexItems) {
-    out.startList();
-    for (final String item : hexItems) {
-      out.writeBytes(Bytes.fromHexString(item));
-    }
-    out.endList();
   }
 }
