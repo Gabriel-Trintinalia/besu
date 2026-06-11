@@ -122,6 +122,41 @@ public class BonsaiWorldStateWitnessStorage extends BonsaiWorldStateLayerStorage
     return accountStorageTrieNode;
   }
 
+  /**
+   * Bypass the parent's flat-DB cache so the witness flat-DB strategy always traverses the trie and
+   * intercepts every node via {@link #getAccountStateTrieNode}. Without this override, a warm entry
+   * in the inherited {@code VersionedCacheManager} returns the cached flat-DB value directly,
+   * skipping the trie traversal and leaving those nodes out of the witness.
+   */
+  @Override
+  public Optional<Bytes> getAccount(final Hash accountHash) {
+    return witnessFlatDbStrategy.getFlatAccount(
+        this::getWorldStateRootHash,
+        this::getAccountStateTrieNode,
+        accountHash,
+        composedWorldStateStorage);
+  }
+
+  /**
+   * Bypass the parent's flat-DB cache so the witness flat-DB strategy always traverses the storage
+   * trie and intercepts every node via {@link #getAccountStorageTrieNode}. Without this override, a
+   * warm entry in the inherited {@code VersionedCacheManager} returns the cached flat-DB value
+   * directly, skipping the trie traversal and leaving those nodes out of the witness.
+   */
+  @Override
+  public Optional<Bytes> getStorageValueByStorageSlotKey(
+      final Supplier<Optional<Hash>> storageRootSupplier,
+      final Hash accountHash,
+      final StorageSlotKey storageSlotKey) {
+    return witnessFlatDbStrategy.getFlatStorageValueByStorageSlotKey(
+        this::getWorldStateRootHash,
+        storageRootSupplier,
+        (location, hash) -> getAccountStorageTrieNode(accountHash, location, hash),
+        accountHash,
+        storageSlotKey,
+        composedWorldStateStorage);
+  }
+
   @Override
   public BonsaiFlatDbStrategy getFlatDbStrategy() {
     return witnessFlatDbStrategy;
