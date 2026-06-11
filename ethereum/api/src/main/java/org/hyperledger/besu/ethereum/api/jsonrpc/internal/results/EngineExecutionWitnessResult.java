@@ -39,7 +39,9 @@ public class EngineExecutionWitnessResult {
         RLP.encode(
                 out -> {
                   out.startList();
-                  out.writeList(headers, (item, o) -> o.writeBytes(Bytes.fromHexString(item)));
+                  // Headers are already RLP-encoded lists; embed them as nested RLP items
+                  // (not as byte strings) so the harness can decode and re-encode them correctly.
+                  out.writeList(headers, (item, o) -> o.writeRLPBytes(Bytes.fromHexString(item)));
                   out.writeList(codes, (item, o) -> o.writeBytes(Bytes.fromHexString(item)));
                   out.writeList(state, (item, o) -> o.writeBytes(Bytes.fromHexString(item)));
                   out.endList();

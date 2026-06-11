@@ -263,11 +263,16 @@ class EngineNewPayloadWithWitnessV5Test {
 
   @Test
   void encodeMultipleItems() {
+    // Headers must be valid RLP (they are embedded as nested RLP items, not byte strings).
+    // 0xc0 = RLP empty list; codes and state are raw bytes stored as byte strings.
     final EngineExecutionWitnessResult result =
         new EngineExecutionWitnessResult(
-            List.of("0xaaaa", "0xbbbbbb"), List.of("0x6001"), List.of("0xf902"));
+            List.of("0xaaaa", "0xbbbbbb"), List.of("0x6001"), List.of("0xc0"));
 
-    assertThat(result.getValue()).isEqualTo("0xd0c382f902c3826001c782aaaa83bbbbbb");
+    // outer[ headers[c0], codes[826001], state[82aaaa, 83bbbbbb] ]
+    // headers list: c1c0 (2 bytes), codes list: c3826001 (4 bytes), state list: c782aaaa83bbbbbb
+    // (8 bytes) → outer content 14 bytes → ce prefix
+    assertThat(result.getValue()).isEqualTo("0xcec1c0c3826001c782aaaa83bbbbbb");
   }
 
   @Test
