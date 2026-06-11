@@ -1512,7 +1512,8 @@ public abstract class MainnetProtocolSpecs {
         final Optional<BlockAccessList> blockAccessList,
         final BlockAwareOperationTracer tracer) {
       updateWorldStateForDao(worldState);
-      return wrapped.processBlock(protocolContext, blockchain, worldState, block, blockAccessList, tracer);
+      return wrapped.processBlock(
+          protocolContext, blockchain, worldState, block, blockAccessList, tracer);
     }
 
     private static final Address DAO_REFUND_CONTRACT_ADDRESS =

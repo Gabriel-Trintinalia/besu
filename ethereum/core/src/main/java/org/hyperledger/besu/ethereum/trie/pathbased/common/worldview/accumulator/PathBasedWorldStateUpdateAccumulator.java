@@ -955,12 +955,11 @@ public abstract class PathBasedWorldStateUpdateAccumulator<ACCOUNT extends PathB
 
   private Optional<ACCOUNT> applyBalOverlayToAccountState(
       final Address address, final Supplier<ACCOUNT> accountSupplier) {
-    return blockAccessListOverlay().flatMap(
-        overlay -> overlay.applyToAccountState(address, accountSupplier));
+    return blockAccessListOverlay()
+        .flatMap(overlay -> overlay.applyToAccountState(address, accountSupplier));
   }
 
-  private void applyBalOverlayToCode(
-      final Address address, final PathBasedValue<Bytes> codeValue) {
+  private void applyBalOverlayToCode(final Address address, final PathBasedValue<Bytes> codeValue) {
     blockAccessListOverlay()
         .ifPresent(overlay -> overlay.applyToCode(address, codeValue::setUpdated));
   }

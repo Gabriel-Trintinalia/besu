@@ -20,9 +20,9 @@ import org.hyperledger.besu.datatypes.Address;
 import org.hyperledger.besu.datatypes.Hash;
 import org.hyperledger.besu.ethereum.BlockProcessingOutputs;
 import org.hyperledger.besu.ethereum.chain.Blockchain;
-import org.hyperledger.besu.ethereum.mainnet.WitnessOperationTracer;
 import org.hyperledger.besu.ethereum.core.BlockHeader;
 import org.hyperledger.besu.ethereum.core.MutableWorldState;
+import org.hyperledger.besu.ethereum.mainnet.WitnessOperationTracer;
 import org.hyperledger.besu.ethereum.mainnet.block.access.list.BlockAccessList;
 import org.hyperledger.besu.ethereum.rlp.RLP;
 import org.hyperledger.besu.ethereum.trie.pathbased.bonsai.NoOpBonsaiCachedWorldStorageManager;
@@ -31,16 +31,15 @@ import org.hyperledger.besu.ethereum.trie.pathbased.bonsai.cache.NoopBonsaiCache
 import org.hyperledger.besu.ethereum.trie.pathbased.bonsai.worldview.BonsaiWorldState;
 import org.hyperledger.besu.ethereum.trie.pathbased.bonsai.worldview.BonsaiWorldStateUpdateAccumulator;
 import org.hyperledger.besu.ethereum.trie.pathbased.common.provider.PathBasedWorldStateProvider;
-import org.hyperledger.besu.ethereum.worldstate.WorldStateArchive;
 import org.hyperledger.besu.ethereum.trie.pathbased.common.trielog.NoOpTrieLogManager;
 import org.hyperledger.besu.ethereum.trie.pathbased.common.worldview.WorldStateConfig;
+import org.hyperledger.besu.ethereum.worldstate.WorldStateArchive;
 import org.hyperledger.besu.evm.internal.EvmConfiguration;
 import org.hyperledger.besu.metrics.noop.NoOpMetricsSystem;
 import org.hyperledger.besu.plugin.services.trielogs.TrieLog;
 
 import java.util.ArrayList;
 import java.util.List;
-import java.util.Map;
 import java.util.Optional;
 import java.util.Set;
 import java.util.concurrent.ConcurrentHashMap;
@@ -74,8 +73,8 @@ public class BonsaiExecutionWitnessBuilder {
    * WitnessOperationTracer}'s code-address set for {@code codes}. This correctly includes system
    * contracts that were called during pre-execution (EIP-2935, EIP-7002, etc.) but whose codes the
    * TrieLog+BAL path was previously missing because {@link
-   * org.hyperledger.besu.ethereum.mainnet.systemcall.SystemCallProcessor} used
-   * {@code OperationTracer.NO_TRACING}.
+   * org.hyperledger.besu.ethereum.mainnet.systemcall.SystemCallProcessor} used {@code
+   * OperationTracer.NO_TRACING}.
    */
   public Witness buildWitness(
       final BlockHeader blockHeader,
@@ -113,7 +112,8 @@ public class BonsaiExecutionWitnessBuilder {
     try (worldState) {
       final List<String> state = buildTrieNodes(blockHeader, trieLog, ws, maybeBlockAccessList);
       final List<String> codes = buildCodes(ws, tracer.getCodeAddresses());
-      final List<String> headers = buildHeaders(blockchain, tracer.getOldestAccessedAncestor());
+      final List<String> headers =
+          buildHeaders(blockchain, tracer.getOldestAccessedAncestor(), blockHeader.getNumber());
       return new Witness(state, codes, headers);
     } catch (final IllegalStateException e) {
       throw e;
@@ -122,7 +122,6 @@ public class BonsaiExecutionWitnessBuilder {
           "failed to build execution witness for " + blockHeader.getHash(), e);
     }
   }
-
 
   /**
    * Collects the trie nodes required to re-execute the block. A throw-away {@link
@@ -156,17 +155,30 @@ public class BonsaiExecutionWitnessBuilder {
 
     // Prefer BAL when present (Amsterdam+) and fall back to TrieLog alone for pre-Amsterdam blocks.
     if (maybeBal.isPresent()) {
-      maybeBal.get().accountChanges().forEach(ac -> {
-        updater.getAccount(ac.address());
-        ac.storageReads().forEach(sr -> updater.getStorageValueByStorageSlotKey(ac.address(), sr.slot()));
-        ac.storageChanges().forEach(sc -> updater.getStorageValueByStorageSlotKey(ac.address(), sc.slot()));
-      });
+      maybeBal
+          .get()
+          .accountChanges()
+          .forEach(
+              ac -> {
+                updater.getAccount(ac.address());
+                ac.storageReads()
+                    .forEach(
+                        sr -> updater.getStorageValueByStorageSlotKey(ac.address(), sr.slot()));
+                ac.storageChanges()
+                    .forEach(
+                        sc -> updater.getStorageValueByStorageSlotKey(ac.address(), sc.slot()));
+              });
     } else {
-      trieLog.getAccountChanges().forEach((address, __) -> {
-        updater.getAccount(address);
-        trieLog.getStorageChanges(address).keySet()
-            .forEach(slot -> updater.getStorageValueByStorageSlotKey(address, slot));
-      });
+      trieLog
+          .getAccountChanges()
+          .forEach(
+              (address, __) -> {
+                updater.getAccount(address);
+                trieLog
+                    .getStorageChanges(address)
+                    .keySet()
+                    .forEach(slot -> updater.getStorageValueByStorageSlotKey(address, slot));
+              });
     }
 
     updater.rollForward(trieLog);
@@ -199,10 +211,12 @@ public class BonsaiExecutionWitnessBuilder {
    * Returns RLP-encoded headers for every block from {@code oldestAncestor} up to (but not
    * including) the chain head, ordered ascending by block number as required by EIP-8025.
    */
-  private List<String> buildHeaders(final Blockchain blockchain, final long oldestAncestor) {
+  private List<String> buildHeaders(
+      final Blockchain blockchain, final long oldestAncestor, final long blockNumber) {
     final List<String> result = new ArrayList<>();
-    for (long number = oldestAncestor; number < blockchain.getChainHeadBlockNumber(); number++) {
-      result.add(RLP.encode(blockchain.getBlockHeader(number).orElseThrow()::writeTo).toHexString());
+    for (long number = oldestAncestor; number < blockNumber; number++) {
+      result.add(
+          RLP.encode(blockchain.getBlockHeader(number).orElseThrow()::writeTo).toHexString());
     }
     return result;
   }

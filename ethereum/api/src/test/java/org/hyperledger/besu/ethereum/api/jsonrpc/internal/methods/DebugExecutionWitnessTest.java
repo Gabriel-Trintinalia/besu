@@ -16,6 +16,7 @@ package org.hyperledger.besu.ethereum.api.jsonrpc.internal.methods;
 
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.mockito.Mockito.mock;
+import static org.mockito.Mockito.when;
 
 import org.hyperledger.besu.datatypes.Hash;
 import org.hyperledger.besu.ethereum.ProtocolContext;
@@ -29,6 +30,7 @@ import org.hyperledger.besu.ethereum.api.query.BlockchainQueries;
 import org.hyperledger.besu.ethereum.core.BlockchainSetupUtil;
 import org.hyperledger.besu.ethereum.core.MiningConfiguration;
 import org.hyperledger.besu.ethereum.mainnet.ProtocolSchedule;
+import org.hyperledger.besu.ethereum.trie.pathbased.common.provider.PathBasedWorldStateProvider;
 import org.hyperledger.besu.plugin.services.storage.DataStorageFormat;
 
 import org.junit.jupiter.api.Test;
@@ -40,11 +42,11 @@ public class DebugExecutionWitnessTest {
 
   @Test
   public void nameShouldBeDebugExecutionWitness() {
+    final BlockchainQueries queries = mock(BlockchainQueries.class);
+    when(queries.getWorldStateArchive()).thenReturn(mock(PathBasedWorldStateProvider.class));
     final DebugExecutionWitness method =
         new DebugExecutionWitness(
-            mock(BlockchainQueries.class),
-            mock(ProtocolContext.class),
-            mock(ProtocolSchedule.class));
+            queries, mock(ProtocolContext.class), mock(ProtocolSchedule.class));
     assertThat(method.getName()).isEqualTo("debug_executionWitness");
   }
 

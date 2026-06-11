@@ -31,17 +31,15 @@ import org.hyperledger.besu.plugin.services.tracer.BlockAwareOperationTracer;
 
 import java.util.Collections;
 import java.util.IdentityHashMap;
-import java.util.LinkedHashMap;
 import java.util.LinkedHashSet;
 import java.util.List;
-import java.util.Map;
 import java.util.Set;
 
 import org.apache.tuweni.bytes.Bytes32;
 
 /**
- * Collects the contract bytecodes ({@code codes}) and ancestor block headers ({@code headers})
- * that a stateless executor needs to re-execute a block, as defined by EIP-8025.
+ * Collects the contract bytecodes ({@code codes}) and ancestor block headers ({@code headers}) that
+ * a stateless executor needs to re-execute a block, as defined by EIP-8025.
  */
 public class WitnessOperationTracer implements BlockAwareOperationTracer {
 
@@ -51,7 +49,9 @@ public class WitnessOperationTracer implements BlockAwareOperationTracer {
   // to the parent block number (always required) and extended left by each successful BLOCKHASH.
   private long oldestAccessedAncestor = Long.MAX_VALUE;
 
-  /** @param gasCalculator the gas calculator for the fork being executed. */
+  /**
+   * @param gasCalculator the gas calculator for the fork being executed.
+   */
   // gasCalculator for the fork being executed; used to compute memory expansion costs when
   // detecting whether a delegated-CALL's resolution step ran.
   public WitnessOperationTracer(final GasCalculator gasCalculator) {
@@ -82,10 +82,10 @@ public class WitnessOperationTracer implements BlockAwareOperationTracer {
   //   expansion + value transfer, but not the delegation-resolution cost. gasCost > staticCost
   //   implies the resolution step ran.
   private record PendingDelegationInfo(
-      Address aliceAddress,    // call target that carries a delegation designator
+      Address aliceAddress, // call target that carries a delegation designator
       Address delegationTarget, // T — the address alice delegates to
-      boolean targetWasWarm,   // warm/cold state of T before the opcode ran
-      long pendingStaticCost)  // aliceAccessCost + memExpansion + valueTransferCost (no child gas)
+      boolean targetWasWarm, // warm/cold state of T before the opcode ran
+      long pendingStaticCost) // aliceAccessCost + memExpansion + valueTransferCost (no child gas)
   {}
 
   // Keyed by frame identity so concurrent nested calls don't interfere with each other.
@@ -96,8 +96,7 @@ public class WitnessOperationTracer implements BlockAwareOperationTracer {
   // frame. Captured in tracePreExecution and committed to codeAddresses in tracePostExecution only
   // when the opcode did not OOG. Opcodes execute sequentially within a frame so at most one entry
   // exists per frame at a time. Delegated CALL targets are handled via pendingCallDelegations.
-  private final IdentityHashMap<MessageFrame, Address> pendingCodeAddr =
-      new IdentityHashMap<>();
+  private final IdentityHashMap<MessageFrame, Address> pendingCodeAddr = new IdentityHashMap<>();
 
   @Override
   public void traceStartBlock(
@@ -142,14 +141,18 @@ public class WitnessOperationTracer implements BlockAwareOperationTracer {
     // ran: the current world view may reflect cleared or overwritten designation codes.
     final WorldView authorityView = parentWorldView != null ? parentWorldView : worldView;
     for (final var delegation : transaction.getCodeDelegationList().orElse(List.of())) {
-      delegation.authorizer().ifPresent(auth -> {
-        final var authAccount = authorityView.get(auth);
-        // Any non-empty pre-block code — plain 0x00, non-designator, and designator alike — must
-        // be in the witness so the executor can reproduce the intrinsic gas check.
-        if (authAccount != null && !authAccount.getCodeHash().equals(Hash.EMPTY)) {
-          codeAddresses.add(auth);
-        }
-      });
+      delegation
+          .authorizer()
+          .ifPresent(
+              auth -> {
+                final var authAccount = authorityView.get(auth);
+                // Any non-empty pre-block code — plain 0x00, non-designator, and designator alike —
+                // must
+                // be in the witness so the executor can reproduce the intrinsic gas check.
+                if (authAccount != null && !authAccount.getCodeHash().equals(Hash.EMPTY)) {
+                  codeAddresses.add(auth);
+                }
+              });
     }
   }
 
@@ -193,10 +196,12 @@ public class WitnessOperationTracer implements BlockAwareOperationTracer {
       case 0x40 -> { // BLOCKHASH
         // Words.clampedToLong handles stack values > Long.MAX_VALUE (e.g. 2**64) without throwing;
         // such values always produce a zero BLOCKHASH result and need no header in the witness.
-        if (frame.stackSize() >= 1) pendingBlockHashNumber = Words.clampedToLong(frame.getStackItem(0));
+        if (frame.stackSize() >= 1)
+          pendingBlockHashNumber = Words.clampedToLong(frame.getStackItem(0));
       }
       case 0xF1, 0xF2, 0xF4, 0xFA -> { // CALL, CALLCODE, DELEGATECALL, STATICCALL
-        // AbstractCallOperation.execute() reads the target account before the balance and call-depth
+        // AbstractCallOperation.execute() reads the target account before the balance and
+        // call-depth
         // checks. If either later check fails ("soft failure") no child frame is created and
         // traceContextEnter is never called — yet the bytecode was accessed. Capture here; decide
         // in tracePostExecution whether the access actually occurred.
@@ -214,16 +219,21 @@ public class WitnessOperationTracer implements BlockAwareOperationTracer {
             // Reconstruct the static cost (checks 1+2: alice-access + mem-expansion + value
             // transfer, no child gas); any reported cost above this means check 3 also ran.
             final int argsBase = (opcode == 0xF1 || opcode == 0xF2) ? 3 : 2;
-            final Wei transferValue = (opcode == 0xF1 || opcode == 0xF2)
-                ? Wei.wrap(frame.getStackItem(2)) : Wei.ZERO;
-            final long staticCost = gasCalculator.callOperationStaticGasCost(
-                frame, 0L,
-                Words.clampedToLong(frame.getStackItem(argsBase)),
-                Words.clampedToLong(frame.getStackItem(argsBase + 1)),
-                Words.clampedToLong(frame.getStackItem(argsBase + 2)),
-                Words.clampedToLong(frame.getStackItem(argsBase + 3)),
-                transferValue, alice, aliceWasWarm);
-            pendingCallDelegations.put(frame, new PendingDelegationInfo(alice, T, tWasWarm, staticCost));
+            final Wei transferValue =
+                (opcode == 0xF1 || opcode == 0xF2) ? Wei.wrap(frame.getStackItem(2)) : Wei.ZERO;
+            final long staticCost =
+                gasCalculator.callOperationStaticGasCost(
+                    frame,
+                    0L,
+                    Words.clampedToLong(frame.getStackItem(argsBase)),
+                    Words.clampedToLong(frame.getStackItem(argsBase + 1)),
+                    Words.clampedToLong(frame.getStackItem(argsBase + 2)),
+                    Words.clampedToLong(frame.getStackItem(argsBase + 3)),
+                    transferValue,
+                    alice,
+                    aliceWasWarm);
+            pendingCallDelegations.put(
+                frame, new PendingDelegationInfo(alice, T, tWasWarm, staticCost));
           } else {
             // Non-delegated alice: account-read is implied by passing checks 1+2.
             pendingCodeAddr.put(frame, alice);
@@ -286,7 +296,9 @@ public class WitnessOperationTracer implements BlockAwareOperationTracer {
     return Collections.unmodifiableSet(codeAddresses);
   }
 
-  /** Returns the oldest block number whose header must appear in the witness {@code headers} list. */
+  /**
+   * Returns the oldest block number whose header must appear in the witness {@code headers} list.
+   */
   public long getOldestAccessedAncestor() {
     return oldestAccessedAncestor;
   }
