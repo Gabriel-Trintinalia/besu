@@ -17,6 +17,7 @@ package org.hyperledger.besu.evm.blockhash;
 import org.hyperledger.besu.datatypes.Hash;
 import org.hyperledger.besu.evm.frame.MessageFrame;
 
+import java.util.Map;
 import java.util.function.BiFunction;
 
 /**
@@ -44,5 +45,18 @@ public interface BlockHashLookup extends BiFunction<MessageFrame, Long, Hash> {
    */
   default BlockHashLookup forkForParallelWorker() {
     return this;
+  }
+
+  /**
+   * Block numbers (and their hashes) that this lookup resolved during the lifetime of one block's
+   * execution — at minimum the parent header (which lookups pre-populate at construction), plus any
+   * ancestor reached while serving {@code BLOCKHASH}. Used by EIP-8025 witness assembly to populate
+   * the {@code headers} list. Lookups that do not track this should leave the default and return an
+   * empty map.
+   *
+   * @return an unmodifiable view of accessed ancestors keyed by block number
+   */
+  default Map<Long, Hash> getAccessedAncestors() {
+    return Map.of();
   }
 }

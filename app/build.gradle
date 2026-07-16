@@ -17,6 +17,7 @@ apply plugin: 'java-library'
 
 jar {
   archiveBaseName = calculateArtifactId(project)
+  duplicatesStrategy = DuplicatesStrategy.EXCLUDE
   manifest {
     attributes(
       'Specification-Title': archiveBaseName,

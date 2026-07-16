@@ -16,6 +16,8 @@ package org.hyperledger.besu.ethereum.referencetests;
 
 import static org.hyperledger.besu.evm.internal.Words.decodeUnsignedLong;
 
+import org.hyperledger.besu.config.BlobScheduleOptions;
+import org.hyperledger.besu.config.JsonUtil;
 import org.hyperledger.besu.datatypes.Address;
 import org.hyperledger.besu.datatypes.BlobGas;
 import org.hyperledger.besu.datatypes.Hash;
@@ -52,6 +54,7 @@ import org.hyperledger.besu.plugin.ServiceManager;
 import org.hyperledger.besu.plugin.services.BesuService;
 
 import java.util.List;
+import java.util.Locale;
 import java.util.Map;
 import java.util.Optional;
 import java.util.stream.Stream;
@@ -61,6 +64,7 @@ import com.fasterxml.jackson.annotation.JsonCreator;
 import com.fasterxml.jackson.annotation.JsonIgnoreProperties;
 import com.fasterxml.jackson.annotation.JsonProperty;
 import com.fasterxml.jackson.databind.annotation.JsonDeserialize;
+import com.fasterxml.jackson.databind.node.ObjectNode;
 import org.apache.tuweni.bytes.Bytes;
 import org.apache.tuweni.bytes.Bytes32;
 
@@ -68,6 +72,7 @@ import org.apache.tuweni.bytes.Bytes32;
 public class BlockchainReferenceTestCaseSpec {
 
   private final String network;
+  private final SpecConfig specConfig;
 
   private final CandidateBlock[] candidateBlocks;
 
@@ -130,6 +135,7 @@ public class BlockchainReferenceTestCaseSpec {
   @JsonCreator
   public BlockchainReferenceTestCaseSpec(
       @JsonProperty("network") final String network,
+      @JsonProperty("config") final SpecConfig specConfig,
       @JsonProperty("blocks") final CandidateBlock[] candidateBlocks,
       @JsonProperty("genesisBlockHeader") final ReferenceTestBlockHeader genesisBlockHeader,
       @SuppressWarnings("unused") @JsonProperty("genesisRLP") final String genesisRLP,
@@ -137,6 +143,7 @@ public class BlockchainReferenceTestCaseSpec {
       @JsonProperty("lastblockhash") final String lastBlockHash,
       @JsonProperty("sealEngine") final String sealEngine) {
     this.network = network;
+    this.specConfig = specConfig;
     this.candidateBlocks = candidateBlocks;
     this.genesisBlockHeader = genesisBlockHeader;
     this.accounts = accounts;
@@ -146,6 +153,10 @@ public class BlockchainReferenceTestCaseSpec {
 
   public String getNetwork() {
     return network;
+  }
+
+  public Optional<BlobScheduleOptions> getBlobScheduleOptions() {
+    return specConfig != null ? specConfig.getBlobScheduleOptions() : Optional.empty();
   }
 
   public CandidateBlock[] getCandidateBlocks() {
@@ -161,7 +172,7 @@ public class BlockchainReferenceTestCaseSpec {
         .withBlockchain(blockchain)
         .withWorldStateArchive(
             buildWorldStateArchive(
-                Stream.of(candidateBlocks).filter(CandidateBlock::isExecutable).count(),
+                Stream.of(candidateBlocks).filter(CandidateBlock::isExecutable).count() + 1,
                 blockchain))
         .withConsensusContext(new ConsensusContextFixture())
         .build();
@@ -246,22 +257,24 @@ public class BlockchainReferenceTestCaseSpec {
     }
   }
 
-  @JsonIgnoreProperties({
-    "blocknumber",
-    "chainname",
-    "chainnetwork",
-    "expectExceptionByzantium",
-    "expectExceptionConstantinople",
-    "expectExceptionConstantinopleFix",
-    "expectExceptionIstanbul",
-    "expectExceptionEIP150",
-    "expectExceptionEIP158",
-    "expectExceptionFrontier",
-    "expectExceptionHomestead",
-    "hasBigInt",
-    "rlp_decoded",
-    "receipts"
-  })
+  @JsonIgnoreProperties(
+      ignoreUnknown = true,
+      value = {
+        "blocknumber",
+        "chainname",
+        "chainnetwork",
+        "expectExceptionByzantium",
+        "expectExceptionConstantinople",
+        "expectExceptionConstantinopleFix",
+        "expectExceptionIstanbul",
+        "expectExceptionEIP150",
+        "expectExceptionEIP158",
+        "expectExceptionFrontier",
+        "expectExceptionHomestead",
+        "hasBigInt",
+        "rlp_decoded",
+        "receipts"
+      })
   public static class CandidateBlock {
 
     private final Bytes rlp;
@@ -271,6 +284,8 @@ public class BlockchainReferenceTestCaseSpec {
     private final BlockAccessList blockAccessList;
     private final String expectException;
     private final String expectExceptionALL;
+    private final FixtureExecutionWitness executionWitness;
+    private final boolean witnessMutated;
 
     @JsonCreator
     public CandidateBlock(
@@ -288,7 +303,9 @@ public class BlockchainReferenceTestCaseSpec {
             @JsonAlias("rlp_decoded")
             final BlockAccessList blockAccessList,
         @JsonProperty("expectException") final String expectException,
-        @JsonProperty("expectExceptionALL") final String expectExceptionALL) {
+        @JsonProperty("expectExceptionALL") final String expectExceptionALL,
+        @JsonProperty("executionWitness") final FixtureExecutionWitness executionWitness,
+        @JsonProperty("executionWitnessMutated") final Boolean witnessMutated) {
       boolean blockValid = true;
       Bytes rlpAttempt = null;
       try {
@@ -310,6 +327,8 @@ public class BlockchainReferenceTestCaseSpec {
       this.blockAccessList = blockAccessList;
       this.expectException = expectException;
       this.expectExceptionALL = expectExceptionALL;
+      this.executionWitness = executionWitness;
+      this.witnessMutated = Boolean.TRUE.equals(witnessMutated);
     }
 
     public boolean isValid() {
@@ -354,6 +373,37 @@ public class BlockchainReferenceTestCaseSpec {
 
     public Optional<BlockAccessList> getBlockAccessList() {
       return Optional.ofNullable(blockAccessList);
+    }
+
+    public Optional<FixtureExecutionWitness> getExpectedWitness() {
+      return witnessMutated ? Optional.empty() : Optional.ofNullable(executionWitness);
+    }
+  }
+
+  @JsonIgnoreProperties(ignoreUnknown = true)
+  public static class SpecConfig {
+    private final Optional<BlobScheduleOptions> blobScheduleOptions;
+
+    @JsonCreator
+    public SpecConfig(
+        @JsonProperty("blobSchedule") final Map<String, Map<String, String>> blobSchedule) {
+      if (blobSchedule == null || blobSchedule.isEmpty()) {
+        this.blobScheduleOptions = Optional.empty();
+      } else {
+        final ObjectNode root = JsonUtil.createEmptyObjectNode();
+        blobSchedule.forEach(
+            (fork, params) -> {
+              final ObjectNode forkNode = root.putObject(fork.toLowerCase(Locale.ROOT));
+              params.forEach(
+                  (key, hexValue) ->
+                      forkNode.put(key.toLowerCase(Locale.ROOT), Long.decode(hexValue).intValue()));
+            });
+        this.blobScheduleOptions = Optional.of(new BlobScheduleOptions(root));
+      }
+    }
+
+    public Optional<BlobScheduleOptions> getBlobScheduleOptions() {
+      return blobScheduleOptions;
     }
   }
 }

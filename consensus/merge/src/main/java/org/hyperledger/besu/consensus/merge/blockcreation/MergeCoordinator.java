@@ -50,6 +50,7 @@ import org.hyperledger.besu.ethereum.mainnet.ProtocolSchedule;
 import org.hyperledger.besu.ethereum.mainnet.block.access.list.BlockAccessList;
 import org.hyperledger.besu.ethereum.trie.MerkleTrieException;
 import org.hyperledger.besu.plugin.services.exception.StorageException;
+import org.hyperledger.besu.plugin.services.tracer.BlockAwareOperationTracer;
 
 import java.io.PrintWriter;
 import java.io.StringWriter;
@@ -720,6 +721,38 @@ public class MergeCoordinator implements MergeMiningCoordinator, BadChainListene
                 chain.storeBlock(block, result.getReceipts(), processedBlockAccessList);
               }
             },
+            () -> LOG.debug("empty yield in blockProcessingResult"));
+    return validationResult;
+  }
+
+  @Override
+  public BlockProcessingResult rememberBlock(
+      final Block block,
+      final Optional<BlockAccessList> blockAccessList,
+      final BlockAwareOperationTracer tracer) {
+    LOG.atDebug().setMessage("Remember block {}").addArgument(block::toLogString).log();
+    final var chain = protocolContext.getBlockchain();
+    final var validationResult =
+        protocolSchedule
+            .getByBlockHeader(block.getHeader())
+            .getBlockValidator()
+            .validateAndProcessBlock(
+                protocolContext,
+                block,
+                HeaderValidationMode.FULL,
+                HeaderValidationMode.NONE,
+                blockAccessList,
+                false,
+                true,
+                tracer);
+    validationResult
+        .getYield()
+        .ifPresentOrElse(
+            result ->
+                chain.storeBlock(
+                    block,
+                    result.getReceipts(),
+                    validationResult.getYield().flatMap(y -> y.getBlockAccessList())),
             () -> LOG.debug("empty yield in blockProcessingResult"));
     return validationResult;
   }
