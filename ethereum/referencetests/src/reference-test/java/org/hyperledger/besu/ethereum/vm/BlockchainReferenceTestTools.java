@@ -17,6 +17,7 @@ package org.hyperledger.besu.ethereum.vm;
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.junit.jupiter.api.Assumptions.assumeFalse;
 
+import org.hyperledger.besu.config.StubGenesisConfigOptions;
 import org.hyperledger.besu.consensus.merge.blockcreation.ReferenceTestMergeBlockCreator;
 import org.hyperledger.besu.datatypes.Wei;
 import org.hyperledger.besu.ethereum.BlockProcessingResult;
@@ -55,6 +56,7 @@ import org.hyperledger.besu.ethereum.worldstate.WorldStateArchive;
 import org.hyperledger.besu.evm.EVM;
 import org.hyperledger.besu.evm.EvmSpecVersion;
 import org.hyperledger.besu.evm.account.AccountState;
+import org.hyperledger.besu.evm.internal.EvmConfiguration;
 import org.hyperledger.besu.evm.internal.EvmConfiguration.WorldUpdaterMode;
 import org.hyperledger.besu.testutil.JsonTestParameters;
 
@@ -140,7 +142,18 @@ public class BlockchainReferenceTestTools {
                         .getWorldState(WorldStateQueryParams.withBlockHeaderAndNoUpdateNodeHead(genesisBlockHeader))
                         .orElseThrow();
 
-        final ProtocolSchedule schedule = PROTOCOL_SCHEDULES.getByName(spec.getNetwork());
+        // Use the fixture's blob schedule when present so forks with a per-fixture blob schedule
+        // (e.g. Amsterdam target=14/max=21) are executed with the correct excessBlobGas target and
+        // blob limits instead of falling back to the Prague default (target=6/max=9).
+        final ReferenceTestProtocolSchedules protocolSchedules =
+                spec.getBlobScheduleOptions()
+                        .map(
+                                bso ->
+                                        ReferenceTestProtocolSchedules.create(
+                                                new StubGenesisConfigOptions().blobScheduleOptions(bso),
+                                                EvmConfiguration.DEFAULT))
+                        .orElse(PROTOCOL_SCHEDULES);
+        final ProtocolSchedule schedule = protocolSchedules.getByName(spec.getNetwork());
 
         try (BlockCreationFixture blockCreation =
                      BlockCreationFixture.create(schedule, protocolContext, blockchain)) {
