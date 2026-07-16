@@ -135,6 +135,25 @@ public class WitnessOperationTracer implements BlockAwareOperationTracer {
       codeAddresses.add(sender);
     }
 
+    // If the transaction directly targets a delegated account (alice has ef0100<T>), add alice's
+    // address now. Normally traceContextEnter records it when the top frame begins execution, but
+    // in Amsterdam chargeTransactionEntry charges a cold/warm access for T and may OOG — setting
+    // the initial frame to EXCEPTIONAL_HALT before process() is called with NOT_STARTED. That
+    // skips traceContextEnter entirely, so alice's delegation designator would be absent from the
+    // witness. Adding it here is harmless in the non-OOG case (the LinkedHashSet deduplicates).
+    // We do NOT add T here: T's bytecode is only needed when execution actually reaches T's code,
+    // which traceContextEnter handles on the success path.
+    transaction
+        .getTo()
+        .ifPresent(
+            to -> {
+              final var toAccount = worldView.get(to);
+              if (toAccount != null
+                  && CodeDelegationHelper.hasCodeDelegation(toAccount.getCode())) {
+                codeAddresses.add(to);
+              }
+            });
+
     // EIP-7702 intrinsic gas charges PER_EMPTY_ACCOUNT_COST for each authorization whose authority
     // has empty pre-block code. To reproduce this, the executor needs the authority's pre-block
     // bytecode. We read from parentWorldView (not worldView) because delegation processing already
