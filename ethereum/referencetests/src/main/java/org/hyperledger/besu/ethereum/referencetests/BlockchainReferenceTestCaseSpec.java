@@ -17,6 +17,7 @@ package org.hyperledger.besu.ethereum.referencetests;
 import static org.hyperledger.besu.evm.internal.Words.decodeUnsignedLong;
 
 import org.hyperledger.besu.config.BlobScheduleOptions;
+import org.hyperledger.besu.config.JsonUtil;
 import org.hyperledger.besu.datatypes.Address;
 import org.hyperledger.besu.datatypes.BlobGas;
 import org.hyperledger.besu.datatypes.Hash;
@@ -62,9 +63,8 @@ import com.fasterxml.jackson.annotation.JsonAlias;
 import com.fasterxml.jackson.annotation.JsonCreator;
 import com.fasterxml.jackson.annotation.JsonIgnoreProperties;
 import com.fasterxml.jackson.annotation.JsonProperty;
-import com.fasterxml.jackson.databind.node.ObjectNode;
-import org.hyperledger.besu.config.JsonUtil;
 import com.fasterxml.jackson.databind.annotation.JsonDeserialize;
+import com.fasterxml.jackson.databind.node.ObjectNode;
 import org.apache.tuweni.bytes.Bytes;
 import org.apache.tuweni.bytes.Bytes32;
 
@@ -392,7 +392,8 @@ public class BlockchainReferenceTestCaseSpec {
               final ObjectNode forkNode = root.putObject(fork.toLowerCase(Locale.ROOT));
               params.forEach(
                   (key, hexValue) ->
-                      forkNode.put(key.toLowerCase(Locale.ROOT), Long.decode(hexValue).intValue()));
+                      forkNode.put(
+                          key.toLowerCase(Locale.ROOT), Math.toIntExact(Long.decode(hexValue))));
             });
         this.blobScheduleOptions = Optional.of(new BlobScheduleOptions(root));
       }
