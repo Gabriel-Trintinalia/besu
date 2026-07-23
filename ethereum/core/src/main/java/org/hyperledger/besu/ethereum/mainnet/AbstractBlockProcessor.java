@@ -58,6 +58,7 @@ import org.hyperledger.besu.plugin.services.worldstate.StateRootCommitter;
 import java.text.MessageFormat;
 import java.util.ArrayList;
 import java.util.List;
+import java.util.Map;
 import java.util.Optional;
 
 import org.slf4j.Logger;
@@ -209,6 +210,42 @@ public abstract class AbstractBlockProcessor implements BlockProcessor {
       final Block block,
       final Optional<BlockAccessList> blockAccessList,
       final PreprocessingFunction preprocessingBlockFunction) {
+    return doProcessBlock(
+        protocolContext,
+        blockchain,
+        worldState,
+        block,
+        blockAccessList,
+        preprocessingBlockFunction,
+        getBlockImportTracer(protocolContext, block.getHeader()));
+  }
+
+  @Override
+  public BlockProcessingResult processBlock(
+      final ProtocolContext protocolContext,
+      final Blockchain blockchain,
+      final MutableWorldState worldState,
+      final Block block,
+      final Optional<BlockAccessList> blockAccessList,
+      final BlockAwareOperationTracer explicitTracer) {
+    return doProcessBlock(
+        protocolContext,
+        blockchain,
+        worldState,
+        block,
+        blockAccessList,
+        new NoPreprocessing(),
+        explicitTracer);
+  }
+
+  private BlockProcessingResult doProcessBlock(
+      final ProtocolContext protocolContext,
+      final Blockchain blockchain,
+      final MutableWorldState worldState,
+      final Block block,
+      final Optional<BlockAccessList> blockAccessList,
+      final PreprocessingFunction preprocessingBlockFunction,
+      final BlockAwareOperationTracer blockTracer) {
     final List<TransactionReceipt> receipts = new ArrayList<>();
     // EIP-7778: Track two separate cumulative gas values
     // cumulativeRegularGasUsed: For block gas limit enforcement (uses protocol-specific strategy)
@@ -229,9 +266,6 @@ public abstract class AbstractBlockProcessor implements BlockProcessor {
     final ProtocolSpec protocolSpec = protocolSchedule.getByBlockHeader(blockHeader);
     final BlockHashLookup blockHashLookup =
         protocolSpec.getPreExecutionProcessor().createBlockHashLookup(blockchain, blockHeader);
-
-    final BlockAwareOperationTracer blockTracer =
-        getBlockImportTracer(protocolContext, blockHeader);
 
     final Address miningBeneficiary = miningBeneficiaryCalculator.calculateBeneficiary(blockHeader);
 
@@ -550,10 +584,17 @@ public abstract class AbstractBlockProcessor implements BlockProcessor {
       // EIP-8037: gas_metered = max(cumulative_regular, cumulative_state)
       final long gasMetered = Math.max(cumulativeRegularGasUsed, cumulativeStateGasUsed);
 
+      final Map<Long, Hash> accessedAncestors = blockHashLookup.getAccessedAncestors();
+
       return new BlockProcessingResult(
           Optional.of(
               new BlockProcessingOutputs(
-                  worldState, receipts, maybeRequests, maybeBlockAccessList, gasMetered)),
+                  worldState,
+                  receipts,
+                  maybeRequests,
+                  maybeBlockAccessList,
+                  gasMetered,
+                  accessedAncestors)),
           parallelizedTxFound ? Optional.of(nbParallelTx) : Optional.empty());
     } finally {
       stateRootCommitter.cancel();
