@@ -75,6 +75,8 @@ public class StubGenesisConfigOptions implements GenesisConfigOptions, Cloneable
   private boolean zeroBaseFee = false;
   private boolean fixedBaseFee = false;
 
+  private Optional<BlobScheduleOptions> blobScheduleOptions = Optional.empty();
+
   /** Default constructor. */
   public StubGenesisConfigOptions() {
     // Explicit default constructor because of JavaDoc linting
@@ -429,7 +431,13 @@ public class StubGenesisConfigOptions implements GenesisConfigOptions, Cloneable
 
   @Override
   public Optional<BlobScheduleOptions> getBlobScheduleOptions() {
-    return Optional.empty();
+    return blobScheduleOptions;
+  }
+
+  public StubGenesisConfigOptions blobScheduleOptions(
+      final BlobScheduleOptions blobScheduleOptions) {
+    this.blobScheduleOptions = Optional.of(blobScheduleOptions);
+    return this;
   }
 
   /**
