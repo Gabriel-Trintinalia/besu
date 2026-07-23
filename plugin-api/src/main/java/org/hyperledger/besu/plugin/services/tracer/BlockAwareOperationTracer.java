@@ -77,9 +77,9 @@ public interface BlockAwareOperationTracer extends OperationTracer {
   /**
    * Whether this tracer wants to observe system-call execution (e.g. EIP-2935, EIP-7002).
    *
-   * <p>System calls run outside of normal transaction processing. By default they are not traced so
-   * that block import performance is unaffected. Tracers that need to inspect system-call code (for
-   * example an execution-witness builder) should override this to return {@code true}.
+   * <p>System calls run outside of normal transaction processing. By default, they are not traced.
+   * Tracers that need to inspect system-call code (for example an execution-witness builder) should
+   * override this to return {@code true}.
    *
    * @return {@code true} if the tracer wants system calls to be traced; {@code false} by default
    */
