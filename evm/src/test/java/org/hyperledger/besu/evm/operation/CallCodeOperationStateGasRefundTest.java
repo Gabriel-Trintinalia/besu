@@ -62,8 +62,8 @@ class CallCodeOperationStateGasRefundTest {
   }
 
   /**
-   * Charging NEW_ACCOUNT state gas against the recipient (caller's address) when the caller
-   * already exists: no state gas is consumed (the account is not new).
+   * Charging NEW_ACCOUNT state gas against the recipient (caller's address) when the caller already
+   * exists: no state gas is consumed (the account is not new).
    */
   @Test
   void chargeAgainstExistingRecipientIsZero() {
@@ -106,13 +106,14 @@ class CallCodeOperationStateGasRefundTest {
 
     // stateGasUsed is now negative — this is the bug that the fix prevents
     assertThat(frame.getStateGasUsed())
-        .as("demonstrates the pre-fix bug: refunding against an empty contract address goes negative")
+        .as(
+            "demonstrates the pre-fix bug: refunding against an empty contract address goes negative")
         .isLessThan(0L);
   }
 
   /**
-   * Correct CALLCODE scenario end-to-end: charge (zero, caller exists) + failure refund (also
-   * zero, same address) leaves stateGasUsed unchanged.
+   * Correct CALLCODE scenario end-to-end: charge (zero, caller exists) + failure refund (also zero,
+   * same address) leaves stateGasUsed unchanged.
    */
   @Test
   void callcodeChargeAndRefundAreSymmetricForExistingCaller() {
@@ -139,8 +140,12 @@ class CallCodeOperationStateGasRefundTest {
     final MessageFrame frame = buildFrame(CALLER_ADDRESS);
     final long stateGasBefore = frame.getStateGasUsed();
 
-    gasCalculator.stateGasCostCalculator().chargeCallNewAccountStateGas(frame, CALLER_ADDRESS, ONE_WEI);
-    gasCalculator.stateGasCostCalculator().refundCallNewAccountStateGas(frame, CALLER_ADDRESS, ONE_WEI);
+    gasCalculator
+        .stateGasCostCalculator()
+        .chargeCallNewAccountStateGas(frame, CALLER_ADDRESS, ONE_WEI);
+    gasCalculator
+        .stateGasCostCalculator()
+        .refundCallNewAccountStateGas(frame, CALLER_ADDRESS, ONE_WEI);
 
     assertThat(frame.getStateGasUsed()).isEqualTo(stateGasBefore);
   }
