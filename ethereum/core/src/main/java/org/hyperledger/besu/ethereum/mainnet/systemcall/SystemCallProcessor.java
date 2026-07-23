@@ -101,11 +101,8 @@ public class SystemCallProcessor {
             inputData,
             accessLocationTracker);
 
-    // System calls run outside normal transaction processing and are untraced by default. A tracer
-    // is only threaded in when it is block-aware, enabled, and explicitly opts into system-call
-    // tracing (e.g. the execution-witness builder). Otherwise the EVM's monomorphic-tracer sentinel
-    // OperationTracer.NO_TRACING is used, keeping this path byte-for-byte identical to the untraced
-    // case.
+    // System calls are untraced by default. A tracer is only passed when it is block-aware,
+    // enabled, and opts into system-call tracing. Otherwise, OperationTracer.NO_TRACING is used.
     final OperationTracer tracer =
         context.getOperationTracer() instanceof BlockAwareOperationTracer blockAwareTracer
                 && blockAwareTracer.isEnabled()
