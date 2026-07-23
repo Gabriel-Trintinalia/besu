@@ -1508,6 +1508,20 @@ public abstract class MainnetProtocolSpecs {
           protocolContext, blockchain, worldState, block, blockAccessList, tracer);
     }
 
+    @Override
+    public BlockProcessingResult processBlock(
+        final ProtocolContext protocolContext,
+        final Blockchain blockchain,
+        final MutableWorldState worldState,
+        final Block block,
+        final Optional<BlockAccessList> blockAccessList,
+        final AbstractBlockProcessor.PreprocessingFunction preprocessingBlockFunction,
+        final BlockAwareOperationTracer tracer) {
+      updateWorldStateForDao(worldState);
+      return wrapped.processBlock(
+          protocolContext, blockchain, worldState, block, blockAccessList, preprocessingBlockFunction, tracer);
+    }
+
     private static final Address DAO_REFUND_CONTRACT_ADDRESS =
         Address.fromHexString("0xbf4ed7b27f1d666546e30d74d50d173d20bca754");
 

@@ -210,7 +210,7 @@ public abstract class AbstractBlockProcessor implements BlockProcessor {
       final Block block,
       final Optional<BlockAccessList> blockAccessList,
       final PreprocessingFunction preprocessingBlockFunction) {
-    return doProcessBlock(
+    return processBlock(
         protocolContext,
         blockchain,
         worldState,
@@ -228,7 +228,7 @@ public abstract class AbstractBlockProcessor implements BlockProcessor {
       final Block block,
       final Optional<BlockAccessList> blockAccessList,
       final BlockAwareOperationTracer explicitTracer) {
-    return doProcessBlock(
+    return processBlock(
         protocolContext,
         blockchain,
         worldState,
@@ -238,7 +238,8 @@ public abstract class AbstractBlockProcessor implements BlockProcessor {
         explicitTracer);
   }
 
-  private BlockProcessingResult doProcessBlock(
+  @Override
+  public BlockProcessingResult processBlock(
       final ProtocolContext protocolContext,
       final Blockchain blockchain,
       final MutableWorldState worldState,
