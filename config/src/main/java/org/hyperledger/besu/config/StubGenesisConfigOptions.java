@@ -434,6 +434,12 @@ public class StubGenesisConfigOptions implements GenesisConfigOptions, Cloneable
     return blobScheduleOptions;
   }
 
+  /**
+   * Blob schedule stub genesis config options.
+   *
+   * @param blobScheduleOptions the blob schedule options
+   * @return the stub genesis config options
+   */
   public StubGenesisConfigOptions blobScheduleOptions(
       final BlobScheduleOptions blobScheduleOptions) {
     this.blobScheduleOptions = Optional.of(blobScheduleOptions);
