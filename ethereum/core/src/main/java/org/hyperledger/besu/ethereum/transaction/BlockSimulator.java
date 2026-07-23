@@ -278,25 +278,27 @@ public class BlockSimulator {
         blockAccessListBuilder.map(
             b -> BlockAccessListBuilder.createPreExecutionAccessLocationTracker());
 
-    final BlockAwareOperationTracer blockAwareTracer =
-        operationTracer instanceof BlockAwareOperationTracer bat
-            ? bat
-            : BlockAwareOperationTracer.NO_TRACING;
-
     final BlockProcessingContext blockProcessingContext =
         new BlockProcessingContext(
             overridenBaseBlockHeader,
             ws,
             protocolSpec,
             blockHashLookup,
-            blockAwareTracer,
+            operationTracer,
             Optional.empty());
 
-    if (blockAwareTracer.isEnabled()) {
-      LOG.trace("traceStartBlock sim for {}", overridenBaseBlockHeader.toLogString());
-      blockAwareTracer.traceStartBlock(
-          ws, overridenBaseBlockHeader, overridenBaseBlockHeader.getCoinbase());
-    }
+    // if operationTracer is block-aware, traceStart and hold onto the option ref for traceEnd
+    var maybeBlockAwareOperationTracer =
+        Optional.of(operationTracer)
+            .filter(z -> z instanceof BlockAwareOperationTracer)
+            .map(BlockAwareOperationTracer.class::cast);
+
+    maybeBlockAwareOperationTracer.ifPresent(
+        tracer -> {
+          LOG.trace("traceStartBlock sim for {}", overridenBaseBlockHeader.toLogString());
+          tracer.traceStartBlock(
+              ws, overridenBaseBlockHeader, overridenBaseBlockHeader.getCoinbase());
+        });
 
     protocolSpec
         .getPreExecutionProcessor()
@@ -363,7 +365,7 @@ public class BlockSimulator {
             protocolSpec,
             ws,
             maybeRequests,
-            blockAwareTracer,
+            maybeBlockAwareOperationTracer,
             returnTrieLog);
 
     return finalBlock;
@@ -535,7 +537,7 @@ public class BlockSimulator {
       final ProtocolSpec protocolSpec,
       final MutableWorldState ws,
       final Optional<List<Request>> maybeRequests,
-      final BlockAwareOperationTracer blockAwareTracer,
+      final Optional<BlockAwareOperationTracer> maybeBlockAwareOperationTracer,
       final boolean returnTrieLog) {
 
     List<Transaction> transactions = simResult.getTransactions();
@@ -577,10 +579,12 @@ public class BlockSimulator {
 
     Block block = new Block(finalBlockHeader, new BlockBody(transactions, List.of(), withdrawals));
 
-    if (blockAwareTracer.isEnabled()) {
-      LOG.trace("traceEndBlock sim for {}", finalBlockHeader.toLogString());
-      blockAwareTracer.traceEndBlock(finalBlockHeader, block.getBody());
-    }
+    // if we have a block-aware operation tracer, trace end block here
+    maybeBlockAwareOperationTracer.ifPresent(
+        tracer -> {
+          LOG.trace("traceEndBlock sim for {}", finalBlockHeader.toLogString());
+          tracer.traceEndBlock(finalBlockHeader, block.getBody());
+        });
 
     if (returnTrieLog && ws instanceof PathBasedWorldState pathBasedWs) {
       // if requested and path-based worldstate, return result with trielog and serializer:
