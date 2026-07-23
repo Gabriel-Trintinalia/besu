@@ -83,7 +83,7 @@ public interface BlockAwareOperationTracer extends OperationTracer {
    *
    * @return {@code true} if the tracer wants system calls to be traced; {@code false} by default
    */
-  default boolean traceSystemCalls() {
+  default boolean isSystemCallTracingEnabled() {
     return false;
   }
 
