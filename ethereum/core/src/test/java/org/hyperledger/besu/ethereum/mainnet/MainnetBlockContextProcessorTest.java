@@ -160,6 +160,7 @@ public class MainnetBlockContextProcessorTest {
   void systemCallUsesContextTracerWhenBlockAwareTracerOptsIn() {
     // A tracer that DOES override isSystemCallTracingEnabled() to return true
     BlockAwareOperationTracer tracer = mock(BlockAwareOperationTracer.class);
+    when(tracer.isEnabled()).thenReturn(true);
     when(tracer.isSystemCallTracingEnabled()).thenReturn(true);
     successfulProcess();
     final MutableWorldState worldState = createWorldState(CALL_ADDRESS);
