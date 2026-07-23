@@ -64,6 +64,7 @@ import org.hyperledger.besu.evm.tracing.OperationTracer;
 import org.hyperledger.besu.evm.worldstate.WorldUpdater;
 import org.hyperledger.besu.evmtool.exception.UnsupportedForkException;
 import org.hyperledger.besu.evmtool.t8n.T8nBlockchain;
+import org.hyperledger.besu.plugin.services.tracer.BlockAwareOperationTracer;
 
 import java.io.IOException;
 import java.io.PrintWriter;
@@ -372,7 +373,7 @@ public class T8nExecutor {
             protocolSpec
                 .getPreExecutionProcessor()
                 .createBlockHashLookup(blockchain, referenceTestEnv),
-            OperationTracer.NO_TRACING,
+            BlockAwareOperationTracer.NO_TRACING,
             Optional.empty());
 
     if (!referenceTestEnv.isStateTest()) {

@@ -101,7 +101,8 @@ public class SystemCallProcessor {
             accessLocationTracker);
 
     final OperationTracer tracer =
-        context.getOperationTracer().isSystemCallTracingEnabled()
+        context.getOperationTracer().isEnabled()
+                && context.getOperationTracer().isSystemCallTracingEnabled()
             ? context.getOperationTracer()
             : OperationTracer.NO_TRACING;
     Deque<MessageFrame> stack = frame.getMessageFrameStack();

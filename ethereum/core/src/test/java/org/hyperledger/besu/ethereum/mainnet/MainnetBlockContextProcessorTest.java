@@ -143,7 +143,7 @@ public class MainnetBlockContextProcessorTest {
 
   @Test
   void systemCallUsesNoTracingWhenBlockAwareTracerDoesNotOptIn() {
-    // A tracer that does NOT override traceSystemCalls() (defaults to false)
+    // A tracer that does NOT override isSystemCallTracingEnabled() (defaults to false)
     BlockAwareOperationTracer tracer = mock(BlockAwareOperationTracer.class);
     when(tracer.isSystemCallTracingEnabled()).thenReturn(false);
     successfulProcess();
@@ -158,7 +158,7 @@ public class MainnetBlockContextProcessorTest {
 
   @Test
   void systemCallUsesContextTracerWhenBlockAwareTracerOptsIn() {
-    // A tracer that DOES override traceSystemCalls() to return true
+    // A tracer that DOES override isSystemCallTracingEnabled() to return true
     BlockAwareOperationTracer tracer = mock(BlockAwareOperationTracer.class);
     when(tracer.isSystemCallTracingEnabled()).thenReturn(true);
     successfulProcess();
