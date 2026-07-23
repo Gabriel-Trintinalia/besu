@@ -23,8 +23,6 @@ import org.hyperledger.besu.evm.blockhash.BlockHashLookup;
 import org.hyperledger.besu.evm.frame.MessageFrame;
 import org.hyperledger.besu.evm.operation.BlockHashOperation;
 
-import java.util.Collections;
-import java.util.Map;
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.ConcurrentMap;
 
@@ -84,8 +82,4 @@ public class BlockchainBasedBlockHashLookup implements BlockHashLookup {
     return hashByNumber.getOrDefault(blockNumber, ZERO);
   }
 
-  @Override
-  public Map<Long, Hash> getAccessedAncestors() {
-    return Collections.unmodifiableMap(hashByNumber);
-  }
 }

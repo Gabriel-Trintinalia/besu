@@ -27,7 +27,6 @@ import org.hyperledger.besu.ethereum.mainnet.BlockProcessor;
 import org.hyperledger.besu.ethereum.mainnet.BodyValidationMode;
 import org.hyperledger.besu.ethereum.mainnet.HeaderValidationMode;
 import org.hyperledger.besu.ethereum.mainnet.block.access.list.BlockAccessList;
-import org.hyperledger.besu.datatypes.Hash;
 import org.hyperledger.besu.ethereum.trie.MerkleTrieException;
 import org.hyperledger.besu.ethereum.trie.pathbased.common.provider.WorldStateQueryParams;
 import org.hyperledger.besu.plugin.services.exception.StorageException;
@@ -36,7 +35,6 @@ import org.hyperledger.besu.plugin.services.worldstate.MutableWorldState;
 
 import java.util.ArrayList;
 import java.util.List;
-import java.util.Map;
 import java.util.Optional;
 import java.util.OptionalLong;
 
@@ -222,8 +220,6 @@ public class MainnetBlockValidator implements BlockValidator {
             result.getYield().flatMap(BlockProcessingOutputs::getBlockAccessList);
         long cumulativeBlockGasUsed =
             result.getYield().map(BlockProcessingOutputs::getCumulativeBlockGasUsed).orElse(0L);
-        Map<Long, Hash> accessedAncestors =
-            result.getYield().map(BlockProcessingOutputs::getAccessedAncestors).orElse(Map.of());
         if (!blockBodyValidator.validateBody(
             context,
             block,
@@ -245,8 +241,7 @@ public class MainnetBlockValidator implements BlockValidator {
                     receipts,
                     maybeRequests,
                     processedBlockAccessList,
-                    cumulativeBlockGasUsed,
-                    accessedAncestors)),
+                    cumulativeBlockGasUsed)),
             result.getNbParallelizedTransactions());
       }
     } catch (MerkleTrieException ex) {
@@ -431,8 +426,6 @@ public class MainnetBlockValidator implements BlockValidator {
             result.getYield().flatMap(BlockProcessingOutputs::getBlockAccessList);
         long cumulativeBlockGasUsed =
             result.getYield().map(BlockProcessingOutputs::getCumulativeBlockGasUsed).orElse(0L);
-        Map<Long, Hash> accessedAncestors =
-            result.getYield().map(BlockProcessingOutputs::getAccessedAncestors).orElse(Map.of());
         if (!blockBodyValidator.validateBody(
             context,
             block,
@@ -454,8 +447,7 @@ public class MainnetBlockValidator implements BlockValidator {
                     receipts,
                     maybeRequests,
                     processedBlockAccessList,
-                    cumulativeBlockGasUsed,
-                    accessedAncestors)),
+                    cumulativeBlockGasUsed)),
             result.getNbParallelizedTransactions());
       }
     } catch (MerkleTrieException ex) {
