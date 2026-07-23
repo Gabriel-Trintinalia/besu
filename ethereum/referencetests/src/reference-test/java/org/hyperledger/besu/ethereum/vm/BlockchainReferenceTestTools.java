@@ -143,9 +143,6 @@ public class BlockchainReferenceTestTools {
                         .getWorldState(WorldStateQueryParams.withBlockHeaderAndNoUpdateNodeHead(genesisBlockHeader))
                         .orElseThrow();
 
-        // Use the fixture's blob schedule when present so forks with a per-fixture blob schedule
-        // (e.g. Amsterdam target=14/max=21) are executed with the correct excessBlobGas target
-        // instead of falling back to the Prague default (target=6/max=9).
         final ReferenceTestProtocolSchedules protocolSchedules =
             spec.getBlobScheduleOptions()
                 .map(
