@@ -18,7 +18,7 @@ import org.hyperledger.besu.ethereum.core.ProcessableBlockHeader;
 import org.hyperledger.besu.ethereum.mainnet.ProtocolSpec;
 import org.hyperledger.besu.ethereum.mainnet.block.access.list.BlockAccessList.BlockAccessListBuilder;
 import org.hyperledger.besu.evm.blockhash.BlockHashLookup;
-import org.hyperledger.besu.evm.tracing.OperationTracer;
+import org.hyperledger.besu.plugin.services.tracer.BlockAwareOperationTracer;
 import org.hyperledger.besu.plugin.services.worldstate.MutableWorldState;
 
 import java.util.Optional;
@@ -27,7 +27,7 @@ public class BlockProcessingContext {
 
   private final MutableWorldState worldState;
   private final ProcessableBlockHeader blockHeader;
-  private final OperationTracer operationTracer;
+  private final BlockAwareOperationTracer operationTracer;
   private final BlockHashLookup blockHashLookup;
   private final ProtocolSpec protocolSpec;
   private final Optional<BlockAccessListBuilder> blockAccessListBuilder;
@@ -37,7 +37,7 @@ public class BlockProcessingContext {
       final MutableWorldState worldState,
       final ProtocolSpec protocolSpec,
       final BlockHashLookup blockHashLookup,
-      final OperationTracer operationTracer,
+      final BlockAwareOperationTracer operationTracer,
       final Optional<BlockAccessListBuilder> blockAccessListBuilder) {
     this.blockHeader = blockHeader;
     this.worldState = worldState;
@@ -55,7 +55,7 @@ public class BlockProcessingContext {
     return blockHeader;
   }
 
-  public OperationTracer getOperationTracer() {
+  public BlockAwareOperationTracer getOperationTracer() {
     return operationTracer;
   }
 
