@@ -49,5 +49,4 @@ public interface BlockHashLookup extends BiFunction<MessageFrame, Long, Hash> {
             + "override forkForParallelWorker() with a per-worker instance when used for parallel "
             + "transaction processing.");
   }
-
 }

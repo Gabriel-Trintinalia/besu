@@ -81,5 +81,4 @@ public class BlockchainBasedBlockHashLookup implements BlockHashLookup {
     }
     return hashByNumber.getOrDefault(blockNumber, ZERO);
   }
-
 }

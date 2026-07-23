@@ -140,5 +140,4 @@ public class BlockProcessingOutputs {
   public long getCumulativeBlockGasUsed() {
     return cumulativeBlockGasUsed;
   }
-
 }
