@@ -131,7 +131,8 @@ public interface BlockProcessor {
    * @param worldState the world state to apply changes to
    * @param block the block to process
    * @param blockAccessList the optional block access list
-   * @param tracer the tracer to use for this execution (replaces the plugin-based import tracer)
+   * @param maybeTracer the tracer to use for this execution, replacing the plugin-based import
+   *     tracer; when empty the plugin-based import tracer is resolved as usual
    * @return the block processing result
    */
   BlockProcessingResult processBlock(
@@ -140,11 +141,11 @@ public interface BlockProcessor {
       final MutableWorldState worldState,
       final Block block,
       final Optional<BlockAccessList> blockAccessList,
-      final BlockAwareOperationTracer tracer);
+      final Optional<BlockAwareOperationTracer> maybeTracer);
 
   /**
-   * Processes the block with both a preprocessing function and an explicit operation tracer. This
-   * is the canonical overload — all other {@code processBlock} variants delegate here.
+   * Processes the block with both a preprocessing function and an optional explicit operation
+   * tracer. This is the canonical overload — all other {@code processBlock} variants delegate here.
    *
    * @param protocolContext the current context of the protocol
    * @param blockchain the blockchain to append the block to
@@ -152,7 +153,8 @@ public interface BlockProcessor {
    * @param block the block to process
    * @param blockAccessList the optional block access list
    * @param preprocessingBlockFunction a preprocessing function for block execution
-   * @param tracer the tracer to use for this execution
+   * @param maybeTracer the tracer to use for this execution; when empty the plugin-based import
+   *     tracer is resolved as usual
    * @return the block processing result
    */
   BlockProcessingResult processBlock(
@@ -162,7 +164,7 @@ public interface BlockProcessor {
       final Block block,
       final Optional<BlockAccessList> blockAccessList,
       final AbstractBlockProcessor.PreprocessingFunction preprocessingBlockFunction,
-      final BlockAwareOperationTracer tracer);
+      final Optional<BlockAwareOperationTracer> maybeTracer);
 
   /**
    * Get ommer reward in ${@link Wei}

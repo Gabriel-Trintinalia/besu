@@ -45,6 +45,7 @@ import org.hyperledger.besu.ethereum.trie.common.StateRootMismatchException;
 import org.hyperledger.besu.ethereum.trie.pathbased.bonsai.worldview.BonsaiWorldState;
 import org.hyperledger.besu.ethereum.trie.pathbased.bonsai.worldview.accumulator.BonsaiWorldStateUpdateAccumulator;
 import org.hyperledger.besu.evm.blockhash.BlockHashLookup;
+import org.hyperledger.besu.evm.tracing.OperationTracer;
 import org.hyperledger.besu.evm.worldstate.StackedUpdater;
 import org.hyperledger.besu.evm.worldstate.WorldState;
 import org.hyperledger.besu.evm.worldstate.WorldUpdater;
@@ -216,7 +217,7 @@ public abstract class AbstractBlockProcessor implements BlockProcessor {
         block,
         blockAccessList,
         preprocessingBlockFunction,
-        getBlockImportTracer(protocolContext, block.getHeader()));
+        Optional.empty());
   }
 
   @Override
@@ -226,7 +227,7 @@ public abstract class AbstractBlockProcessor implements BlockProcessor {
       final MutableWorldState worldState,
       final Block block,
       final Optional<BlockAccessList> blockAccessList,
-      final BlockAwareOperationTracer explicitTracer) {
+      final Optional<BlockAwareOperationTracer> maybeTracer) {
     return processBlock(
         protocolContext,
         blockchain,
@@ -234,7 +235,7 @@ public abstract class AbstractBlockProcessor implements BlockProcessor {
         block,
         blockAccessList,
         new NoPreprocessing(),
-        explicitTracer);
+        maybeTracer);
   }
 
   @Override
@@ -245,7 +246,12 @@ public abstract class AbstractBlockProcessor implements BlockProcessor {
       final Block block,
       final Optional<BlockAccessList> blockAccessList,
       final PreprocessingFunction preprocessingBlockFunction,
-      final BlockAwareOperationTracer blockTracer) {
+      final Optional<BlockAwareOperationTracer> maybeTracer) {
+
+    // Use the provided tracer if present, otherwise get one from the protocol context
+    final BlockAwareOperationTracer blockTracer =
+        maybeTracer.orElseGet(() -> getBlockImportTracer(protocolContext, block.getHeader()));
+
     final List<TransactionReceipt> receipts = new ArrayList<>();
     // EIP-7778: Track two separate cumulative gas values
     // cumulativeRegularGasUsed: For block gas limit enforcement (uses protocol-specific strategy)
@@ -293,7 +299,7 @@ public abstract class AbstractBlockProcessor implements BlockProcessor {
               worldState,
               protocolSpec,
               blockHashLookup,
-              !blockTracer.isEnabled() ? BlockAwareOperationTracer.NO_TRACING : blockTracer,
+              !blockTracer.isEnabled() ? OperationTracer.NO_TRACING : blockTracer,
               blockAccessListBuilder);
       protocolSpec
           .getPreExecutionProcessor()

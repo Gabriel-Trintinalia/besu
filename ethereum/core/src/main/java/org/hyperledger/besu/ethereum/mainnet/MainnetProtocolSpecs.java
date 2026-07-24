@@ -1502,10 +1502,10 @@ public abstract class MainnetProtocolSpecs {
         final MutableWorldState worldState,
         final Block block,
         final Optional<BlockAccessList> blockAccessList,
-        final BlockAwareOperationTracer tracer) {
+        final Optional<BlockAwareOperationTracer> maybeTracer) {
       updateWorldStateForDao(worldState);
       return wrapped.processBlock(
-          protocolContext, blockchain, worldState, block, blockAccessList, tracer);
+          protocolContext, blockchain, worldState, block, blockAccessList, maybeTracer);
     }
 
     @Override
@@ -1516,7 +1516,7 @@ public abstract class MainnetProtocolSpecs {
         final Block block,
         final Optional<BlockAccessList> blockAccessList,
         final AbstractBlockProcessor.PreprocessingFunction preprocessingBlockFunction,
-        final BlockAwareOperationTracer tracer) {
+        final Optional<BlockAwareOperationTracer> maybeTracer) {
       updateWorldStateForDao(worldState);
       return wrapped.processBlock(
           protocolContext,
@@ -1525,7 +1525,7 @@ public abstract class MainnetProtocolSpecs {
           block,
           blockAccessList,
           preprocessingBlockFunction,
-          tracer);
+          maybeTracer);
     }
 
     private static final Address DAO_REFUND_CONTRACT_ADDRESS =

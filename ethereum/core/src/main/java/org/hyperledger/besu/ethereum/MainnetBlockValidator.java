@@ -136,126 +136,15 @@ public class MainnetBlockValidator implements BlockValidator {
       final Optional<BlockAccessList> blockAccessList,
       final boolean shouldUpdateHead,
       final boolean shouldRecordBadBlock) {
-
-    final int blockSize = block.getSize();
-    if (blockSize > maxRlpBlockSize) {
-      final String errorMessage =
-          "Block size of " + blockSize + " bytes exceeds limit of " + maxRlpBlockSize + " bytes";
-      var retval = new BlockProcessingResult(errorMessage);
-      handleFailedBlockProcessing(block, blockAccessList, retval, true, context);
-      return retval;
-    }
-
-    final BlockHeader header = block.getHeader();
-    final BlockHeader parentHeader;
-
-    try {
-      final MutableBlockchain blockchain = context.getBlockchain();
-      final Optional<BlockHeader> maybeParentHeader =
-          blockchain.getBlockHeader(header.getParentHash());
-      if (maybeParentHeader.isEmpty()) {
-        var retval =
-            new BlockProcessingResult(
-                "Parent block with hash " + header.getParentHash() + " not present");
-        // Blocks should not be marked bad due to missing data
-        handleFailedBlockProcessing(block, blockAccessList, retval, false, context);
-        return retval;
-      }
-      parentHeader = maybeParentHeader.get();
-
-      if (!blockHeaderValidator.validateHeader(
-          header, parentHeader, context, headerValidationMode)) {
-        final String error = String.format("Header validation failed (%s)", headerValidationMode);
-        var retval = new BlockProcessingResult(error);
-        handleFailedBlockProcessing(block, blockAccessList, retval, shouldRecordBadBlock, context);
-        return retval;
-      }
-    } catch (StorageException ex) {
-      var retval = new BlockProcessingResult(Optional.empty(), ex);
-      // Blocks should not be marked bad due to a local storage failure
-      handleFailedBlockProcessing(block, blockAccessList, retval, false, context);
-      return retval;
-    }
-
-    final WorldStateQueryParams worldStateQueryParams =
-        WorldStateQueryParams.newBuilder()
-            .withBlockHeader(parentHeader)
-            .withShouldWorldStateUpdateHead(shouldUpdateHead)
-            .build();
-    try (final var worldState =
-        context.getWorldStateArchive().getWorldState(worldStateQueryParams).orElse(null)) {
-
-      if (worldState == null) {
-        var retval =
-            BlockProcessingResult.worldStateUnavailable(
-                "Unable to process block because parent world state "
-                    + parentHeader.getStateRoot()
-                    + " is not available");
-        // Blocks should not be marked bad due to missing data
-        handleFailedBlockProcessing(block, blockAccessList, retval, false, context);
-        return retval;
-      }
-
-      if (!blockAccessListValidator.validate(
-          blockAccessList, block.getHeader(), block.getBody().getTransactions().size())) {
-        var result =
-            new BlockProcessingResult(
-                String.format(
-                    "Block access list validation failed for block %s",
-                    block.getHeader().getBlockHash()));
-        handleFailedBlockProcessing(block, blockAccessList, result, shouldRecordBadBlock, context);
-        return result;
-      }
-
-      var result = processBlock(context, worldState, block, blockAccessList);
-      if (result.isFailed()) {
-        handleFailedBlockProcessing(block, blockAccessList, result, shouldRecordBadBlock, context);
-        return result;
-      } else {
-        List<TransactionReceipt> receipts =
-            result.getYield().map(BlockProcessingOutputs::getReceipts).orElse(new ArrayList<>());
-        Optional<List<Request>> maybeRequests =
-            result.getYield().flatMap(BlockProcessingOutputs::getRequests);
-        Optional<BlockAccessList> processedBlockAccessList =
-            result.getYield().flatMap(BlockProcessingOutputs::getBlockAccessList);
-        long cumulativeBlockGasUsed =
-            result.getYield().map(BlockProcessingOutputs::getCumulativeBlockGasUsed).orElse(0L);
-        if (!blockBodyValidator.validateBody(
-            context,
-            block,
-            receipts,
-            worldState.rootHash(),
-            ommerValidationMode,
-            BodyValidationMode.FULL,
-            OptionalLong.of(cumulativeBlockGasUsed))) {
-          result = new BlockProcessingResult("failed to validate output of imported block");
-          handleFailedBlockProcessing(
-              block, blockAccessList, result, shouldRecordBadBlock, context);
-          return result;
-        }
-
-        return new BlockProcessingResult(
-            Optional.of(
-                new BlockProcessingOutputs(
-                    worldState,
-                    receipts,
-                    maybeRequests,
-                    processedBlockAccessList,
-                    cumulativeBlockGasUsed)),
-            result.getNbParallelizedTransactions());
-      }
-    } catch (MerkleTrieException ex) {
-      context.getWorldStateArchive().heal(ex.getMaybeAddress(), ex.getLocation());
-      return new BlockProcessingResult(Optional.empty(), ex);
-    } catch (StorageException ex) {
-      var retval = new BlockProcessingResult(Optional.empty(), ex);
-      // Do not record bad block due to a local storage issue
-      handleFailedBlockProcessing(block, blockAccessList, retval, false, context);
-      return retval;
-    } catch (Exception ex) {
-      // Wrap checked autocloseable exception from try-with-resources
-      throw new RuntimeException(ex);
-    }
+    return validateAndProcessBlock(
+        context,
+        block,
+        headerValidationMode,
+        ommerValidationMode,
+        blockAccessList,
+        shouldUpdateHead,
+        shouldRecordBadBlock,
+        Optional.empty());
   }
 
   /**
@@ -318,21 +207,11 @@ public class MainnetBlockValidator implements BlockValidator {
       final ProtocolContext context,
       final MutableWorldState worldState,
       final Block block,
-      final Optional<BlockAccessList> blockAccessList) {
-
-    return blockProcessor.processBlock(
-        context, context.getBlockchain(), worldState, block, blockAccessList);
-  }
-
-  protected BlockProcessingResult processBlock(
-      final ProtocolContext context,
-      final MutableWorldState worldState,
-      final Block block,
       final Optional<BlockAccessList> blockAccessList,
-      final BlockAwareOperationTracer tracer) {
+      final Optional<BlockAwareOperationTracer> maybeTracer) {
 
     return blockProcessor.processBlock(
-        context, context.getBlockchain(), worldState, block, blockAccessList, tracer);
+        context, context.getBlockchain(), worldState, block, blockAccessList, maybeTracer);
   }
 
   @Override
@@ -345,6 +224,26 @@ public class MainnetBlockValidator implements BlockValidator {
       final boolean shouldPersist,
       final boolean shouldRecordBadBlock,
       final BlockAwareOperationTracer tracer) {
+    return validateAndProcessBlock(
+        context,
+        block,
+        headerValidationMode,
+        ommerValidationMode,
+        blockAccessList,
+        shouldPersist,
+        shouldRecordBadBlock,
+        Optional.of(tracer));
+  }
+
+  private BlockProcessingResult validateAndProcessBlock(
+      final ProtocolContext context,
+      final Block block,
+      final HeaderValidationMode headerValidationMode,
+      final HeaderValidationMode ommerValidationMode,
+      final Optional<BlockAccessList> blockAccessList,
+      final boolean shouldPersist,
+      final boolean shouldRecordBadBlock,
+      final Optional<BlockAwareOperationTracer> maybeTracer) {
 
     final int blockSize = block.getSize();
     if (blockSize > maxRlpBlockSize) {
@@ -413,7 +312,7 @@ public class MainnetBlockValidator implements BlockValidator {
         return result;
       }
 
-      var result = processBlock(context, worldState, block, blockAccessList, tracer);
+      var result = processBlock(context, worldState, block, blockAccessList, maybeTracer);
       if (result.isFailed()) {
         handleFailedBlockProcessing(block, blockAccessList, result, shouldRecordBadBlock, context);
         return result;
