@@ -148,53 +148,6 @@ public class MainnetBlockValidator implements BlockValidator {
   }
 
   /**
-   * Handles the processing of a block that has failed validation or processing.
-   *
-   * @param failedBlock the block that failed processing
-   * @param blockAccessList optional block access list
-   * @param result the result of the block processing
-   * @param shouldRecordBadBlock whether to record the block as a bad block
-   * @param context the ProtocolContext
-   */
-  protected void handleFailedBlockProcessing(
-      final Block failedBlock,
-      final Optional<BlockAccessList> blockAccessList,
-      final BlockValidationResult result,
-      final boolean shouldRecordBadBlock,
-      final ProtocolContext context) {
-    if (result.causedBy().isPresent()) {
-      // Block processing failed exceptionally, we cannot assume the block was intrinsically invalid
-      LOG.info(
-          "Failed to process block {}: {}, caused by {}",
-          failedBlock.toLogString(),
-          result.errorMessage,
-          result.causedBy().get());
-      LOG.debug("with stack", result.causedBy().get());
-    } else {
-      if (result.errorMessage.isPresent()) {
-        LOG.info("Invalid block {}: {}", failedBlock.toLogString(), result.errorMessage);
-      } else {
-        LOG.info("Invalid block {}", failedBlock.toLogString());
-      }
-
-      if (shouldRecordBadBlock) {
-        // Result.errorMessage should not be empty on failure, but add a default to be safe
-        String description = result.errorMessage.orElse("Unknown cause");
-        final BadBlockCause cause = BadBlockCause.fromValidationFailure(description);
-        final Optional<BlockAccessList> generatedBlockAccessList =
-            result instanceof BlockProcessingResult blockProcessingResult
-                ? blockProcessingResult.getGeneratedBlockAccessList()
-                : Optional.empty();
-        context
-            .getBadBlockManager()
-            .addBadBlock(failedBlock, cause, blockAccessList, generatedBlockAccessList);
-      } else {
-        LOG.debug("Invalid block {} not added to badBlockManager ", failedBlock.toLogString());
-      }
-    }
-  }
-
-  /**
    * Processes a block, returning the result of the processing
    *
    * @param context the ProtocolContext
@@ -241,7 +194,7 @@ public class MainnetBlockValidator implements BlockValidator {
       final HeaderValidationMode headerValidationMode,
       final HeaderValidationMode ommerValidationMode,
       final Optional<BlockAccessList> blockAccessList,
-      final boolean shouldPersist,
+      final boolean shouldUpdateHead,
       final boolean shouldRecordBadBlock,
       final Optional<BlockAwareOperationTracer> maybeTracer) {
 
@@ -265,6 +218,7 @@ public class MainnetBlockValidator implements BlockValidator {
         var retval =
             new BlockProcessingResult(
                 "Parent block with hash " + header.getParentHash() + " not present");
+        // Blocks should not be marked bad due to missing data
         handleFailedBlockProcessing(block, blockAccessList, retval, false, context);
         return retval;
       }
@@ -279,6 +233,7 @@ public class MainnetBlockValidator implements BlockValidator {
       }
     } catch (StorageException ex) {
       var retval = new BlockProcessingResult(Optional.empty(), ex);
+      // Blocks should not be marked bad due to a local storage failure
       handleFailedBlockProcessing(block, blockAccessList, retval, false, context);
       return retval;
     }
@@ -286,7 +241,7 @@ public class MainnetBlockValidator implements BlockValidator {
     final WorldStateQueryParams worldStateQueryParams =
         WorldStateQueryParams.newBuilder()
             .withBlockHeader(parentHeader)
-            .withShouldWorldStateUpdateHead(shouldPersist)
+            .withShouldWorldStateUpdateHead(shouldUpdateHead)
             .build();
     try (final var worldState =
         context.getWorldStateArchive().getWorldState(worldStateQueryParams).orElse(null)) {
@@ -297,6 +252,7 @@ public class MainnetBlockValidator implements BlockValidator {
                 "Unable to process block because parent world state "
                     + parentHeader.getStateRoot()
                     + " is not available");
+        // Blocks should not be marked bad due to missing data
         handleFailedBlockProcessing(block, blockAccessList, retval, false, context);
         return retval;
       }
@@ -354,10 +310,59 @@ public class MainnetBlockValidator implements BlockValidator {
       return new BlockProcessingResult(Optional.empty(), ex);
     } catch (StorageException ex) {
       var retval = new BlockProcessingResult(Optional.empty(), ex);
+      // Do not record bad block due to a local storage issue
       handleFailedBlockProcessing(block, blockAccessList, retval, false, context);
       return retval;
     } catch (Exception ex) {
+      // Wrap checked autocloseable exception from try-with-resources
       throw new RuntimeException(ex);
+    }
+  }
+
+  /**
+   * Handles the processing of a block that has failed validation or processing.
+   *
+   * @param failedBlock the block that failed processing
+   * @param blockAccessList optional block access list
+   * @param result the result of the block processing
+   * @param shouldRecordBadBlock whether to record the block as a bad block
+   * @param context the ProtocolContext
+   */
+  protected void handleFailedBlockProcessing(
+      final Block failedBlock,
+      final Optional<BlockAccessList> blockAccessList,
+      final BlockValidationResult result,
+      final boolean shouldRecordBadBlock,
+      final ProtocolContext context) {
+    if (result.causedBy().isPresent()) {
+      // Block processing failed exceptionally, we cannot assume the block was intrinsically invalid
+      LOG.info(
+          "Failed to process block {}: {}, caused by {}",
+          failedBlock.toLogString(),
+          result.errorMessage,
+          result.causedBy().get());
+      LOG.debug("with stack", result.causedBy().get());
+    } else {
+      if (result.errorMessage.isPresent()) {
+        LOG.info("Invalid block {}: {}", failedBlock.toLogString(), result.errorMessage);
+      } else {
+        LOG.info("Invalid block {}", failedBlock.toLogString());
+      }
+
+      if (shouldRecordBadBlock) {
+        // Result.errorMessage should not be empty on failure, but add a default to be safe
+        String description = result.errorMessage.orElse("Unknown cause");
+        final BadBlockCause cause = BadBlockCause.fromValidationFailure(description);
+        final Optional<BlockAccessList> generatedBlockAccessList =
+            result instanceof BlockProcessingResult blockProcessingResult
+                ? blockProcessingResult.getGeneratedBlockAccessList()
+                : Optional.empty();
+        context
+            .getBadBlockManager()
+            .addBadBlock(failedBlock, cause, blockAccessList, generatedBlockAccessList);
+      } else {
+        LOG.debug("Invalid block {} not added to badBlockManager ", failedBlock.toLogString());
+      }
     }
   }
 
