@@ -353,6 +353,7 @@ public class MainnetBlockValidator implements BlockValidator {
    * @param worldState the world state for the parent block state root hash
    * @param block the block to be processed
    * @param blockAccessList optional block access list
+   * @param maybeTracer optional BlockAwareOperationTracer
    * @return the result of processing the block
    */
   protected BlockProcessingResult processBlock(
