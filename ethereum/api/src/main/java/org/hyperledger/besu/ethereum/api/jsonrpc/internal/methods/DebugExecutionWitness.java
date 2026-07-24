@@ -92,9 +92,8 @@ public class DebugExecutionWitness extends AbstractBlockParameterOrBlockHashMeth
   /**
    * Re-executes the block identified by {@code blockHash} with a {@link WitnessOperationTracer},
    * then delegates witness construction to {@link BonsaiExecutionWitnessBuilder}. Returns a {@link
-   * org.hyperledger.besu.ethereum.api.jsonrpc.internal.results.ExecutionWitnessResult} on success,
-   * or a {@link org.hyperledger.besu.ethereum.api.jsonrpc.internal.response.JsonRpcErrorResponse}
-   * if the block or parent is missing, re-execution fails, or the witness is empty.
+   * ExecutionWitnessResult} on success, or a {@link JsonRpcErrorResponse} if the block or parent is
+   * missing, re-execution fails, or the witness is empty.
    */
   @Override
   protected Object resultByBlockHash(final JsonRpcRequestContext request, final Hash blockHash) {
@@ -129,7 +128,7 @@ public class DebugExecutionWitness extends AbstractBlockParameterOrBlockHashMeth
                 block,
                 HeaderValidationMode.NONE,
                 HeaderValidationMode.NONE,
-                blockchain.getBlockAccessList(blockHash),
+                Optional.empty(),
                 false,
                 false,
                 witnessTracer);
@@ -139,13 +138,11 @@ public class DebugExecutionWitness extends AbstractBlockParameterOrBlockHashMeth
     }
 
     try {
+      var blockAccessList = result.getYield().flatMap(BlockProcessingOutputs::getBlockAccessList);
       final BonsaiExecutionWitnessBuilder.Witness witness =
           new BonsaiExecutionWitnessBuilder(
                   getBlockchainQueries().getWorldStateArchive(), blockchain)
-              .buildWitness(
-                  blockHeader,
-                  result.getYield().flatMap(BlockProcessingOutputs::getBlockAccessList),
-                  witnessTracer);
+              .buildWitness(blockHeader, blockAccessList, witnessTracer);
       if (witness.state().isEmpty()) {
         return new JsonRpcErrorResponse(reqId, RpcErrorType.INTERNAL_ERROR);
       }
