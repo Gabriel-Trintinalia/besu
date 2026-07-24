@@ -165,7 +165,7 @@ public class MainnetBlockValidator implements BlockValidator {
         blockAccessList,
         shouldPersist,
         shouldRecordBadBlock,
-        Optional.of(tracer));
+        Optional.ofNullable(tracer));
   }
 
   private BlockProcessingResult validateAndProcessBlock(
