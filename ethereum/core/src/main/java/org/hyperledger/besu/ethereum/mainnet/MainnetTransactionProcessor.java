@@ -984,6 +984,17 @@ public class MainnetTransactionProcessor {
     for (final CodeDelegationResult.AuthorityAccess access : delegationAccesses) {
       if (tracker != null) {
         tracker.addTouchedAccount(access.authority());
+        // EIP-8025 witness: EELS validate_authorization reads the authority's code via get_code
+        // here, before the per-authority charge, for every authority reached in transaction order.
+        // The read survives a later out-of-gas (only the delegation state is rolled back), so
+        // record
+        // it at this exact point: a partial out-of-gas that stops the replay leaves the witness
+        // with
+        // exactly the authorities reached up to and including the one being charged — matching
+        // EELS.
+        // Empty authority codes are dropped later by buildCodes (nothing to fetch from parent
+        // state).
+        tracker.addPreStateCodeRead(access.authority());
       }
       if (access.newAccount() && !initialFrame.consumeStateGas(stateGasCalc.newAccountStateGas())) {
         return false;

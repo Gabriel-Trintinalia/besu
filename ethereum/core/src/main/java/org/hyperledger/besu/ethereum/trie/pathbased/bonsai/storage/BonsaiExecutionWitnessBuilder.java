@@ -111,7 +111,14 @@ public class BonsaiExecutionWitnessBuilder {
 
     try (worldState) {
       final List<String> state = buildTrieNodes(blockHeader, trieLog, ws, maybeBlockAccessList);
-      final List<String> codes = buildCodes(ws, tracer.getCodeAddresses());
+      // Addresses whose code was written during the block (CREATE, or a 7702 delegation designator
+      // set this block). A stateless verifier already reconstructs this code from the block itself,
+      // so an execution read that observed the in-block code must not pull the account's pre-state
+      // code into the witness — mirroring EELS get_code, which skips reads served from code_writes.
+      final Set<Address> inBlockCodeChanged = collectInBlockCodeChanges(maybeBlockAccessList);
+      final List<String> codes =
+          buildCodes(
+              ws, tracer.getCodeAddresses(), tracer.getPreStateCodeAddresses(), inBlockCodeChanged);
       final List<String> headers =
           buildHeaders(blockchain, tracer.getOldestAccessedAncestor(), blockHeader.getNumber());
       return new Witness(state, codes, headers);
@@ -189,12 +196,27 @@ public class BonsaiExecutionWitnessBuilder {
   }
 
   /**
-   * Returns the RLP-encoded contract bytecodes for all {@code addresses} that have non-empty code
-   * in the parent world state. Lookups run in parallel; results are deduplicated and sorted.
+   * Returns the RLP-encoded pre-state contract bytecodes required by a stateless verifier,
+   * deduplicated and sorted, implementing the EIP-8025 {@code get_witness_codes} rule.
+   *
+   * <p>{@code preStateAddresses} were read explicitly from the parent state (EIP-7702
+   * re-delegation), so their pre-state code is always included. {@code executionAddresses} were
+   * read from the account's current code during execution; their pre-state code is included only
+   * when the code was <em>not</em> written in-block ({@code inBlockCodeChanged}) — if it was, the
+   * verifier already has that code from the block, matching EELS get_code, which does not record
+   * reads served from {@code code_writes}. Empty code is never included. Lookups run in parallel.
    */
-  private List<String> buildCodes(final BonsaiWorldState worldView, final Set<Address> addresses) {
+  private List<String> buildCodes(
+      final BonsaiWorldState worldView,
+      final Set<Address> executionAddresses,
+      final Set<Address> preStateAddresses,
+      final Set<Address> inBlockCodeChanged) {
     final var resultSet = ConcurrentHashMap.<String>newKeySet();
-    addresses.parallelStream()
+    java.util.stream.Stream.concat(
+            preStateAddresses.stream(),
+            executionAddresses.stream().filter(a -> !inBlockCodeChanged.contains(a)))
+        .distinct()
+        .parallel()
         .forEach(
             address -> {
               final var account = worldView.get(address);
@@ -205,6 +227,24 @@ public class BonsaiExecutionWitnessBuilder {
               }
             });
     return resultSet.stream().sorted().toList();
+  }
+
+  /**
+   * Collects the addresses whose bytecode was written during the block from the block access list.
+   * Returns an empty set when no BAL is present (pre-Amsterdam), which disables the in-block
+   * filter.
+   */
+  private Set<Address> collectInBlockCodeChanges(final Optional<BlockAccessList> maybeBal) {
+    if (maybeBal.isEmpty()) {
+      return Set.of();
+    }
+    final Set<Address> changed = ConcurrentHashMap.newKeySet();
+    for (final var accountChanges : maybeBal.get().accountChanges()) {
+      if (!accountChanges.codeChanges().isEmpty()) {
+        changed.add(accountChanges.address());
+      }
+    }
+    return changed;
   }
 
   /**

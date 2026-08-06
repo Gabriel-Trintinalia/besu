@@ -94,9 +94,7 @@ public class EngineNewPayloadWithWitnessV5 extends EngineNewPayloadV5 {
       final Optional<BlockAccessList> maybeBlockAccessList,
       final List<Transaction> blobTransactions,
       final Hash latestValidAncestor) {
-    final WitnessOperationTracer witnessTracer =
-        new WitnessOperationTracer(
-            protocolSchedule.get().getByBlockHeader(block.getHeader()).getGasCalculator());
+    final WitnessOperationTracer witnessTracer = new WitnessOperationTracer();
 
     final long startTimeNs = System.nanoTime();
     final BlockProcessingResult executionResult =

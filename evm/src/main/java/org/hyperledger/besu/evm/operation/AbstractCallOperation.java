@@ -233,6 +233,15 @@ public abstract class AbstractCallOperation extends AbstractOperation {
     final Account contract = getAccount(to, frame);
     cost = clampedAdd(cost, gasCalculator().calculateCodeDelegationResolutionGas(frame, contract));
 
+    // EIP-8025 witness: computing the delegation-resolution cost reads the delegator's designator,
+    // and it runs after the base-cost check but before the delegation-access gas check — mirroring
+    // EELS calculate_delegation_cost. Record the delegator here, exactly where the EVM reads its
+    // designator, so the witness needs no gas-cost inference to know the code was accessed.
+    if (contract != null && hasCodeDelegation(contract.getCode())) {
+      final Address delegator = to;
+      frame.getEip7928AccessList().ifPresent(t -> t.addCodeRead(delegator));
+    }
+
     if (frame.getRemainingGas() < cost) {
       return new OperationResult(cost, ExceptionalHaltReason.INSUFFICIENT_GAS);
     }
@@ -245,9 +254,20 @@ public abstract class AbstractCallOperation extends AbstractOperation {
     if (contract != null) {
       final Bytes contractCode = contract.getCode();
       if (hasCodeDelegation(contractCode)) {
+        final Address target = getTargetAddress(contractCode);
         frame
             .getEip7928AccessList()
-            .ifPresent(t -> t.addTouchedAccount(getTargetAddress(contractCode)));
+            .ifPresent(
+                t -> {
+                  t.addTouchedAccount(target);
+                  // EIP-8025 witness: the EVM reads the delegation target's code here — exactly
+                  // where EELS calls get_code(target) after the call's gas checks pass but before
+                  // the value/depth soft-failure check (system.py). Recording it here means the
+                  // witness includes the target's bytecode even when the call later soft-fails
+                  // (insufficient balance / max depth) and no child frame is created, so the
+                  // witness needs no gas-cost inference to know the code was accessed.
+                  t.addCodeRead(target);
+                });
       }
     }
 

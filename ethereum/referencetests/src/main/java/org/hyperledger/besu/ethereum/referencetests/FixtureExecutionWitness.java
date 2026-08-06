@@ -27,7 +27,8 @@ import com.fasterxml.jackson.annotation.JsonProperty;
  * BlockchainReferenceTestCaseSpec.CandidateBlock}.
  */
 @JsonIgnoreProperties(ignoreUnknown = true)
-public record FixtureExecutionWitness(List<String> state, List<String> codes, List<String> headers) {
+public record FixtureExecutionWitness(
+    List<String> state, List<String> codes, List<String> headers) {
 
   @JsonCreator
   public FixtureExecutionWitness(

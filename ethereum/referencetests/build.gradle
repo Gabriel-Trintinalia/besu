@@ -144,8 +144,8 @@ tasks.register("cleanReferenceTestCache") {
     ].each { config ->
       def currentFile = config.files.find { it.name.endsWith('.tar.gz') }
       if (currentFile == null) return
-      // Cache layout: <module>/<version>/<hash>/<file>.tar.gz
-      def versionDir = currentFile.parentFile.parentFile
+        // Cache layout: <module>/<version>/<hash>/<file>.tar.gz
+        def versionDir = currentFile.parentFile.parentFile
       def moduleDir = versionDir.parentFile
       keepByModule[moduleDir.absolutePath] << versionDir.name
     }

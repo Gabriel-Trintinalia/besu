@@ -17,9 +17,7 @@ package org.hyperledger.besu.ethereum.mainnet;
 import org.hyperledger.besu.datatypes.Address;
 import org.hyperledger.besu.datatypes.Hash;
 import org.hyperledger.besu.datatypes.Transaction;
-import org.hyperledger.besu.datatypes.Wei;
 import org.hyperledger.besu.evm.frame.MessageFrame;
-import org.hyperledger.besu.evm.gascalculator.GasCalculator;
 import org.hyperledger.besu.evm.internal.Words;
 import org.hyperledger.besu.evm.operation.Operation.OperationResult;
 import org.hyperledger.besu.evm.worldstate.CodeDelegationHelper;
@@ -32,7 +30,6 @@ import org.hyperledger.besu.plugin.services.tracer.BlockAwareOperationTracer;
 import java.util.Collections;
 import java.util.IdentityHashMap;
 import java.util.LinkedHashSet;
-import java.util.List;
 import java.util.Set;
 
 import org.apache.tuweni.bytes.Bytes32;
@@ -43,59 +40,34 @@ import org.apache.tuweni.bytes.Bytes32;
  */
 public class WitnessOperationTracer implements BlockAwareOperationTracer {
 
-  private final GasCalculator gasCalculator;
+  // Addresses whose bytecode was read *during execution* (the frame's current code): executed
+  // contracts, delegation targets, EXTCODE/CALL targets, the tx sender and a delegated tx target.
+  // These correspond to EELS get_code reads served from the current state. A stateless verifier
+  // only
+  // needs the PRE-STATE bytecode for these, and only when the current code equals the pre-state
+  // code
+  // — if the code was written in-block (CREATE, a 7702 marker set this block) the verifier already
+  // has it from the block, so buildCodes drops it (see BonsaiExecutionWitnessBuilder).
   private final Set<Address> codeAddresses = new LinkedHashSet<>();
+  // Addresses whose PRE-STATE bytecode was read explicitly from the parent state (EIP-7702
+  // re-delegation: set_delegation reads the authority's pre-block delegation designator via
+  // get_code
+  // with the pre-state code hash). Unlike codeAddresses these are never dropped for in-block code
+  // changes, because the read genuinely fetched the pre-state code, not the in-block replacement.
+  private final Set<Address> preStateCodeAddresses = new LinkedHashSet<>();
   // Oldest block number (inclusive) whose header the stateless executor must receive. Initialized
   // to the parent block number (always required) and extended left by each successful BLOCKHASH.
   private long oldestAccessedAncestor = Long.MAX_VALUE;
-
-  /**
-   * @param gasCalculator the gas calculator for the fork being executed.
-   */
-  // gasCalculator for the fork being executed; used to compute memory expansion costs when
-  // detecting whether a delegated-CALL's resolution step ran.
-  public WitnessOperationTracer(final GasCalculator gasCalculator) {
-    this.gasCalculator = gasCalculator;
-  }
-
-  // Parent-state snapshot saved at traceStartBlock. Used in traceStartTransaction to read EIP-7702
-  // authority codes as they existed before the block started. Delegation processing runs before
-  // tracing begins, so the current world view may already reflect cleared or overwritten codes.
-  private WorldView parentWorldView = null;
 
   // Block number from a BLOCKHASH opcode captured in tracePreExecution; consumed and reset in
   // tracePostExecution. -1 means no BLOCKHASH is pending.
   private long pendingBlockHashNumber = -1;
 
-  // Snapshot of call-time state needed in tracePostExecution to decide whether
-  // AbstractCallOperation.execute() read the delegation target account.
-  //
-  // The EVM reads alice's code (and thus the delegation designator pointing at T) during the
-  // delegation-resolution gas step, which comes after the static-cost check but before the
-  // call-depth / balance check. We detect whether that step ran using two signals:
-  //
-  //   If T was cold before the opcode and is warm afterward → resolution step ran (it warms T as a
-  //   side effect) → alice's code was read.
-  //
-  //   If T was already warm its warm/cold state doesn't change. We fall back to comparing the
-  //   reported gas cost to the pre-computed static cost: static cost covers alice-access + memory
-  //   expansion + value transfer, but not the delegation-resolution cost. gasCost > staticCost
-  //   implies the resolution step ran.
-  private record PendingDelegationInfo(
-      Address aliceAddress, // call target that carries a delegation designator
-      Address delegationTarget, // T — the address alice delegates to
-      boolean targetWasWarm, // warm/cold state of T before the opcode ran
-      long pendingStaticCost) // aliceAccessCost + memExpansion + valueTransferCost (no child gas)
-  {}
-
-  // Keyed by frame identity so concurrent nested calls don't interfere with each other.
-  private final IdentityHashMap<MessageFrame, PendingDelegationInfo> pendingCallDelegations =
-      new IdentityHashMap<>();
-
   // Address pending from the last EXTCODESIZE, EXTCODECOPY, or non-delegated CALL opcode in a
   // frame. Captured in tracePreExecution and committed to codeAddresses in tracePostExecution only
   // when the opcode did not OOG. Opcodes execute sequentially within a frame so at most one entry
-  // exists per frame at a time. Delegated CALL targets are handled via pendingCallDelegations.
+  // exists per frame at a time. Delegated CALL designators are recorded deterministically by the
+  // EVM (AbstractCallOperation, via the EIP-7928 access list) and merged in tracePostExecution.
   private final IdentityHashMap<MessageFrame, Address> pendingCodeAddr = new IdentityHashMap<>();
 
   @Override
@@ -104,7 +76,6 @@ public class WitnessOperationTracer implements BlockAwareOperationTracer {
       final BlockHeader blockHeader,
       final BlockBody blockBody,
       final Address miningBeneficiary) {
-    parentWorldView = worldView;
     recordParentHeader(blockHeader);
   }
 
@@ -113,7 +84,6 @@ public class WitnessOperationTracer implements BlockAwareOperationTracer {
       final WorldView worldView,
       final ProcessableBlockHeader processableBlockHeader,
       final Address miningBeneficiary) {
-    parentWorldView = worldView;
     recordParentHeader(processableBlockHeader);
   }
 
@@ -154,25 +124,15 @@ public class WitnessOperationTracer implements BlockAwareOperationTracer {
               }
             });
 
-    // EIP-7702 intrinsic gas charges PER_EMPTY_ACCOUNT_COST for each authorization whose authority
-    // has empty pre-block code. To reproduce this, the executor needs the authority's pre-block
-    // bytecode. We read from parentWorldView (not worldView) because delegation processing already
-    // ran: the current world view may reflect cleared or overwritten designation codes.
-    final WorldView authorityView = parentWorldView != null ? parentWorldView : worldView;
-    for (final var delegation : transaction.getCodeDelegationList().orElse(List.of())) {
-      delegation
-          .authorizer()
-          .ifPresent(
-              auth -> {
-                final var authAccount = authorityView.get(auth);
-                // Any non-empty pre-block code — plain 0x00, non-designator, and designator alike —
-                // must
-                // be in the witness so the executor can reproduce the intrinsic gas check.
-                if (authAccount != null && !authAccount.getCodeHash().equals(Hash.EMPTY)) {
-                  codeAddresses.add(auth);
-                }
-              });
-    }
+    // EIP-7702 authority codes are NOT recorded here. EELS reads an authority's code via get_code
+    // inside validate_authorization, for each authorization reached in transaction order, stopping
+    // at the first out-of-gas while charging the per-authority state costs. Recording them up-front
+    // from the transaction's authorization list would over-collect the authorities beyond an
+    // out-of-gas (e.g. a "contract authority" whose authorization is never reached). Instead the
+    // EVM records each reached authority's pre-state code read at that exact charge point
+    // (MainnetTransactionProcessor#chargeCodeDelegationAccesses, via
+    // Eip7928AccessList#addPreStateCodeRead); this tracer merges those reads in traceContextEnter
+    // and tracePostExecution. See getPreStateCodeAddresses.
   }
 
   /** Records the bytecode of each MESSAGE_CALL contract and its EIP-7702 delegation target. */
@@ -180,6 +140,8 @@ public class WitnessOperationTracer implements BlockAwareOperationTracer {
   public void traceContextEnter(final MessageFrame frame) {
     // CONTRACT_CREATION frames: init code is embedded in the transaction payload and does not need
     // to appear in the codes list; newly deployed runtime code is provided by the transaction.
+    mergePreStateCodeReads(frame);
+
     if (frame.getType() != MessageFrame.Type.MESSAGE_CALL) return;
 
     // The contract at frame.getContractAddress() is about to be executed; the executor needs this
@@ -220,41 +182,24 @@ public class WitnessOperationTracer implements BlockAwareOperationTracer {
       }
       case 0xF1, 0xF2, 0xF4, 0xFA -> { // CALL, CALLCODE, DELEGATECALL, STATICCALL
         // AbstractCallOperation.execute() reads the target account before the balance and
-        // call-depth
-        // checks. If either later check fails ("soft failure") no child frame is created and
-        // traceContextEnter is never called — yet the bytecode was accessed. Capture here; decide
-        // in tracePostExecution whether the access actually occurred.
+        // call-depth checks. If either later check fails ("soft failure") no child frame is created
+        // and traceContextEnter is never called — yet the bytecode was accessed. Capture here;
+        // commit in tracePostExecution only when the opcode did not OOG.
+        //
+        // Delegated targets are NOT handled here: the EVM records the delegation designator read
+        // deterministically at its exact read point (AbstractCallOperation's delegation-resolution
+        // gas step, via the EIP-7928 access list). That is committed in tracePostExecution and
+        // avoids any gas-cost inference, so we only track the non-delegated case with
+        // pendingCodeAddr.
         final int minStack = (opcode == 0xF1 || opcode == 0xF2) ? 7 : 6;
         if (frame.stackSize() >= minStack) {
           final Address alice = Words.toAddress(frame.getStackItem(1));
           final var aliceAccount = frame.getWorldUpdater().get(alice);
-          if (aliceAccount != null
-              && CodeDelegationHelper.hasCodeDelegation(aliceAccount.getCode())) {
-            // Alice is delegated. Record state needed to detect whether the delegation-resolution
-            // gas step (check 3, which reads alice's code) actually ran.
-            final Address T = CodeDelegationHelper.getTargetAddress(aliceAccount.getCode());
-            final boolean aliceWasWarm = frame.isAddressWarm(alice);
-            final boolean tWasWarm = frame.isAddressWarm(T);
-            // Reconstruct the static cost (checks 1+2: alice-access + mem-expansion + value
-            // transfer, no child gas); any reported cost above this means check 3 also ran.
-            final int argsBase = (opcode == 0xF1 || opcode == 0xF2) ? 3 : 2;
-            final Wei transferValue =
-                (opcode == 0xF1 || opcode == 0xF2) ? Wei.wrap(frame.getStackItem(2)) : Wei.ZERO;
-            final long staticCost =
-                gasCalculator.callOperationStaticGasCost(
-                    frame,
-                    0L,
-                    Words.clampedToLong(frame.getStackItem(argsBase)),
-                    Words.clampedToLong(frame.getStackItem(argsBase + 1)),
-                    Words.clampedToLong(frame.getStackItem(argsBase + 2)),
-                    Words.clampedToLong(frame.getStackItem(argsBase + 3)),
-                    transferValue,
-                    alice,
-                    aliceWasWarm);
-            pendingCallDelegations.put(
-                frame, new PendingDelegationInfo(alice, T, tWasWarm, staticCost));
-          } else {
-            // Non-delegated alice: account-read is implied by passing checks 1+2.
+          final boolean aliceDelegated =
+              aliceAccount != null
+                  && CodeDelegationHelper.hasCodeDelegation(aliceAccount.getCode());
+          if (!aliceDelegated) {
+            // Non-delegated alice: account-read is implied by passing the access/balance checks.
             pendingCodeAddr.put(frame, alice);
           }
         }
@@ -285,34 +230,55 @@ public class WitnessOperationTracer implements BlockAwareOperationTracer {
       codeAddresses.add(pendingAddr);
     }
 
-    // Delegated CALL: use the gas-delta signal from PendingDelegationInfo to determine whether
-    // alice's code was read during the delegation-resolution step (check 3).
-    final PendingDelegationInfo info = pendingCallDelegations.remove(frame);
-    if (info != null) {
-      final boolean alicesCodeWasRead;
-      if (!info.targetWasWarm() && frame.isAddressWarm(info.delegationTarget())) {
-        // T transitioned cold → warm: delegation-resolution step ran, alice's code was read.
-        alicesCodeWasRead = true;
-      } else {
-        // T was already warm; use gas cost as the signal instead.
-        alicesCodeWasRead = (operationResult.getGasCost() > info.pendingStaticCost());
-      }
-      if (alicesCodeWasRead) {
-        codeAddresses.add(info.aliceAddress());
-        // T is needed only when the call did not OOG at check 3 — null haltReason means the EVM
-        // continued past the balance/depth check, recorded T in the BAL, and headed toward either
-        // a soft failure or a real child frame. (traceContextEnter adds T again for the latter;
-        // the duplicate insertion into the LinkedHashSet is harmless.)
-        if (operationResult.getHaltReason() == null) {
-          codeAddresses.add(info.delegationTarget());
-        }
-      }
-    }
+    // Delegated CALL: the EVM records the delegation designator's holder in the frame's EIP-7928
+    // access list at the exact point it reads the designator (AbstractCallOperation's
+    // delegation-resolution gas step), so no gas-cost inference is needed. The set only grows and
+    // is deduplicated, so merging it every opcode is idempotent. This also captures designators
+    // read while resolving a call that later OOGs at the delegation-access gas check — a case the
+    // haltReason==null pendingCodeAddr path cannot see. The matching delegation target T is added
+    // by traceContextEnter when execution actually reaches T's code.
+    frame.getEip7928AccessList().ifPresent(al -> codeAddresses.addAll(al.getCodeReads()));
+
+    mergePreStateCodeReads(frame);
   }
 
-  /** Returns addresses whose bytecode must appear in the witness {@code codes} list. */
+  /**
+   * Fires when a frame reaches a terminal state — including a top frame set to EXCEPTIONAL_HALT by
+   * an out-of-gas in the EIP-7702 delegation-charge preparation, which never enters execution. This
+   * is the only callback guaranteed to run in that case, so it is where the authority pre-state
+   * code reads recorded during the charge replay are merged.
+   */
+  @Override
+  public void traceContextExit(final MessageFrame frame) {
+    mergePreStateCodeReads(frame);
+  }
+
+  // Merges the EIP-7702 authority pre-state code reads accumulated on the transaction's EIP-7928
+  // access list into the pre-state witness set. Idempotent (the sets only grow and deduplicate), so
+  // it is safe to call from multiple frame callbacks to cover every execution/halt path.
+  private void mergePreStateCodeReads(final MessageFrame frame) {
+    frame
+        .getEip7928AccessList()
+        .ifPresent(al -> preStateCodeAddresses.addAll(al.getPreStateCodeReads()));
+  }
+
+  /**
+   * Returns addresses whose bytecode was read during execution. Their pre-state bytecode belongs in
+   * the witness {@code codes} list only when the code was not overwritten in-block — {@link
+   * org.hyperledger.besu.ethereum.trie.pathbased.bonsai.storage.BonsaiExecutionWitnessBuilder}
+   * applies that filter using the block access list.
+   */
   public Set<Address> getCodeAddresses() {
     return Collections.unmodifiableSet(codeAddresses);
+  }
+
+  /**
+   * Returns addresses whose pre-state bytecode was read explicitly from the parent state (EIP-7702
+   * re-delegation). Their pre-state bytecode is always included in the witness {@code codes} list,
+   * regardless of any in-block code change.
+   */
+  public Set<Address> getPreStateCodeAddresses() {
+    return Collections.unmodifiableSet(preStateCodeAddresses);
   }
 
   /**

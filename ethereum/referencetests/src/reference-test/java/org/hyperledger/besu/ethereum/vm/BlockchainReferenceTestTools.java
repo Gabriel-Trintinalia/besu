@@ -19,10 +19,13 @@ import static org.junit.jupiter.api.Assumptions.assumeFalse;
 
 import org.hyperledger.besu.config.StubGenesisConfigOptions;
 import org.hyperledger.besu.consensus.merge.blockcreation.ReferenceTestMergeBlockCreator;
+import org.hyperledger.besu.datatypes.Hash;
 import org.hyperledger.besu.datatypes.Wei;
+import org.hyperledger.besu.ethereum.BlockProcessingOutputs;
 import org.hyperledger.besu.ethereum.BlockProcessingResult;
 import org.hyperledger.besu.ethereum.BlockValidator;
 import org.hyperledger.besu.ethereum.ProtocolContext;
+import org.hyperledger.besu.ethereum.chain.Blockchain;
 import org.hyperledger.besu.ethereum.chain.MutableBlockchain;
 import org.hyperledger.besu.ethereum.core.Block;
 import org.hyperledger.besu.ethereum.core.BlockHeader;
@@ -47,10 +50,12 @@ import org.hyperledger.besu.ethereum.forkid.ForkIdManager;
 import org.hyperledger.besu.ethereum.mainnet.HeaderValidationMode;
 import org.hyperledger.besu.ethereum.mainnet.ProtocolSchedule;
 import org.hyperledger.besu.ethereum.mainnet.ProtocolSpec;
+import org.hyperledger.besu.ethereum.mainnet.WitnessOperationTracer;
 import org.hyperledger.besu.ethereum.referencetests.BlockchainReferenceTestCaseSpec;
 import org.hyperledger.besu.ethereum.referencetests.BlockExceptionMatcher;
 import org.hyperledger.besu.ethereum.referencetests.ReferenceTestProtocolSchedules;
 import org.hyperledger.besu.ethereum.rlp.RLPException;
+import org.hyperledger.besu.ethereum.trie.pathbased.bonsai.storage.BonsaiExecutionWitnessBuilder;
 import org.hyperledger.besu.ethereum.trie.pathbased.common.provider.WorldStateQueryParams;
 import org.hyperledger.besu.ethereum.worldstate.WorldStateArchive;
 import org.hyperledger.besu.evm.EVM;
@@ -61,6 +66,7 @@ import org.hyperledger.besu.evm.internal.EvmConfiguration.WorldUpdaterMode;
 import org.hyperledger.besu.testutil.JsonTestParameters;
 
 import java.time.Clock;
+import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.Collection;
 import java.util.Collections;
@@ -71,8 +77,11 @@ import org.apache.tuweni.bytes.Bytes;
 import org.apache.tuweni.bytes.Bytes32;
 import org.assertj.core.api.Assertions;
 import org.hyperledger.besu.metrics.noop.NoOpMetricsSystem;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 
 public class BlockchainReferenceTestTools {
+  private static final Logger LOG = LoggerFactory.getLogger(BlockchainReferenceTestTools.class);
 
     private static final List<String> NETWORKS_TO_RUN;
     private static final ReferenceTestProtocolSchedules PROTOCOL_SCHEDULES;
@@ -194,6 +203,7 @@ public class BlockchainReferenceTestTools {
                     // Use validateAndProcessBlock directly so we can access the error message and
                     // verify it matches the expected exception from the fixture.
                     final BlockValidator blockValidator = protocolSpec.getBlockValidator();
+                    final WitnessOperationTracer witnessTracer = new WitnessOperationTracer();
                     final BlockProcessingResult processingResult =
                             blockValidator.validateAndProcessBlock(
                                     protocolContext,
@@ -201,7 +211,9 @@ public class BlockchainReferenceTestTools {
                                     validationMode,
                                     validationMode,
                                     candidateBlock.getBlockAccessList(),
-                                    false);
+                                    false,
+                                    true,
+                                    witnessTracer);
 
                     final boolean imported = processingResult.isSuccessful();
                     if (imported) {
@@ -237,6 +249,9 @@ public class BlockchainReferenceTestTools {
                         });
                     }
 
+                    if (imported) {
+                        assertWitness(protocolContext, block, blockchain, processingResult, witnessTracer, candidateBlock);
+                    }
                 } catch (final RLPException e) {
                     assertThat(candidateBlock.isValid()).isFalse();
                 }
@@ -245,6 +260,73 @@ public class BlockchainReferenceTestTools {
 
         Assertions.assertThat(blockchain.getChainHeadHash()).isEqualTo(spec.getLastBlockHash());
 
+  }
+
+  private static void assertWitness(
+    final ProtocolContext ctx,
+    final Block block,
+    final Blockchain blockchain,
+    final BlockProcessingResult processingResult,
+    final WitnessOperationTracer witnessTracer,
+    final BlockchainReferenceTestCaseSpec.CandidateBlock candidateBlock) {
+
+    // Skip genesis block since it doesn't have a parent to build the witness against
+    if( block.getHeader().getNumber() == blockchain.getGenesisBlock().getHeader().getNumber()) {
+      return;
+    }
+
+    // If the fixture doesn't specify an expected witness, skip the check
+    var expectedWitnessOpt = candidateBlock.getExpectedWitness();
+    if (expectedWitnessOpt.isEmpty()) {
+      return;
+    }
+
+    expectedWitnessOpt.ifPresent(
+      expected -> {
+        final BonsaiExecutionWitnessBuilder.Witness got =
+          new BonsaiExecutionWitnessBuilder(ctx.getWorldStateArchive(), ctx.getBlockchain())
+            .buildWitness(
+              block.getHeader(),
+              processingResult.getYield().flatMap(BlockProcessingOutputs::getBlockAccessList),
+              witnessTracer);
+
+        logWitnessDiff("state", got.state(), expected.state(), block.getHash());
+        logWitnessDiff("codes", got.codes(), expected.codes(), block.getHash());
+        logWitnessDiff("headers", got.headers(), expected.headers(), block.getHash());
+
+        assertThat(got.state())
+          .as("state for block %s", block.getHash())
+          .isEqualTo(expected.state());
+        assertThat(got.codes())
+          .as("codes for block %s", block.getHash())
+          .isEqualTo(expected.codes());
+        assertThat(got.headers())
+          .as("headers for block %s", block.getHash())
+          .isEqualTo(expected.headers());
+      });
+  }
+
+  private static void logWitnessDiff(
+    final String field,
+    final List<String> got,
+    final List<String> expected,
+    final Hash blockHash) {
+    final List<String> missing = new ArrayList<>(expected);
+    missing.removeAll(got);
+    final List<String> extra = new ArrayList<>(got);
+    extra.removeAll(expected);
+    if (missing.isEmpty() && extra.isEmpty()) {
+      LOG.info("Block {} {} match", blockHash, field);
+    } else {
+      if (!missing.isEmpty()) {
+        LOG.warn("Block {} {} missing ({}):", blockHash, field, missing.size());
+        missing.forEach(e -> LOG.warn("  - {}", e));
+      }
+      if (!extra.isEmpty()) {
+        LOG.warn("Block {} {} extra ({}):", blockHash, field, extra.size());
+        extra.forEach(e -> LOG.warn("  + {}", e));
+      }
+    }
   }
 
   private static Block buildBlock(
