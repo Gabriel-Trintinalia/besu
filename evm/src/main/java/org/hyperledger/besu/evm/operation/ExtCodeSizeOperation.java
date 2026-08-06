@@ -60,6 +60,7 @@ public class ExtCodeSizeOperation extends AbstractOperation {
       if (frame.getRemainingGas() < cost) {
         return new OperationResult(cost, ExceptionalHaltReason.INSUFFICIENT_GAS);
       } else {
+        frame.getWitnessTracker().ifPresent(t -> t.addCodeRead(address));
         final Account account = getAccount(address, frame);
 
         Bytes codeSize = (account == null) ? Bytes.EMPTY : Words.intBytes(account.getCode().size());

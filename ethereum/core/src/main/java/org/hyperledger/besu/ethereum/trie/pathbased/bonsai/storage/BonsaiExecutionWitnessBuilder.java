@@ -18,12 +18,11 @@ import static org.hyperledger.besu.ethereum.trie.pathbased.common.provider.World
 
 import org.hyperledger.besu.datatypes.Address;
 import org.hyperledger.besu.datatypes.Hash;
-import org.hyperledger.besu.ethereum.BlockProcessingOutputs;
 import org.hyperledger.besu.ethereum.chain.Blockchain;
 import org.hyperledger.besu.ethereum.core.BlockHeader;
 import org.hyperledger.besu.ethereum.core.MutableWorldState;
-import org.hyperledger.besu.ethereum.mainnet.WitnessOperationTracer;
 import org.hyperledger.besu.ethereum.mainnet.block.access.list.BlockAccessList;
+import org.hyperledger.besu.ethereum.mainnet.witness.BlockWitnessAccumulator;
 import org.hyperledger.besu.ethereum.rlp.RLP;
 import org.hyperledger.besu.ethereum.trie.pathbased.bonsai.NoOpBonsaiCachedWorldStorageManager;
 import org.hyperledger.besu.ethereum.trie.pathbased.bonsai.cache.CodeCache;
@@ -68,18 +67,14 @@ public class BonsaiExecutionWitnessBuilder {
   }
 
   /**
-   * Hybrid witness builder: uses {@link BlockProcessingOutputs} (TrieLog + BAL) for the {@code
-   * state} and {@code headers} fields (same accuracy as the existing path), but uses the {@link
-   * WitnessOperationTracer}'s code-address set for {@code codes}. This correctly includes system
-   * contracts that were called during pre-execution (EIP-2935, EIP-7002, etc.) but whose codes the
-   * TrieLog+BAL path was previously missing because {@link
-   * org.hyperledger.besu.ethereum.mainnet.systemcall.SystemCallProcessor} used {@code
-   * OperationTracer.NO_TRACING}.
+   * Builds the EIP-8025 execution witness (state trie nodes, codes, headers) for a block. Uses the
+   * TrieLog + BAL for {@code state}, the {@link BlockWitnessAccumulator}'s accumulated code-read
+   * sets for {@code codes}, and the oldest accessed ancestor for {@code headers}.
    */
   public Witness buildWitness(
       final BlockHeader blockHeader,
       final Optional<BlockAccessList> maybeBlockAccessList,
-      final WitnessOperationTracer tracer) {
+      final Optional<BlockWitnessAccumulator> maybeWitnessAccumulator) {
     final TrieLog trieLog =
         worldStateProvider
             .getTrieLogManager()
@@ -118,9 +113,19 @@ public class BonsaiExecutionWitnessBuilder {
       final Set<Address> inBlockCodeChanged = collectInBlockCodeChanges(maybeBlockAccessList);
       final List<String> codes =
           buildCodes(
-              ws, tracer.getCodeAddresses(), tracer.getPreStateCodeAddresses(), inBlockCodeChanged);
+              ws,
+              maybeWitnessAccumulator.map(BlockWitnessAccumulator::getCodeReads).orElse(Set.of()),
+              maybeWitnessAccumulator
+                  .map(BlockWitnessAccumulator::getPreStateCodeReads)
+                  .orElse(Set.of()),
+              inBlockCodeChanged);
       final List<String> headers =
-          buildHeaders(blockchain, tracer.getOldestAccessedAncestor(), blockHeader.getNumber());
+          buildHeaders(
+              blockchain,
+              maybeWitnessAccumulator
+                  .map(BlockWitnessAccumulator::getOldestAccessedAncestor)
+                  .orElse(blockHeader.getNumber() - 1),
+              blockHeader.getNumber());
       return new Witness(state, codes, headers);
     } catch (final IllegalStateException e) {
       throw e;

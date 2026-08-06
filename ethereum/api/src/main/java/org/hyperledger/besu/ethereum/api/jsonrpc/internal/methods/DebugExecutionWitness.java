@@ -32,7 +32,7 @@ import org.hyperledger.besu.ethereum.core.Block;
 import org.hyperledger.besu.ethereum.core.BlockHeader;
 import org.hyperledger.besu.ethereum.mainnet.HeaderValidationMode;
 import org.hyperledger.besu.ethereum.mainnet.ProtocolSchedule;
-import org.hyperledger.besu.ethereum.mainnet.WitnessOperationTracer;
+import org.hyperledger.besu.ethereum.mainnet.witness.BlockWitnessAccumulator;
 import org.hyperledger.besu.ethereum.trie.pathbased.bonsai.storage.BonsaiExecutionWitnessBuilder;
 
 import java.util.Optional;
@@ -43,9 +43,9 @@ import java.util.Optional;
  *
  * <p>Re-execution is required (rather than reading a stored witness) because state-access patterns
  * (SLOAD/SSTORE, BALANCE, CALL targets, BLOCKHASH ancestors) are only observable at execution time
- * and are not persisted separately. A {@link WitnessOperationTracer} is wired into re-execution to
- * collect all three witness inputs in a single pass: touched accounts (state trie nodes), code
- * addresses (bytecodes), and accessed ancestors (block headers).
+ * and are not persisted separately. Code-read and ancestor tracking is performed via EVM operation
+ * hooks that write into the per-transaction {@code AccessLocationTracker}; the block processor
+ * accumulates this into a {@code BlockAccessListBuilder} carried in {@link BlockProcessingOutputs}.
  *
  * <p>Error responses:
  *
@@ -94,8 +94,8 @@ public class DebugExecutionWitness extends AbstractBlockParameterOrBlockHashMeth
   }
 
   /**
-   * Re-executes the block identified by {@code blockHash} with a {@link WitnessOperationTracer},
-   * then delegates witness construction to {@link BonsaiExecutionWitnessBuilder}. Returns a {@link
+   * Re-executes the block identified by {@code blockHash}, then delegates witness construction to
+   * {@link BonsaiExecutionWitnessBuilder}. Returns a {@link
    * org.hyperledger.besu.ethereum.api.jsonrpc.internal.results.ExecutionWitnessResult} on success,
    * or a {@link org.hyperledger.besu.ethereum.api.jsonrpc.internal.response.JsonRpcErrorResponse}
    * if the block or parent is missing, re-execution fails, or the witness is empty.
@@ -116,12 +116,7 @@ public class DebugExecutionWitness extends AbstractBlockParameterOrBlockHashMeth
       return new JsonRpcErrorResponse(reqId, RpcErrorType.BLOCK_NOT_FOUND);
     }
 
-    // The WitnessOperationTracer collects all three witness inputs during re-execution:
-    // touched accounts (for state trie nodes), code addresses (for bytecodes), and accessed
-    // ancestors (for block headers). This replaces the previous approach of deriving witness
-    // inputs from BlockProcessingOutputs + BlockHashLookup + ContextEnteredTracker.
-    final WitnessOperationTracer witnessTracer = new WitnessOperationTracer();
-
+    final BlockWitnessAccumulator witnessAccumulator = new BlockWitnessAccumulator();
     final BlockProcessingResult result =
         protocolSchedule
             .getByBlockHeader(blockHeader)
@@ -134,7 +129,7 @@ public class DebugExecutionWitness extends AbstractBlockParameterOrBlockHashMeth
                 blockchain.getBlockAccessList(blockHash),
                 false,
                 false,
-                witnessTracer);
+                Optional.of(witnessAccumulator));
 
     if (!result.isSuccessful()) {
       return new JsonRpcErrorResponse(reqId, RpcErrorType.INTERNAL_ERROR);
@@ -146,7 +141,7 @@ public class DebugExecutionWitness extends AbstractBlockParameterOrBlockHashMeth
           witnessBuilder.buildWitness(
               blockHeader,
               result.getYield().flatMap(BlockProcessingOutputs::getBlockAccessList),
-              witnessTracer);
+              result.getYield().flatMap(BlockProcessingOutputs::getWitnessAccumulator));
       if (witness.state().isEmpty()) {
         return new JsonRpcErrorResponse(reqId, RpcErrorType.INTERNAL_ERROR);
       }

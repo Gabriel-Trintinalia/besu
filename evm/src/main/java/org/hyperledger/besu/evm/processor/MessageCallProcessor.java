@@ -16,6 +16,7 @@ package org.hyperledger.besu.evm.processor;
 
 import org.hyperledger.besu.datatypes.Address;
 import org.hyperledger.besu.datatypes.Wei;
+import org.hyperledger.besu.evm.worldstate.CodeDelegationHelper;
 import org.hyperledger.besu.evm.EVM;
 import org.hyperledger.besu.evm.ModificationNotAllowedException;
 import org.hyperledger.besu.evm.account.MutableAccount;
@@ -91,6 +92,19 @@ public class MessageCallProcessor extends AbstractMessageProcessor {
   @Override
   public void start(final MessageFrame frame, final OperationTracer operationTracer) {
     LOG.trace("Executing message-call");
+    // EIP-8025 witness: record code read at frame entry. Delegated accounts add both the
+    // designator address and the delegation target.
+    frame
+        .getWitnessTracker()
+        .ifPresent(
+            t -> {
+              final Address contract = frame.getContractAddress();
+              t.addCodeRead(contract);
+              final var account = frame.getWorldUpdater().get(contract);
+              if (account != null && CodeDelegationHelper.hasCodeDelegation(account.getCode())) {
+                t.addCodeRead(CodeDelegationHelper.getTargetAddress(account.getCode()));
+              }
+            });
     try {
       transferValue(frame);
 

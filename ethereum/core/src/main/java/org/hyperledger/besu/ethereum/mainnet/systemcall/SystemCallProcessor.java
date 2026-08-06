@@ -29,6 +29,7 @@ import org.hyperledger.besu.evm.frame.MessageFrame;
 import org.hyperledger.besu.evm.gascalculator.StateGasCostCalculator;
 import org.hyperledger.besu.evm.processor.AbstractMessageProcessor;
 import org.hyperledger.besu.evm.tracing.OperationTracer;
+import org.hyperledger.besu.evm.witness.WitnessTracker;
 import org.hyperledger.besu.evm.worldstate.WorldUpdater;
 
 import java.util.Deque;
@@ -78,6 +79,15 @@ public class SystemCallProcessor {
       final BlockProcessingContext context,
       final Bytes inputData,
       final Optional<AccessLocationTracker> accessLocationTracker) {
+    return process(callAddress, context, inputData, accessLocationTracker, Optional.empty());
+  }
+
+  public Bytes process(
+      final Address callAddress,
+      final BlockProcessingContext context,
+      final Bytes inputData,
+      final Optional<AccessLocationTracker> accessLocationTracker,
+      final Optional<WitnessTracker> witnessTracker) {
     WorldUpdater blockUpdater = context.getWorldState().updater();
     WorldUpdater systemCallUpdater = blockUpdater.updater();
     final Account maybeContract = systemCallUpdater.get(callAddress);
@@ -104,7 +114,8 @@ public class SystemCallProcessor {
             context.getBlockHeader(),
             context.getBlockHashLookup(),
             inputData,
-            accessLocationTracker);
+            accessLocationTracker,
+            witnessTracker);
 
     final OperationTracer tracer = context.getOperationTracer();
     Deque<MessageFrame> stack = frame.getMessageFrameStack();
@@ -152,7 +163,8 @@ public class SystemCallProcessor {
       final ProcessableBlockHeader blockHeader,
       final BlockHashLookup blockHashLookup,
       final Bytes inputData,
-      final Optional<AccessLocationTracker> maybeAccessLocationTracker) {
+      final Optional<AccessLocationTracker> maybeAccessLocationTracker,
+      final Optional<WitnessTracker> witnessTracker) {
 
     final AbstractMessageProcessor processor =
         mainnetTransactionProcessor.getMessageProcessor(MessageFrame.Type.MESSAGE_CALL);
@@ -183,6 +195,7 @@ public class SystemCallProcessor {
           builder.eip7928AccessList(tracker);
           tracker.addTouchedAccount(callAddress);
         });
+    witnessTracker.ifPresent(builder::witnessTracker);
 
     final MessageFrame frame = builder.build();
     seedSystemCallStateGasReservoir(frame);

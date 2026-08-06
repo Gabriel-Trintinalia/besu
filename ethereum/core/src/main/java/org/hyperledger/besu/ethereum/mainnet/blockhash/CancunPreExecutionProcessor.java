@@ -20,6 +20,7 @@ import org.hyperledger.besu.ethereum.mainnet.block.access.list.AccessLocationTra
 import org.hyperledger.besu.ethereum.mainnet.systemcall.BlockProcessingContext;
 import org.hyperledger.besu.ethereum.mainnet.systemcall.SystemCallNoCodeAtAddressException;
 import org.hyperledger.besu.ethereum.mainnet.systemcall.SystemCallProcessor;
+import org.hyperledger.besu.evm.witness.WitnessTracker;
 
 import java.util.Optional;
 
@@ -37,21 +38,32 @@ public class CancunPreExecutionProcessor extends FrontierPreExecutionProcessor {
   public Void process(
       final BlockProcessingContext context,
       final Optional<AccessLocationTracker> accessLocationTracker) {
+    return process(context, accessLocationTracker, Optional.empty());
+  }
+
+  @Override
+  public Void process(
+      final BlockProcessingContext context,
+      final Optional<AccessLocationTracker> accessLocationTracker,
+      final Optional<WitnessTracker> witnessTracker) {
     ProcessableBlockHeader currentBlockHeader = context.getBlockHeader();
     currentBlockHeader
         .getParentBeaconBlockRoot()
-        .ifPresent(beaconRoot -> process(context, beaconRoot, accessLocationTracker));
+        .ifPresent(
+            beaconRoot -> process(context, beaconRoot, accessLocationTracker, witnessTracker));
     return null;
   }
 
   private void process(
       final BlockProcessingContext context,
       final Bytes32 beaconRootsAddress,
-      final Optional<AccessLocationTracker> accessLocationTracker) {
+      final Optional<AccessLocationTracker> accessLocationTracker,
+      final Optional<WitnessTracker> witnessTracker) {
     SystemCallProcessor processor =
         new SystemCallProcessor(context.getProtocolSpec().getTransactionProcessor());
     try {
-      processor.process(BEACON_ROOTS_ADDRESS, context, beaconRootsAddress, accessLocationTracker);
+      processor.process(
+          BEACON_ROOTS_ADDRESS, context, beaconRootsAddress, accessLocationTracker, witnessTracker);
     } catch (SystemCallNoCodeAtAddressException e) {
       // According to EIP-4788, fail silently if no code exists
       LOG.warn("Invalid system call address: {}", BEACON_ROOTS_ADDRESS);

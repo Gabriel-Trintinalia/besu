@@ -17,6 +17,7 @@ package org.hyperledger.besu.ethereum.mainnet.requests;
 import org.hyperledger.besu.datatypes.Address;
 import org.hyperledger.besu.ethereum.core.Request;
 import org.hyperledger.besu.ethereum.mainnet.block.access.list.AccessLocationTracker;
+import org.hyperledger.besu.evm.witness.WitnessTracker;
 
 import java.util.Optional;
 
@@ -24,6 +25,13 @@ public interface RequestProcessor {
   Request process(
       final RequestProcessingContext context,
       final Optional<AccessLocationTracker> accessLocationTracker);
+
+  default Request process(
+      final RequestProcessingContext context,
+      final Optional<AccessLocationTracker> accessLocationTracker,
+      final Optional<WitnessTracker> witnessTracker) {
+    return process(context, accessLocationTracker);
+  }
 
   Optional<String> getContractName();
 

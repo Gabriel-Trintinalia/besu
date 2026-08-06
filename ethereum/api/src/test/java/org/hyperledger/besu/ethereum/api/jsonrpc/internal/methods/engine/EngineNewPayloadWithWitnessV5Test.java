@@ -45,13 +45,11 @@ import org.hyperledger.besu.ethereum.eth.manager.EthPeers;
 import org.hyperledger.besu.ethereum.mainnet.HeaderValidationMode;
 import org.hyperledger.besu.ethereum.mainnet.ProtocolSchedule;
 import org.hyperledger.besu.ethereum.mainnet.ProtocolSpec;
-import org.hyperledger.besu.ethereum.mainnet.WitnessOperationTracer;
 import org.hyperledger.besu.ethereum.mainnet.block.access.list.BlockAccessList;
 import org.hyperledger.besu.ethereum.worldstate.WorldStateArchive;
 import org.hyperledger.besu.evm.gascalculator.GasCalculator;
 import org.hyperledger.besu.metrics.noop.NoOpMetricsSystem;
 import org.hyperledger.besu.plugin.services.storage.DataStorageFormat;
-import org.hyperledger.besu.plugin.services.tracer.BlockAwareOperationTracer;
 
 import java.util.List;
 import java.util.Map;
@@ -61,7 +59,6 @@ import com.fasterxml.jackson.databind.ObjectMapper;
 import io.vertx.core.Vertx;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
-import org.mockito.ArgumentCaptor;
 import org.mockito.junit.jupiter.MockitoExtension;
 
 @ExtendWith(MockitoExtension.class)
@@ -78,31 +75,6 @@ class EngineNewPayloadWithWitnessV5Test {
   // --- executeAndRespond unit tests ---
 
   @Test
-  void executeAndRespond_passesWitnessTracerToRememberBlock() {
-    final BlockHeader header = new BlockHeaderTestFixture().number(1).buildHeader();
-    final Block block = new Block(header, new BlockBody(List.of(), List.of()));
-
-    final MergeMiningCoordinator coordinator = mock(MergeMiningCoordinator.class);
-    final ArgumentCaptor<BlockAwareOperationTracer> tracerCaptor =
-        ArgumentCaptor.forClass(BlockAwareOperationTracer.class);
-    when(coordinator.rememberBlock(eq(block), any(), tracerCaptor.capture()))
-        .thenReturn(BlockProcessingResult.FAILED);
-
-    final ProtocolContext protocolContext = mock(ProtocolContext.class);
-    final EngineNewPayloadWithWitnessV5 method = newMethod(protocolContext, coordinator);
-
-    method.executeAndRespond(
-        "1",
-        mock(EnginePayloadParameter.class),
-        block,
-        Optional.empty(),
-        List.of(),
-        header.getParentHash());
-
-    assertThat(tracerCaptor.getValue()).isInstanceOf(WitnessOperationTracer.class);
-  }
-
-  @Test
   void executeAndRespond_returnsErrorWhenBlockHeaderNotPersisted() {
     final BlockHeader header = new BlockHeaderTestFixture().number(1).buildHeader();
     final Block block = new Block(header, new BlockBody(List.of(), List.of()));
@@ -114,8 +86,7 @@ class EngineNewPayloadWithWitnessV5Test {
                     null, List.of(), Optional.empty(), Optional.empty(), 0L, Map.of())));
 
     final MergeMiningCoordinator coordinator = mock(MergeMiningCoordinator.class);
-    when(coordinator.rememberBlock(eq(block), any(), any(BlockAwareOperationTracer.class)))
-        .thenReturn(successResult);
+    when(coordinator.rememberBlock(eq(block), any())).thenReturn(successResult);
 
     final MutableBlockchain blockchain = mock(MutableBlockchain.class);
     when(blockchain.getBlockHeader(header.getHash())).thenReturn(Optional.empty());
@@ -151,8 +122,7 @@ class EngineNewPayloadWithWitnessV5Test {
                     null, List.of(), Optional.empty(), Optional.empty(), 0L, Map.of())));
 
     final MergeMiningCoordinator coordinator = mock(MergeMiningCoordinator.class);
-    when(coordinator.rememberBlock(eq(block), any(), any(BlockAwareOperationTracer.class)))
-        .thenReturn(successResult);
+    when(coordinator.rememberBlock(eq(block), any())).thenReturn(successResult);
 
     final MutableBlockchain blockchain = mock(MutableBlockchain.class);
     when(blockchain.getBlockHeader(header.getHash())).thenReturn(Optional.of(header));
@@ -187,14 +157,13 @@ class EngineNewPayloadWithWitnessV5Test {
     setup.importFirstBlocks(n - 1);
     final Block lastBlock = setup.getBlock(n - 1);
 
-    // Mock coordinator that delegates to the real block validator with the supplied tracer,
+    // Mock coordinator that delegates to the real block validator,
     // then persists the block so the TrieLog is available to the witness builder.
     final MergeMiningCoordinator coordinator = mock(MergeMiningCoordinator.class);
     doAnswer(
             invocation -> {
               final Block b = invocation.getArgument(0);
               final Optional<BlockAccessList> bal = invocation.getArgument(1);
-              final BlockAwareOperationTracer tracer = invocation.getArgument(2);
               final BlockValidator blockValidator =
                   setup.getProtocolSchedule().getByBlockHeader(b.getHeader()).getBlockValidator();
               final BlockProcessingResult result =
@@ -205,8 +174,7 @@ class EngineNewPayloadWithWitnessV5Test {
                       HeaderValidationMode.NONE,
                       bal,
                       false,
-                      true,
-                      tracer);
+                      true);
               result
                   .getYield()
                   .ifPresent(
@@ -222,7 +190,7 @@ class EngineNewPayloadWithWitnessV5Test {
               return result;
             })
         .when(coordinator)
-        .rememberBlock(any(Block.class), any(), any(BlockAwareOperationTracer.class));
+        .rememberBlock(any(Block.class), any());
 
     final EngineNewPayloadWithWitnessV5 method =
         new EngineNewPayloadWithWitnessV5(

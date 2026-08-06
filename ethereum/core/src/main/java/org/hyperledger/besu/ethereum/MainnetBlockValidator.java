@@ -29,6 +29,7 @@ import org.hyperledger.besu.ethereum.mainnet.BlockProcessor;
 import org.hyperledger.besu.ethereum.mainnet.BodyValidationMode;
 import org.hyperledger.besu.ethereum.mainnet.HeaderValidationMode;
 import org.hyperledger.besu.ethereum.mainnet.block.access.list.BlockAccessList;
+import org.hyperledger.besu.ethereum.mainnet.witness.BlockWitnessAccumulator;
 import org.hyperledger.besu.ethereum.trie.MerkleTrieException;
 import org.hyperledger.besu.ethereum.trie.pathbased.common.provider.WorldStateQueryParams;
 import org.hyperledger.besu.plugin.services.exception.StorageException;
@@ -138,6 +139,27 @@ public class MainnetBlockValidator implements BlockValidator {
       final Optional<BlockAccessList> blockAccessList,
       final boolean shouldUpdateHead,
       final boolean shouldRecordBadBlock) {
+    return validateAndProcessBlock(
+        context,
+        block,
+        headerValidationMode,
+        ommerValidationMode,
+        blockAccessList,
+        shouldUpdateHead,
+        shouldRecordBadBlock,
+        Optional.empty());
+  }
+
+  @Override
+  public BlockProcessingResult validateAndProcessBlock(
+      final ProtocolContext context,
+      final Block block,
+      final HeaderValidationMode headerValidationMode,
+      final HeaderValidationMode ommerValidationMode,
+      final Optional<BlockAccessList> blockAccessList,
+      final boolean shouldPersist,
+      final boolean shouldRecordBadBlock,
+      final Optional<BlockWitnessAccumulator> witnessAccumulator) {
 
     final int blockSize = block.getSize();
     if (blockSize > maxRlpBlockSize) {
@@ -182,7 +204,7 @@ public class MainnetBlockValidator implements BlockValidator {
     final WorldStateQueryParams worldStateQueryParams =
         WorldStateQueryParams.newBuilder()
             .withBlockHeader(parentHeader)
-            .withShouldWorldStateUpdateHead(shouldUpdateHead)
+            .withShouldWorldStateUpdateHead(shouldPersist)
             .build();
     try (final var worldState =
         context.getWorldStateArchive().getWorldState(worldStateQueryParams).orElse(null)) {
@@ -209,7 +231,7 @@ public class MainnetBlockValidator implements BlockValidator {
         return result;
       }
 
-      var result = processBlock(context, worldState, block, blockAccessList);
+      var result = processBlock(context, worldState, block, blockAccessList, witnessAccumulator);
       if (result.isFailed()) {
         handleFailedBlockProcessing(block, blockAccessList, result, shouldRecordBadBlock, context);
         return result;
@@ -246,7 +268,8 @@ public class MainnetBlockValidator implements BlockValidator {
                     maybeRequests,
                     processedBlockAccessList,
                     cumulativeBlockGasUsed,
-                    accessedAncestors)),
+                    accessedAncestors,
+                    result.getYield().flatMap(BlockProcessingOutputs::getWitnessAccumulator))),
             result.getNbParallelizedTransactions());
       }
     } catch (MerkleTrieException ex) {
@@ -323,10 +346,11 @@ public class MainnetBlockValidator implements BlockValidator {
       final ProtocolContext context,
       final MutableWorldState worldState,
       final Block block,
-      final Optional<BlockAccessList> blockAccessList) {
+      final Optional<BlockAccessList> blockAccessList,
+      final Optional<BlockWitnessAccumulator> witnessAccumulator) {
 
     return blockProcessor.processBlock(
-        context, context.getBlockchain(), worldState, block, blockAccessList);
+        context, context.getBlockchain(), worldState, block, blockAccessList, witnessAccumulator);
   }
 
   protected BlockProcessingResult processBlock(
@@ -334,10 +358,17 @@ public class MainnetBlockValidator implements BlockValidator {
       final MutableWorldState worldState,
       final Block block,
       final Optional<BlockAccessList> blockAccessList,
-      final BlockAwareOperationTracer tracer) {
+      final BlockAwareOperationTracer tracer,
+      final Optional<BlockWitnessAccumulator> witnessAccumulator) {
 
     return blockProcessor.processBlock(
-        context, context.getBlockchain(), worldState, block, blockAccessList, tracer);
+        context,
+        context.getBlockchain(),
+        worldState,
+        block,
+        blockAccessList,
+        tracer,
+        witnessAccumulator);
   }
 
   @Override
@@ -418,7 +449,8 @@ public class MainnetBlockValidator implements BlockValidator {
         return result;
       }
 
-      var result = processBlock(context, worldState, block, blockAccessList, tracer);
+      var result =
+          processBlock(context, worldState, block, blockAccessList, tracer, Optional.empty());
       if (result.isFailed()) {
         handleFailedBlockProcessing(block, blockAccessList, result, shouldRecordBadBlock, context);
         return result;
@@ -455,7 +487,8 @@ public class MainnetBlockValidator implements BlockValidator {
                     maybeRequests,
                     processedBlockAccessList,
                     cumulativeBlockGasUsed,
-                    accessedAncestors)),
+                    accessedAncestors,
+                    result.getYield().flatMap(BlockProcessingOutputs::getWitnessAccumulator))),
             result.getNbParallelizedTransactions());
       }
     } catch (MerkleTrieException ex) {

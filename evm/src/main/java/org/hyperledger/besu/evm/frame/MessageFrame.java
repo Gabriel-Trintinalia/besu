@@ -29,6 +29,7 @@ import org.hyperledger.besu.evm.internal.OperandStack;
 import org.hyperledger.besu.evm.internal.StorageEntry;
 import org.hyperledger.besu.evm.internal.UnderflowException;
 import org.hyperledger.besu.evm.operation.Operation;
+import org.hyperledger.besu.evm.witness.WitnessTracker;
 import org.hyperledger.besu.evm.worldstate.WorldUpdater;
 
 import java.util.ArrayList;
@@ -249,6 +250,7 @@ public class MessageFrame {
   private final TxValues txValues;
 
   private Optional<Eip7928AccessList> eip7928AccessList = Optional.empty();
+  private Optional<WitnessTracker> witnessTracker = Optional.empty();
 
   /** The mark of the undoable collections at the creation of this message frame */
   private long undoMark;
@@ -279,7 +281,8 @@ public class MessageFrame {
       final Map<String, Object> contextVariables,
       final Optional<Bytes> revertReason,
       final TxValues txValues,
-      final Optional<Eip7928AccessList> eip7928AccessList) {
+      final Optional<Eip7928AccessList> eip7928AccessList,
+      final Optional<WitnessTracker> witnessTracker) {
 
     this.txValues = txValues;
     this.type = type;
@@ -302,6 +305,7 @@ public class MessageFrame {
     this.contextVariables = contextVariables;
     this.revertReason = revertReason;
     this.eip7928AccessList = eip7928AccessList;
+    this.witnessTracker = witnessTracker;
     this.undoMark = txValues.transientStorage().mark();
   }
 
@@ -1561,6 +1565,15 @@ public class MessageFrame {
     return eip7928AccessList;
   }
 
+  /**
+   * Accessor for the EIP-8025 witness tracker, if present.
+   *
+   * @return optional WitnessTracker
+   */
+  public Optional<WitnessTracker> getWitnessTracker() {
+    return witnessTracker;
+  }
+
   /** Reset. */
   public void reset() {
     maybeUpdatedMemory = Optional.empty();
@@ -1595,6 +1608,7 @@ public class MessageFrame {
     private Set<Address> eip2930AccessListWarmAddresses = emptySet();
     private Multimap<Address, Bytes32> eip2930AccessListWarmStorage = HashMultimap.create();
     private Optional<Eip7928AccessList> eip7928AccessList = Optional.empty();
+    private Optional<WitnessTracker> witnessTracker = Optional.empty();
 
     private Optional<List<VersionedHash>> versionedHashes = Optional.empty();
 
@@ -1883,6 +1897,17 @@ public class MessageFrame {
     }
 
     /**
+     * Sets the EIP-8025 witness tracker.
+     *
+     * @param witnessTracker the witness tracker to record code reads and ancestor accesses
+     * @return the builder
+     */
+    public Builder witnessTracker(final WitnessTracker witnessTracker) {
+      this.witnessTracker = Optional.of(witnessTracker);
+      return this;
+    }
+
+    /**
      * Sets versioned hashes list.
      *
      * @param versionedHashes the Optional list of versioned hashes
@@ -1979,7 +2004,8 @@ public class MessageFrame {
               contextVariables == null ? Map.of() : contextVariables,
               reason,
               newTxValues,
-              eip7928AccessList);
+              eip7928AccessList,
+              witnessTracker);
       newTxValues.messageFrameStack().addFirst(messageFrame);
       messageFrame.warmUpAddress(sender);
       for (Address a : eip2930AccessListWarmAddresses) {

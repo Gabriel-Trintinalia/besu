@@ -39,15 +39,6 @@ public class AccessLocationTracker implements Eip7928AccessList {
 
   private final long blockAccessIndex;
   private final Map<Address, AccountAccessList> touchedAccounts = new ConcurrentHashMap<>();
-  // EIP-8025 witness-only metadata: addresses whose code was read for execution (e.g. a 7702
-  // delegation designator). Deliberately NOT part of createPartialBlockAccessView / the consensus
-  // BAL. Read by WitnessOperationTracer to populate the witness codes list deterministically.
-  private final Set<Address> codeReads = ConcurrentHashMap.newKeySet();
-  // EIP-8025 witness-only metadata: addresses whose PRE-STATE code was read (EIP-7702 authority
-  // codes read while applying authorizations, in transaction order, stopping at the first
-  // out-of-gas). Kept separate from codeReads because these are pre-state reads that must not be
-  // dropped for an in-block code change.
-  private final Set<Address> preStateCodeReads = ConcurrentHashMap.newKeySet();
 
   public AccessLocationTracker(final long blockAccessIndex) {
     this.blockAccessIndex = blockAccessIndex;
@@ -56,8 +47,6 @@ public class AccessLocationTracker implements Eip7928AccessList {
   @Override
   public void clear() {
     touchedAccounts.clear();
-    codeReads.clear();
-    preStateCodeReads.clear();
   }
 
   @Override
@@ -68,26 +57,6 @@ public class AccessLocationTracker implements Eip7928AccessList {
   @Override
   public void addSlotAccessForAccount(final Address address, final UInt256 slotKey) {
     touchedAccounts.computeIfAbsent(address, AccountAccessList::new).addSlotAccess(slotKey);
-  }
-
-  @Override
-  public void addCodeRead(final Address address) {
-    codeReads.add(address);
-  }
-
-  @Override
-  public Set<Address> getCodeReads() {
-    return codeReads;
-  }
-
-  @Override
-  public void addPreStateCodeRead(final Address address) {
-    preStateCodeReads.add(address);
-  }
-
-  @Override
-  public Set<Address> getPreStateCodeReads() {
-    return preStateCodeReads;
   }
 
   public Collection<AccountAccessList> getTouchedAccounts() {

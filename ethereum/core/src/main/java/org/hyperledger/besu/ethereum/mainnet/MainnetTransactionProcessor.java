@@ -46,6 +46,7 @@ import org.hyperledger.besu.evm.processor.AbstractMessageProcessor;
 import org.hyperledger.besu.evm.processor.ContractCreationProcessor;
 import org.hyperledger.besu.evm.processor.MessageCallProcessor;
 import org.hyperledger.besu.evm.tracing.OperationTracer;
+import org.hyperledger.besu.evm.witness.WitnessTracker;
 import org.hyperledger.besu.evm.worldstate.CodeDelegationHelper;
 import org.hyperledger.besu.evm.worldstate.WorldUpdater;
 
@@ -208,6 +209,30 @@ public class MainnetTransactionProcessor {
       final TransactionValidationParams transactionValidationParams,
       final Wei blobGasPrice,
       final Optional<AccessLocationTracker> accessLocationTracker) {
+    return processTransaction(
+        worldState,
+        blockHeader,
+        transaction,
+        miningBeneficiary,
+        operationTracer,
+        blockHashLookup,
+        transactionValidationParams,
+        blobGasPrice,
+        accessLocationTracker,
+        Optional.empty());
+  }
+
+  public TransactionProcessingResult processTransaction(
+      final WorldUpdater worldState,
+      final ProcessableBlockHeader blockHeader,
+      final Transaction transaction,
+      final Address miningBeneficiary,
+      final OperationTracer operationTracer,
+      final BlockHashLookup blockHashLookup,
+      final TransactionValidationParams transactionValidationParams,
+      final Wei blobGasPrice,
+      final Optional<AccessLocationTracker> accessLocationTracker,
+      final Optional<WitnessTracker> witnessTracker) {
     try {
       final var transactionValidator = transactionValidatorFactory.get();
       LOG.trace("Starting execution of {}", transaction);
@@ -228,6 +253,15 @@ public class MainnetTransactionProcessor {
       final Address senderAddress = transaction.getSender();
       final MutableAccount sender = worldState.getOrCreateSenderAccount(senderAddress);
       accessLocationTracker.ifPresent(t -> t.addTouchedAccount(senderAddress));
+      // EIP-8025 witness: if the sender has code (e.g. a 7702-delegated EOA or a smart account)
+      // the executor needs that bytecode to resolve the sender's code pointer.
+      witnessTracker.ifPresent(
+          t -> {
+            final var senderAccount = worldState.get(senderAddress);
+            if (senderAccount != null && !senderAccount.getCodeHash().equals(Hash.EMPTY)) {
+              t.addCodeRead(senderAddress);
+            }
+          });
 
       validationResult =
           transactionValidator.validateForSender(transaction, sender, transactionValidationParams);
@@ -394,6 +428,7 @@ public class MainnetTransactionProcessor {
               .eip2930AccessListWarmStorage(eip2930StorageList);
 
       accessLocationTracker.ifPresent(commonMessageFrameBuilder::eip7928AccessList);
+      witnessTracker.ifPresent(commonMessageFrameBuilder::witnessTracker);
 
       if (transaction.getVersionedHashes().isPresent()) {
         commonMessageFrameBuilder.versionedHashes(
@@ -429,6 +464,20 @@ public class MainnetTransactionProcessor {
       } else {
         @SuppressWarnings("OptionalGetWithoutIsPresent") // isContractCall tests isPresent
         final Address to = transaction.getTo().get();
+        // EIP-8025 witness: if `to` holds a 7702 delegation designator, record it now — before
+        // chargeIntrinsicStateGas. In Amsterdam, a delegation intrinsic OOG sets the initial frame
+        // to EXCEPTIONAL_HALT before AbstractMessageProcessor.process() fires, so the designator
+        // would never be recorded by the frame-entry hook. Adding it here is harmless in the
+        // non-OOG case (the LinkedHashSet deduplicates). We do NOT add the delegation target T here
+        // because T's code is only needed when execution reaches T, handled by the frame-entry
+        // hook.
+        witnessTracker.ifPresent(
+            t -> {
+              final var toAccount = frameWorldState.get(to);
+              if (toAccount != null && hasCodeDelegation(toAccount.getCode())) {
+                t.addCodeRead(to);
+              }
+            });
         // EIP-7928 (devnet-7 v7.1.0): the recipient is loaded during dispatch, which for a
         // delegation
         // transaction runs AFTER the top-frame authorization charges. If those charges run out of
@@ -464,7 +513,8 @@ public class MainnetTransactionProcessor {
               stateGasCalc,
               createTargetAlreadyAlive,
               delegationAccesses,
-              accessLocationTracker);
+              accessLocationTracker,
+              witnessTracker);
       // Whether the authorization charges ran out of gas. EELS runs set_delegation before
       // prepare_dispatch, so an authorization out-of-gas means dispatch prep never starts and the
       // recipient is never loaded at all.
@@ -925,7 +975,8 @@ public class MainnetTransactionProcessor {
       final StateGasCostCalculator stateGasCalc,
       final boolean createTargetAlreadyAlive,
       final List<CodeDelegationResult.AuthorityAccess> delegationAccesses,
-      final Optional<AccessLocationTracker> accessLocationTracker) {
+      final Optional<AccessLocationTracker> accessLocationTracker,
+      final Optional<WitnessTracker> witnessTracker) {
     boolean outOfGas = false;
     StateCharge create = StateCharge.NONE;
     StateCharge authorizations = StateCharge.NONE;
@@ -949,7 +1000,8 @@ public class MainnetTransactionProcessor {
               stateGasCalc,
               gasCalculator.getAccountWriteGasCost(),
               delegationAccesses,
-              accessLocationTracker);
+              accessLocationTracker,
+              witnessTracker);
       authorizations = mark.chargeSince(initialFrame);
     }
     if (outOfGas) {
@@ -979,22 +1031,22 @@ public class MainnetTransactionProcessor {
       final StateGasCostCalculator stateGasCalc,
       final long accountWriteCost,
       final List<CodeDelegationResult.AuthorityAccess> delegationAccesses,
-      final Optional<AccessLocationTracker> accessLocationTracker) {
+      final Optional<AccessLocationTracker> accessLocationTracker,
+      final Optional<WitnessTracker> witnessTracker) {
     final AccessLocationTracker tracker = accessLocationTracker.orElse(null);
+    final WitnessTracker witness = witnessTracker.orElse(null);
     for (final CodeDelegationResult.AuthorityAccess access : delegationAccesses) {
       if (tracker != null) {
         tracker.addTouchedAccount(access.authority());
+      }
+      if (witness != null) {
         // EIP-8025 witness: EELS validate_authorization reads the authority's code via get_code
         // here, before the per-authority charge, for every authority reached in transaction order.
         // The read survives a later out-of-gas (only the delegation state is rolled back), so
-        // record
-        // it at this exact point: a partial out-of-gas that stops the replay leaves the witness
-        // with
-        // exactly the authorities reached up to and including the one being charged — matching
-        // EELS.
-        // Empty authority codes are dropped later by buildCodes (nothing to fetch from parent
-        // state).
-        tracker.addPreStateCodeRead(access.authority());
+        // record it at this exact point: a partial out-of-gas that stops the replay leaves the
+        // witness with exactly the authorities reached up to and including the one being charged —
+        // matching EELS. Empty authority codes are dropped later by buildCodes.
+        witness.addPreStateCodeRead(access.authority());
       }
       if (access.newAccount() && !initialFrame.consumeStateGas(stateGasCalc.newAccountStateGas())) {
         return false;

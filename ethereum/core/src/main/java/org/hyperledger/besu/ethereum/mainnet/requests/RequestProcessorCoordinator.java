@@ -18,6 +18,7 @@ import org.hyperledger.besu.datatypes.BytesHolder;
 import org.hyperledger.besu.datatypes.RequestType;
 import org.hyperledger.besu.ethereum.core.Request;
 import org.hyperledger.besu.ethereum.mainnet.block.access.list.AccessLocationTracker;
+import org.hyperledger.besu.evm.witness.WitnessTracker;
 
 import java.util.List;
 import java.util.Map;
@@ -44,8 +45,17 @@ public class RequestProcessorCoordinator {
   public List<Request> process(
       final RequestProcessingContext context,
       final Optional<AccessLocationTracker> accessLocationTracker) {
+    return process(context, accessLocationTracker, Optional.empty());
+  }
+
+  public List<Request> process(
+      final RequestProcessingContext context,
+      final Optional<AccessLocationTracker> accessLocationTracker,
+      final Optional<WitnessTracker> witnessTracker) {
     return processors.values().stream()
-        .map(requestProcessor -> requestProcessor.process(context, accessLocationTracker))
+        .map(
+            requestProcessor ->
+                requestProcessor.process(context, accessLocationTracker, witnessTracker))
         .toList();
   }
 

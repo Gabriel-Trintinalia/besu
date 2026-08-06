@@ -35,8 +35,8 @@ import org.hyperledger.besu.ethereum.core.BlockHeader;
 import org.hyperledger.besu.ethereum.core.Transaction;
 import org.hyperledger.besu.ethereum.eth.manager.EthPeers;
 import org.hyperledger.besu.ethereum.mainnet.ProtocolSchedule;
-import org.hyperledger.besu.ethereum.mainnet.WitnessOperationTracer;
 import org.hyperledger.besu.ethereum.mainnet.block.access.list.BlockAccessList;
+import org.hyperledger.besu.ethereum.mainnet.witness.BlockWitnessAccumulator;
 import org.hyperledger.besu.ethereum.trie.MerkleTrieException;
 import org.hyperledger.besu.ethereum.trie.pathbased.bonsai.storage.BonsaiExecutionWitnessBuilder;
 import org.hyperledger.besu.plugin.services.MetricsSystem;
@@ -82,9 +82,10 @@ public class EngineNewPayloadWithWitnessV5 extends EngineNewPayloadV5 {
   }
 
   /**
-   * Overrides execution to wire a {@link WitnessOperationTracer} directly into block processing so
-   * it observes all EVM frames — including system-contract calls (EIP-2935, EIP-4788, EIP-7002,
-   * EIP-7251) — during the single import pass. No re-execution needed.
+   * Overrides execution to capture a witness alongside block import. Code-read and ancestor
+   * tracking is performed by EVM operation hooks writing into the per-transaction {@code
+   * AccessLocationTracker}; the block processor accumulates this into a {@code
+   * BlockAccessListBuilder} carried in {@link BlockProcessingOutputs}. No re-execution needed.
    */
   @Override
   protected JsonRpcResponse executeAndRespond(
@@ -94,11 +95,11 @@ public class EngineNewPayloadWithWitnessV5 extends EngineNewPayloadV5 {
       final Optional<BlockAccessList> maybeBlockAccessList,
       final List<Transaction> blobTransactions,
       final Hash latestValidAncestor) {
-    final WitnessOperationTracer witnessTracer = new WitnessOperationTracer();
-
     final long startTimeNs = System.nanoTime();
+    final BlockWitnessAccumulator witnessAccumulator = new BlockWitnessAccumulator();
     final BlockProcessingResult executionResult =
-        mergeCoordinator.rememberBlock(block, maybeBlockAccessList, witnessTracer);
+        mergeCoordinator.rememberBlock(
+            block, maybeBlockAccessList, Optional.of(witnessAccumulator));
 
     if (executionResult.isSuccessful()) {
       lastExecutionTimeInNs = System.nanoTime() - startTimeNs;
@@ -113,7 +114,7 @@ public class EngineNewPayloadWithWitnessV5 extends EngineNewPayloadV5 {
           executionResult.getNbParallelizedTransactions());
       final Hash validHash = block.getHeader().getHash();
       logEnginePayloadResponse(blockParam, validHash, VALID);
-      return buildWitnessResponse(reqId, validHash, executionResult, witnessTracer);
+      return buildWitnessResponse(reqId, validHash, executionResult);
     } else {
       if (executionResult.causedBy().isPresent()) {
         final Throwable causedBy = executionResult.causedBy().get();
@@ -128,10 +129,7 @@ public class EngineNewPayloadWithWitnessV5 extends EngineNewPayloadV5 {
   }
 
   private JsonRpcResponse buildWitnessResponse(
-      final Object reqId,
-      final Hash validHash,
-      final BlockProcessingResult executionResult,
-      final WitnessOperationTracer witnessTracer) {
+      final Object reqId, final Hash validHash, final BlockProcessingResult executionResult) {
     try {
       final BlockHeader blockHeader =
           protocolContext
@@ -145,7 +143,9 @@ public class EngineNewPayloadWithWitnessV5 extends EngineNewPayloadV5 {
               .buildWitness(
                   blockHeader,
                   executionResult.getYield().flatMap(BlockProcessingOutputs::getBlockAccessList),
-                  witnessTracer);
+                  executionResult
+                      .getYield()
+                      .flatMap(BlockProcessingOutputs::getWitnessAccumulator));
       if (witness.state().isEmpty()) {
         return new JsonRpcErrorResponse(reqId, RpcErrorType.INTERNAL_ERROR);
       }

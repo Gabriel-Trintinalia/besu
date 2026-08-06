@@ -75,6 +75,7 @@ public class ExtCodeCopyOperation extends AbstractOperation {
       return new OperationResult(cost, ExceptionalHaltReason.INSUFFICIENT_GAS);
     }
 
+    frame.getWitnessTracker().ifPresent(t -> t.addCodeRead(address));
     final Account account = getAccount(address, frame);
     final Bytes code = account != null ? account.getCode() : Bytes.EMPTY;
 
