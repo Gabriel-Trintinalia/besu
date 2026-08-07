@@ -65,11 +65,6 @@ public class BlockHashOperation extends AbstractOperation {
       frame.pushStackItem(Bytes32.ZERO);
     } else {
       final Hash blockHash = blockHashLookup.apply(frame, soughtBlock);
-      frame.getWitnessTracker().ifPresent(t -> {
-        if (!Hash.ZERO.equals(blockHash)) {
-          t.addOldestAncestor(soughtBlock);
-        }
-      });
       frame.pushStackItem(blockHash.getBytes());
     }
 

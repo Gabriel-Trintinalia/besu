@@ -19,7 +19,6 @@ import org.hyperledger.besu.ethereum.core.TransactionReceipt;
 import org.hyperledger.besu.ethereum.mainnet.BodyValidationMode;
 import org.hyperledger.besu.ethereum.mainnet.HeaderValidationMode;
 import org.hyperledger.besu.ethereum.mainnet.block.access.list.BlockAccessList;
-import org.hyperledger.besu.ethereum.mainnet.witness.BlockWitnessAccumulator;
 import org.hyperledger.besu.plugin.services.tracer.BlockAwareOperationTracer;
 
 import java.util.List;
@@ -80,25 +79,6 @@ public interface BlockValidator {
    * @param shouldRecordBadBlock flag indicating whether bad blocks should be recorded
    * @return the result of the block processing
    */
-  default BlockProcessingResult validateAndProcessBlock(
-      final ProtocolContext context,
-      final Block block,
-      final HeaderValidationMode headerValidationMode,
-      final HeaderValidationMode ommerValidationMode,
-      final Optional<BlockAccessList> blockAccessList,
-      final boolean shouldPersist,
-      final boolean shouldRecordBadBlock) {
-    return validateAndProcessBlock(
-        context,
-        block,
-        headerValidationMode,
-        ommerValidationMode,
-        blockAccessList,
-        shouldPersist,
-        shouldRecordBadBlock,
-        Optional.empty());
-  }
-
   BlockProcessingResult validateAndProcessBlock(
       final ProtocolContext context,
       final Block block,
@@ -106,8 +86,7 @@ public interface BlockValidator {
       final HeaderValidationMode ommerValidationMode,
       final Optional<BlockAccessList> blockAccessList,
       final boolean shouldPersist,
-      final boolean shouldRecordBadBlock,
-      final Optional<BlockWitnessAccumulator> witnessAccumulator);
+      final boolean shouldRecordBadBlock);
 
   /**
    * Validates and processes a block with an explicit operation tracer, bypassing the plugin-based

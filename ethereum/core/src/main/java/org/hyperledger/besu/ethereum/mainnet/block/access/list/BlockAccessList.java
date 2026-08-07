@@ -171,7 +171,12 @@ public record BlockAccessList(List<AccountChanges> accountChanges, Optional<Byte
 
   public static class BlockAccessListBuilder {
     final Map<Address, AccountBuilder> accountChangesBuilders = new HashMap<>();
+    private final List<AccessLocationTracker> trackers = new ArrayList<>();
 
+    public BlockAccessListBuilder() {}
+
+    // Static factory methods — create trackers without registering them with any builder
+    // (used by BlockSimulator, BlockCreator, etc.).
     public static AccessLocationTracker createPreExecutionAccessLocationTracker() {
       return new AccessLocationTracker(0);
     }
@@ -184,6 +189,44 @@ public record BlockAccessList(List<AccountChanges> accountChanges, Optional<Byte
     public static AccessLocationTracker createTransactionAccessLocationTracker(
         final int transactionLocation) {
       return new AccessLocationTracker((long) transactionLocation + 1L);
+    }
+
+    // Instance factory methods — create trackers and register with this builder so
+    // getCodeReads() / getPreStateCodeReads() aggregate across them.
+    public AccessLocationTracker newPreExecutionTracker() {
+      final AccessLocationTracker tracker = new AccessLocationTracker(0);
+      trackers.add(tracker);
+      return tracker;
+    }
+
+    public AccessLocationTracker newPostExecutionTracker(final int numberOfTransactions) {
+      final AccessLocationTracker tracker =
+          new AccessLocationTracker((long) numberOfTransactions + 1L);
+      trackers.add(tracker);
+      return tracker;
+    }
+
+    public AccessLocationTracker newTransactionTracker(final int transactionLocation) {
+      final AccessLocationTracker tracker =
+          new AccessLocationTracker((long) transactionLocation + 1L);
+      trackers.add(tracker);
+      return tracker;
+    }
+
+    public Set<Address> getCodeReads() {
+      final Set<Address> result = new java.util.LinkedHashSet<>();
+      for (final AccessLocationTracker t : trackers) {
+        result.addAll(t.getCodeReads());
+      }
+      return result;
+    }
+
+    public Set<Address> getPreStateCodeReads() {
+      final Set<Address> result = new java.util.LinkedHashSet<>();
+      for (final AccessLocationTracker t : trackers) {
+        result.addAll(t.getPreStateCodeReads());
+      }
+      return result;
     }
 
     public AccountBuilder getOrCreateAccountBuilder(final Address address) {

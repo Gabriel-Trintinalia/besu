@@ -20,7 +20,6 @@ import org.hyperledger.besu.ethereum.core.Request;
 import org.hyperledger.besu.ethereum.mainnet.block.access.list.AccessLocationTracker;
 import org.hyperledger.besu.ethereum.mainnet.systemcall.BlockContextProcessor;
 import org.hyperledger.besu.ethereum.mainnet.systemcall.SystemCallProcessor;
-import org.hyperledger.besu.evm.witness.WitnessTracker;
 
 import java.util.Optional;
 
@@ -51,21 +50,12 @@ public class SystemCallRequestProcessor
   public Request process(
       final RequestProcessingContext context,
       final Optional<AccessLocationTracker> accessLocationTracker) {
-    return process(context, accessLocationTracker, Optional.empty());
-  }
-
-  @Override
-  public Request process(
-      final RequestProcessingContext context,
-      final Optional<AccessLocationTracker> accessLocationTracker,
-      final Optional<WitnessTracker> witnessTracker) {
 
     final SystemCallProcessor systemCallProcessor =
         new SystemCallProcessor(context.getProtocolSpec().getTransactionProcessor());
 
     Bytes systemCallOutput =
-        systemCallProcessor.process(
-            callAddress, context, Bytes.EMPTY, accessLocationTracker, witnessTracker);
+        systemCallProcessor.process(callAddress, context, Bytes.EMPTY, accessLocationTracker);
 
     return new Request(requestType, systemCallOutput);
   }

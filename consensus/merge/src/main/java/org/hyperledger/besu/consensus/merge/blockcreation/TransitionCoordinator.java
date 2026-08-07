@@ -29,7 +29,6 @@ import org.hyperledger.besu.ethereum.core.Transaction;
 import org.hyperledger.besu.ethereum.core.Withdrawal;
 import org.hyperledger.besu.ethereum.eth.manager.EthScheduler;
 import org.hyperledger.besu.ethereum.mainnet.block.access.list.BlockAccessList;
-import org.hyperledger.besu.ethereum.mainnet.witness.BlockWitnessAccumulator;
 import org.hyperledger.besu.plugin.services.tracer.BlockAwareOperationTracer;
 
 import java.util.List;
@@ -185,14 +184,6 @@ public class TransitionCoordinator extends TransitionUtils<MiningCoordinator>
       final Optional<BlockAccessList> blockAccessList,
       final BlockAwareOperationTracer tracer) {
     return mergeCoordinator.rememberBlock(block, blockAccessList, tracer);
-  }
-
-  @Override
-  public BlockProcessingResult rememberBlock(
-      final Block block,
-      final Optional<BlockAccessList> blockAccessList,
-      final Optional<BlockWitnessAccumulator> witnessAccumulator) {
-    return mergeCoordinator.rememberBlock(block, blockAccessList, witnessAccumulator);
   }
 
   @Override

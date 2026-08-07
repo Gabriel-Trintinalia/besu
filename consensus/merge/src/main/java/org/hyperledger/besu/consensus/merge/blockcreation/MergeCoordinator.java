@@ -48,7 +48,6 @@ import org.hyperledger.besu.ethereum.mainnet.AbstractGasLimitSpecification;
 import org.hyperledger.besu.ethereum.mainnet.HeaderValidationMode;
 import org.hyperledger.besu.ethereum.mainnet.ProtocolSchedule;
 import org.hyperledger.besu.ethereum.mainnet.block.access.list.BlockAccessList;
-import org.hyperledger.besu.ethereum.mainnet.witness.BlockWitnessAccumulator;
 import org.hyperledger.besu.ethereum.trie.MerkleTrieException;
 import org.hyperledger.besu.plugin.services.exception.StorageException;
 import org.hyperledger.besu.plugin.services.tracer.BlockAwareOperationTracer;
@@ -663,14 +662,6 @@ public class MergeCoordinator implements MergeMiningCoordinator, BadChainListene
       final Block block,
       final Optional<BlockAccessList> blockAccessList,
       final boolean shouldPersist) {
-    return validateBlock(block, blockAccessList, shouldPersist, Optional.empty());
-  }
-
-  private BlockProcessingResult validateBlock(
-      final Block block,
-      final Optional<BlockAccessList> blockAccessList,
-      final boolean shouldPersist,
-      final Optional<BlockWitnessAccumulator> witnessAccumulator) {
     return protocolSchedule
         .getByBlockHeader(block.getHeader())
         .getBlockValidator()
@@ -681,8 +672,7 @@ public class MergeCoordinator implements MergeMiningCoordinator, BadChainListene
             HeaderValidationMode.NONE,
             blockAccessList,
             shouldPersist,
-            true,
-            witnessAccumulator);
+            true);
   }
 
   private BlockProcessingResult validateProposedBlock(
@@ -717,34 +707,6 @@ public class MergeCoordinator implements MergeMiningCoordinator, BadChainListene
         block.getHeader().getNumber() - protocolContext.getBlockchain().getChainHeadBlockNumber()
             > 1;
     final var validationResult = validateBlock(block, blockAccessList, appendToCanonicalChain);
-    validationResult
-        .getYield()
-        .ifPresentOrElse(
-            result -> {
-              final Optional<BlockAccessList> processedBlockAccessList =
-                  validationResult.getYield().flatMap(y -> y.getBlockAccessList());
-              if (appendToCanonicalChain) {
-                chain.appendBlock(block, result.getReceipts(), processedBlockAccessList);
-              } else {
-                chain.storeBlock(block, result.getReceipts(), processedBlockAccessList);
-              }
-            },
-            () -> LOG.debug("empty yield in blockProcessingResult"));
-    return validationResult;
-  }
-
-  @Override
-  public BlockProcessingResult rememberBlock(
-      final Block block,
-      final Optional<BlockAccessList> blockAccessList,
-      final Optional<BlockWitnessAccumulator> witnessAccumulator) {
-    LOG.atDebug().setMessage("Remember block {}").addArgument(block::toLogString).log();
-    final var chain = protocolContext.getBlockchain();
-    final boolean appendToCanonicalChain =
-        block.getHeader().getNumber() - protocolContext.getBlockchain().getChainHeadBlockNumber()
-            > 1;
-    final var validationResult =
-        validateBlock(block, blockAccessList, appendToCanonicalChain, witnessAccumulator);
     validationResult
         .getYield()
         .ifPresentOrElse(

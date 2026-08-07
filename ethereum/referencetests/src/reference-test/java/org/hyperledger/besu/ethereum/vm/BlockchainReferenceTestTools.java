@@ -50,7 +50,6 @@ import org.hyperledger.besu.ethereum.forkid.ForkIdManager;
 import org.hyperledger.besu.ethereum.mainnet.HeaderValidationMode;
 import org.hyperledger.besu.ethereum.mainnet.ProtocolSchedule;
 import org.hyperledger.besu.ethereum.mainnet.ProtocolSpec;
-import org.hyperledger.besu.ethereum.mainnet.witness.BlockWitnessAccumulator;
 import org.hyperledger.besu.ethereum.referencetests.BlockchainReferenceTestCaseSpec;
 import org.hyperledger.besu.ethereum.referencetests.BlockExceptionMatcher;
 import org.hyperledger.besu.ethereum.referencetests.ReferenceTestProtocolSchedules;
@@ -71,6 +70,7 @@ import java.util.Arrays;
 import java.util.Collection;
 import java.util.Collections;
 import java.util.List;
+import java.util.Map;
 import java.util.Optional;
 
 import org.apache.tuweni.bytes.Bytes;
@@ -203,10 +203,6 @@ public class BlockchainReferenceTestTools {
                     // Use validateAndProcessBlock directly so we can access the error message and
                     // verify it matches the expected exception from the fixture.
                     final BlockValidator blockValidator = protocolSpec.getBlockValidator();
-                    final Optional<BlockWitnessAccumulator> witnessAccumulator =
-                            candidateBlock.getExpectedWitness().isPresent()
-                                    ? Optional.of(new BlockWitnessAccumulator())
-                                    : Optional.empty();
                     final BlockProcessingResult processingResult =
                             blockValidator.validateAndProcessBlock(
                                     protocolContext,
@@ -215,8 +211,7 @@ public class BlockchainReferenceTestTools {
                                     validationMode,
                                     candidateBlock.getBlockAccessList(),
                                     false,
-                                    true,
-                                    witnessAccumulator);
+                                    true);
 
                     final boolean imported = processingResult.isSuccessful();
                     if (imported) {
@@ -290,7 +285,11 @@ public class BlockchainReferenceTestTools {
             .buildWitness(
               block.getHeader(),
               processingResult.getYield().flatMap(BlockProcessingOutputs::getBlockAccessList),
-              processingResult.getYield().flatMap(BlockProcessingOutputs::getWitnessAccumulator));
+              processingResult.getYield().flatMap(BlockProcessingOutputs::getBlockAccessListBuilder),
+              processingResult
+                  .getYield()
+                  .map(BlockProcessingOutputs::getAccessedAncestors)
+                  .orElse(Map.of()));
 
         logWitnessDiff("state", got.state(), expected.state(), block.getHash());
         logWitnessDiff("codes", got.codes(), expected.codes(), block.getHash());

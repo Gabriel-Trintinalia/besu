@@ -15,17 +15,9 @@
 package org.hyperledger.besu.ethereum.mainnet.systemcall;
 
 import org.hyperledger.besu.ethereum.mainnet.block.access.list.AccessLocationTracker;
-import org.hyperledger.besu.evm.witness.WitnessTracker;
 
 import java.util.Optional;
 
 public interface BlockContextProcessor<T, C extends BlockProcessingContext> {
   T process(final C context, final Optional<AccessLocationTracker> accessLocationTracker);
-
-  default T process(
-      final C context,
-      final Optional<AccessLocationTracker> accessLocationTracker,
-      final Optional<WitnessTracker> witnessTracker) {
-    return process(context, accessLocationTracker);
-  }
 }

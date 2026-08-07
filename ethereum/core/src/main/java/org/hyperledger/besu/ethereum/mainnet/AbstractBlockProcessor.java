@@ -34,21 +34,18 @@ import org.hyperledger.besu.ethereum.mainnet.AbstractBlockProcessor.Preprocessin
 import org.hyperledger.besu.ethereum.mainnet.block.access.list.AccessLocationTracker;
 import org.hyperledger.besu.ethereum.mainnet.block.access.list.BlockAccessList;
 import org.hyperledger.besu.ethereum.mainnet.block.access.list.BlockAccessList.BlockAccessListBuilder;
-import org.hyperledger.besu.ethereum.mainnet.block.access.list.BlockAccessListFactory;
 import org.hyperledger.besu.ethereum.mainnet.block.access.list.PartialBlockAccessView;
 import org.hyperledger.besu.ethereum.mainnet.parallelization.PreprocessingContext;
 import org.hyperledger.besu.ethereum.mainnet.requests.RequestProcessingContext;
 import org.hyperledger.besu.ethereum.mainnet.requests.RequestProcessorCoordinator;
 import org.hyperledger.besu.ethereum.mainnet.staterootcommitter.StateRootCommitter;
 import org.hyperledger.besu.ethereum.mainnet.systemcall.BlockProcessingContext;
-import org.hyperledger.besu.ethereum.mainnet.witness.BlockWitnessAccumulator;
 import org.hyperledger.besu.ethereum.processing.TransactionProcessingResult;
 import org.hyperledger.besu.ethereum.trie.MerkleTrieException;
 import org.hyperledger.besu.ethereum.trie.common.StateRootMismatchException;
 import org.hyperledger.besu.ethereum.trie.pathbased.bonsai.worldview.BonsaiWorldState;
 import org.hyperledger.besu.ethereum.trie.pathbased.bonsai.worldview.BonsaiWorldStateUpdateAccumulator;
 import org.hyperledger.besu.evm.blockhash.BlockHashLookup;
-import org.hyperledger.besu.evm.witness.WitnessTracker;
 import org.hyperledger.besu.evm.worldstate.StackedUpdater;
 import org.hyperledger.besu.evm.worldstate.WorldState;
 import org.hyperledger.besu.evm.worldstate.WorldUpdater;
@@ -199,8 +196,7 @@ public abstract class AbstractBlockProcessor implements BlockProcessor {
       final Blockchain blockchain,
       final MutableWorldState worldState,
       final Block block,
-      final Optional<BlockAccessList> blockAccessList,
-      final Optional<BlockWitnessAccumulator> witnessAccumulator) {
+      final Optional<BlockAccessList> blockAccessList) {
     return doProcessBlock(
         protocolContext,
         blockchain,
@@ -208,8 +204,7 @@ public abstract class AbstractBlockProcessor implements BlockProcessor {
         block,
         blockAccessList,
         new NoPreprocessing(),
-        getBlockImportTracer(protocolContext, block.getHeader()),
-        witnessAccumulator);
+        getBlockImportTracer(protocolContext, block.getHeader()));
   }
 
   @Override
@@ -227,8 +222,7 @@ public abstract class AbstractBlockProcessor implements BlockProcessor {
         block,
         blockAccessList,
         preprocessingBlockFunction,
-        getBlockImportTracer(protocolContext, block.getHeader()),
-        Optional.empty());
+        getBlockImportTracer(protocolContext, block.getHeader()));
   }
 
   @Override
@@ -238,8 +232,7 @@ public abstract class AbstractBlockProcessor implements BlockProcessor {
       final MutableWorldState worldState,
       final Block block,
       final Optional<BlockAccessList> blockAccessList,
-      final BlockAwareOperationTracer explicitTracer,
-      final Optional<BlockWitnessAccumulator> witnessAccumulator) {
+      final BlockAwareOperationTracer explicitTracer) {
     return doProcessBlock(
         protocolContext,
         blockchain,
@@ -247,8 +240,7 @@ public abstract class AbstractBlockProcessor implements BlockProcessor {
         block,
         blockAccessList,
         new NoPreprocessing(),
-        explicitTracer,
-        witnessAccumulator);
+        explicitTracer);
   }
 
   private BlockProcessingResult doProcessBlock(
@@ -258,8 +250,7 @@ public abstract class AbstractBlockProcessor implements BlockProcessor {
       final Block block,
       final Optional<BlockAccessList> blockAccessList,
       final PreprocessingFunction preprocessingBlockFunction,
-      final BlockAwareOperationTracer blockTracer,
-      final Optional<BlockWitnessAccumulator> blockWitnessAccumulator) {
+      final BlockAwareOperationTracer blockTracer) {
     final List<TransactionReceipt> receipts = new ArrayList<>();
     // EIP-7778: Track two separate cumulative gas values
     // cumulativeRegularGasUsed: For block gas limit enforcement (uses protocol-specific strategy)
@@ -293,18 +284,11 @@ public abstract class AbstractBlockProcessor implements BlockProcessor {
             .timed(blockProcessingMetrics.stateRootCalculationTimer());
 
     final Optional<BlockAccessListBuilder> blockAccessListBuilder =
-        protocolSpec
-            .getBlockAccessListFactory()
-            .map(BlockAccessListFactory::newBlockAccessListBuilder);
+        protocolSpec.getBlockAccessListFactory().map(f -> f.newBlockAccessListBuilder());
 
     try {
-      // EIP-8025 witness: initialize oldest-ancestor floor to parent block number so the parent
-      // header is always included in the witness even when no BLOCKHASH opcode is executed.
-      blockWitnessAccumulator.ifPresent(acc -> acc.initOldestAncestor(blockHeader.getNumber() - 1));
-
       final Optional<AccessLocationTracker> preExecutionAccessLocationTracker =
-          blockAccessListBuilder.map(
-              b -> BlockAccessListBuilder.createPreExecutionAccessLocationTracker());
+          blockAccessListBuilder.map(BlockAccessListBuilder::newPreExecutionTracker);
       final BlockProcessingContext blockProcessingContext =
           new BlockProcessingContext(
               blockHeader,
@@ -315,10 +299,7 @@ public abstract class AbstractBlockProcessor implements BlockProcessor {
               blockAccessListBuilder);
       protocolSpec
           .getPreExecutionProcessor()
-          .process(
-              blockProcessingContext,
-              preExecutionAccessLocationTracker,
-              blockWitnessAccumulator.map(acc -> (WitnessTracker) acc));
+          .process(blockProcessingContext, preExecutionAccessLocationTracker);
 
       Optional<BlockHeader> maybeParentHeader =
           blockchain.getBlockHeader(blockHeader.getParentHash());
@@ -378,8 +359,7 @@ public abstract class AbstractBlockProcessor implements BlockProcessor {
                 transaction,
                 i,
                 blockHashLookup,
-                transactionLocationTracker,
-                blockWitnessAccumulator.map(acc -> (WitnessTracker) acc));
+                transactionLocationTracker);
 
         if (transactionProcessingResult.isInvalid()) {
           String errorMessage =
@@ -464,10 +444,7 @@ public abstract class AbstractBlockProcessor implements BlockProcessor {
       }
 
       final Optional<AccessLocationTracker> postExecutionAccessLocationTracker =
-          blockAccessListBuilder.map(
-              b ->
-                  BlockAccessListBuilder.createPostExecutionAccessLocationTracker(
-                      transactions.size()));
+          blockAccessListBuilder.map(b -> b.newPostExecutionTracker(transactions.size()));
       final Optional<WithdrawalsProcessor> maybeWithdrawalsProcessor =
           protocolSpec.getWithdrawalsProcessor();
       if (maybeWithdrawalsProcessor.isPresent() && maybeWithdrawals.isPresent()) {
@@ -500,10 +477,7 @@ public abstract class AbstractBlockProcessor implements BlockProcessor {
               Optional.of(
                   requestProcessor
                       .get()
-                      .process(
-                          requestProcessingContext,
-                          postExecutionAccessLocationTracker,
-                          blockWitnessAccumulator.map(acc -> acc)));
+                      .process(requestProcessingContext, postExecutionAccessLocationTracker));
         }
       } catch (final Exception e) {
         LOG.error("failed processing requests", e);
@@ -619,7 +593,7 @@ public abstract class AbstractBlockProcessor implements BlockProcessor {
                   maybeBlockAccessList,
                   gasMetered,
                   accessedAncestors,
-                  blockWitnessAccumulator)),
+                  blockAccessListBuilder)),
           parallelizedTxFound ? Optional.of(nbParallelTx) : Optional.empty());
     } finally {
       stateRootCommitter.cancel();
@@ -637,31 +611,6 @@ public abstract class AbstractBlockProcessor implements BlockProcessor {
       final int location,
       final BlockHashLookup blockHashLookup,
       final Optional<AccessLocationTracker> accessLocationTracker) {
-    return getTransactionProcessingResult(
-        preProcessingContext,
-        blockProcessingContext,
-        transactionUpdater,
-        blobGasPrice,
-        miningBeneficiary,
-        transaction,
-        location,
-        blockHashLookup,
-        accessLocationTracker,
-        Optional.empty());
-  }
-
-  @SuppressWarnings("unused") // preProcessingContext and location are used by subclasses
-  protected TransactionProcessingResult getTransactionProcessingResult(
-      final Optional<PreprocessingContext> preProcessingContext,
-      final BlockProcessingContext blockProcessingContext,
-      final WorldUpdater transactionUpdater,
-      final Wei blobGasPrice,
-      final Address miningBeneficiary,
-      final Transaction transaction,
-      final int location,
-      final BlockHashLookup blockHashLookup,
-      final Optional<AccessLocationTracker> accessLocationTracker,
-      final Optional<WitnessTracker> witnessTracker) {
     return transactionProcessor.processTransaction(
         transactionUpdater,
         blockProcessingContext.getBlockHeader(),
@@ -671,8 +620,7 @@ public abstract class AbstractBlockProcessor implements BlockProcessor {
         blockHashLookup,
         TransactionValidationParams.processingBlock(),
         blobGasPrice,
-        accessLocationTracker,
-        witnessTracker);
+        accessLocationTracker);
   }
 
   @SuppressWarnings(
@@ -715,8 +663,7 @@ public abstract class AbstractBlockProcessor implements BlockProcessor {
   private Optional<AccessLocationTracker> createTransactionAccessLocationTracker(
       final Optional<BlockAccessListBuilder> blockAccessListBuilder,
       final int transactionLocation) {
-    return blockAccessListBuilder.map(
-        b -> BlockAccessListBuilder.createTransactionAccessLocationTracker(transactionLocation));
+    return blockAccessListBuilder.map(b -> b.newTransactionTracker(transactionLocation));
   }
 
   private void applyAccessLocationTracker(

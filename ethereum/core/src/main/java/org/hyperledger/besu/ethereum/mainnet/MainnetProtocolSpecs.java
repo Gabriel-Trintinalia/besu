@@ -81,7 +81,6 @@ import org.hyperledger.besu.ethereum.mainnet.requests.RequestContractAddresses;
 import org.hyperledger.besu.ethereum.mainnet.requests.RequestProcessorCoordinator;
 import org.hyperledger.besu.ethereum.mainnet.staterootcommitter.BalStateRootCommitterFactory;
 import org.hyperledger.besu.ethereum.mainnet.transactionpool.OsakaTransactionPoolPreProcessor;
-import org.hyperledger.besu.ethereum.mainnet.witness.BlockWitnessAccumulator;
 import org.hyperledger.besu.ethereum.processing.TransactionProcessingResult;
 import org.hyperledger.besu.evm.MainnetEVMs;
 import org.hyperledger.besu.evm.account.MutableAccount;
@@ -1526,30 +1525,10 @@ public abstract class MainnetProtocolSpecs {
         final MutableWorldState worldState,
         final Block block,
         final Optional<BlockAccessList> blockAccessList,
-        final Optional<BlockWitnessAccumulator> witnessAccumulator) {
+        final BlockAwareOperationTracer tracer) {
       updateWorldStateForDao(worldState);
       return wrapped.processBlock(
-          protocolContext, blockchain, worldState, block, blockAccessList, witnessAccumulator);
-    }
-
-    @Override
-    public BlockProcessingResult processBlock(
-        final ProtocolContext protocolContext,
-        final Blockchain blockchain,
-        final MutableWorldState worldState,
-        final Block block,
-        final Optional<BlockAccessList> blockAccessList,
-        final BlockAwareOperationTracer tracer,
-        final Optional<BlockWitnessAccumulator> witnessAccumulator) {
-      updateWorldStateForDao(worldState);
-      return wrapped.processBlock(
-          protocolContext,
-          blockchain,
-          worldState,
-          block,
-          blockAccessList,
-          tracer,
-          witnessAccumulator);
+          protocolContext, blockchain, worldState, block, blockAccessList, tracer);
     }
 
     private static final Address DAO_REFUND_CONTRACT_ADDRESS =

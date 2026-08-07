@@ -19,7 +19,7 @@ import org.hyperledger.besu.ethereum.core.MutableWorldState;
 import org.hyperledger.besu.ethereum.core.Request;
 import org.hyperledger.besu.ethereum.core.TransactionReceipt;
 import org.hyperledger.besu.ethereum.mainnet.block.access.list.BlockAccessList;
-import org.hyperledger.besu.ethereum.mainnet.witness.BlockWitnessAccumulator;
+import org.hyperledger.besu.ethereum.mainnet.block.access.list.BlockAccessList.BlockAccessListBuilder;
 
 import java.util.List;
 import java.util.Map;
@@ -34,7 +34,7 @@ public class BlockProcessingOutputs {
   private final Optional<BlockAccessList> maybeBlockAccessList;
   private final long cumulativeBlockGasUsed;
   private final Map<Long, Hash> accessedAncestors;
-  private final Optional<BlockWitnessAccumulator> witnessAccumulator;
+  private final Optional<BlockAccessListBuilder> blockAccessListBuilder;
 
   /**
    * Creates a new instance.
@@ -125,8 +125,8 @@ public class BlockProcessingOutputs {
   }
 
   /**
-   * Creates a new instance with an EIP-8025 witness accumulator for code-read and ancestor
-   * tracking.
+   * Creates a new instance with the block access list builder, which carries EIP-8025 witness
+   * code-read data when witness collection was enabled for this block.
    *
    * @param worldState the world state after processing the block
    * @param receipts the receipts produced by processing the block
@@ -134,7 +134,8 @@ public class BlockProcessingOutputs {
    * @param blockAccessList the block-level access list produced by processing the block
    * @param cumulativeBlockGasUsed the cumulative block gas used (pre-refund for EIP-7778)
    * @param accessedAncestors ancestor block numbers and hashes touched while processing this block
-   * @param witnessAccumulator the block-level witness accumulator (code reads + oldest ancestor)
+   * @param blockAccessListBuilder the builder carrying witness code-read data (non-empty when
+   *     collectWitness was true)
    */
   public BlockProcessingOutputs(
       final MutableWorldState worldState,
@@ -143,14 +144,14 @@ public class BlockProcessingOutputs {
       final Optional<BlockAccessList> blockAccessList,
       final long cumulativeBlockGasUsed,
       final Map<Long, Hash> accessedAncestors,
-      final Optional<BlockWitnessAccumulator> witnessAccumulator) {
+      final Optional<BlockAccessListBuilder> blockAccessListBuilder) {
     this.worldState = worldState;
     this.receipts = receipts;
     this.maybeRequests = maybeRequests;
     this.maybeBlockAccessList = blockAccessList;
     this.cumulativeBlockGasUsed = cumulativeBlockGasUsed;
     this.accessedAncestors = accessedAncestors;
-    this.witnessAccumulator = witnessAccumulator;
+    this.blockAccessListBuilder = blockAccessListBuilder;
   }
 
   /**
@@ -209,10 +210,10 @@ public class BlockProcessingOutputs {
   }
 
   /**
-   * Returns the EIP-8025 witness accumulator carrying block-level code reads and the oldest
-   * ancestor block number, or empty if witness tracking was not enabled for this block.
+   * Returns the block access list builder carrying EIP-8025 witness code-read data, or empty if
+   * witness collection was not enabled for this block.
    */
-  public Optional<BlockWitnessAccumulator> getWitnessAccumulator() {
-    return witnessAccumulator;
+  public Optional<BlockAccessListBuilder> getBlockAccessListBuilder() {
+    return blockAccessListBuilder;
   }
 }

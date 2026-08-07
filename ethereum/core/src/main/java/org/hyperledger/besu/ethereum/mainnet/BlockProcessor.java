@@ -22,7 +22,6 @@ import org.hyperledger.besu.ethereum.core.Block;
 import org.hyperledger.besu.ethereum.core.MutableWorldState;
 import org.hyperledger.besu.ethereum.core.TransactionReceipt;
 import org.hyperledger.besu.ethereum.mainnet.block.access.list.BlockAccessList;
-import org.hyperledger.besu.ethereum.mainnet.witness.BlockWitnessAccumulator;
 import org.hyperledger.besu.plugin.services.tracer.BlockAwareOperationTracer;
 
 import java.util.List;
@@ -80,23 +79,12 @@ public interface BlockProcessor {
    * @param blockAccessList the optional block access list
    * @return the block processing result
    */
-  default BlockProcessingResult processBlock(
-      final ProtocolContext protocolContext,
-      final Blockchain blockchain,
-      final MutableWorldState worldState,
-      final Block block,
-      final Optional<BlockAccessList> blockAccessList) {
-    return processBlock(
-        protocolContext, blockchain, worldState, block, blockAccessList, Optional.empty());
-  }
-
   BlockProcessingResult processBlock(
       final ProtocolContext protocolContext,
       final Blockchain blockchain,
       final MutableWorldState worldState,
       final Block block,
-      final Optional<BlockAccessList> blockAccessList,
-      final Optional<BlockWitnessAccumulator> witnessAccumulator);
+      final Optional<BlockAccessList> blockAccessList);
 
   /**
    * Processes the block.
@@ -146,25 +134,13 @@ public interface BlockProcessor {
    * @param tracer the tracer to use for this execution (replaces the plugin-based import tracer)
    * @return the block processing result
    */
-  default BlockProcessingResult processBlock(
-      final ProtocolContext protocolContext,
-      final Blockchain blockchain,
-      final MutableWorldState worldState,
-      final Block block,
-      final Optional<BlockAccessList> blockAccessList,
-      final BlockAwareOperationTracer tracer) {
-    return processBlock(
-        protocolContext, blockchain, worldState, block, blockAccessList, tracer, Optional.empty());
-  }
-
   BlockProcessingResult processBlock(
       final ProtocolContext protocolContext,
       final Blockchain blockchain,
       final MutableWorldState worldState,
       final Block block,
       final Optional<BlockAccessList> blockAccessList,
-      final BlockAwareOperationTracer tracer,
-      final Optional<BlockWitnessAccumulator> witnessAccumulator);
+      final BlockAwareOperationTracer tracer);
 
   /**
    * Get ommer reward in ${@link Wei}

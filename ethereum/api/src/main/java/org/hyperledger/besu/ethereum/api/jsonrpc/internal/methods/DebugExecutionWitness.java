@@ -32,9 +32,9 @@ import org.hyperledger.besu.ethereum.core.Block;
 import org.hyperledger.besu.ethereum.core.BlockHeader;
 import org.hyperledger.besu.ethereum.mainnet.HeaderValidationMode;
 import org.hyperledger.besu.ethereum.mainnet.ProtocolSchedule;
-import org.hyperledger.besu.ethereum.mainnet.witness.BlockWitnessAccumulator;
 import org.hyperledger.besu.ethereum.trie.pathbased.bonsai.storage.BonsaiExecutionWitnessBuilder;
 
+import java.util.Map;
 import java.util.Optional;
 
 /**
@@ -116,7 +116,6 @@ public class DebugExecutionWitness extends AbstractBlockParameterOrBlockHashMeth
       return new JsonRpcErrorResponse(reqId, RpcErrorType.BLOCK_NOT_FOUND);
     }
 
-    final BlockWitnessAccumulator witnessAccumulator = new BlockWitnessAccumulator();
     final BlockProcessingResult result =
         protocolSchedule
             .getByBlockHeader(blockHeader)
@@ -128,8 +127,7 @@ public class DebugExecutionWitness extends AbstractBlockParameterOrBlockHashMeth
                 HeaderValidationMode.NONE,
                 blockchain.getBlockAccessList(blockHash),
                 false,
-                false,
-                Optional.of(witnessAccumulator));
+                false);
 
     if (!result.isSuccessful()) {
       return new JsonRpcErrorResponse(reqId, RpcErrorType.INTERNAL_ERROR);
@@ -141,7 +139,8 @@ public class DebugExecutionWitness extends AbstractBlockParameterOrBlockHashMeth
           witnessBuilder.buildWitness(
               blockHeader,
               result.getYield().flatMap(BlockProcessingOutputs::getBlockAccessList),
-              result.getYield().flatMap(BlockProcessingOutputs::getWitnessAccumulator));
+              result.getYield().flatMap(BlockProcessingOutputs::getBlockAccessListBuilder),
+              result.getYield().map(BlockProcessingOutputs::getAccessedAncestors).orElse(Map.of()));
       if (witness.state().isEmpty()) {
         return new JsonRpcErrorResponse(reqId, RpcErrorType.INTERNAL_ERROR);
       }

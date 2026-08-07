@@ -39,9 +39,13 @@ public class AccessLocationTracker implements Eip7928AccessList {
 
   private final long blockAccessIndex;
   private final Map<Address, AccountAccessList> touchedAccounts = new ConcurrentHashMap<>();
+  private final Set<Address> codeReads;
+  private final Set<Address> preStateCodeReads;
 
   public AccessLocationTracker(final long blockAccessIndex) {
     this.blockAccessIndex = blockAccessIndex;
+    this.codeReads = ConcurrentHashMap.newKeySet();
+    this.preStateCodeReads = ConcurrentHashMap.newKeySet();
   }
 
   @Override
@@ -57,6 +61,24 @@ public class AccessLocationTracker implements Eip7928AccessList {
   @Override
   public void addSlotAccessForAccount(final Address address, final UInt256 slotKey) {
     touchedAccounts.computeIfAbsent(address, AccountAccessList::new).addSlotAccess(slotKey);
+  }
+
+  @Override
+  public void addCodeRead(final Address address) {
+    codeReads.add(address);
+  }
+
+  @Override
+  public void addPreStateCodeRead(final Address address) {
+    preStateCodeReads.add(address);
+  }
+
+  Set<Address> getCodeReads() {
+    return codeReads;
+  }
+
+  Set<Address> getPreStateCodeReads() {
+    return preStateCodeReads;
   }
 
   public Collection<AccountAccessList> getTouchedAccounts() {

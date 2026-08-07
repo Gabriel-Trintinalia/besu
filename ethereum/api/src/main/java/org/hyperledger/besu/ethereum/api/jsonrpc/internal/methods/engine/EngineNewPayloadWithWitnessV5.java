@@ -36,13 +36,13 @@ import org.hyperledger.besu.ethereum.core.Transaction;
 import org.hyperledger.besu.ethereum.eth.manager.EthPeers;
 import org.hyperledger.besu.ethereum.mainnet.ProtocolSchedule;
 import org.hyperledger.besu.ethereum.mainnet.block.access.list.BlockAccessList;
-import org.hyperledger.besu.ethereum.mainnet.witness.BlockWitnessAccumulator;
 import org.hyperledger.besu.ethereum.trie.MerkleTrieException;
 import org.hyperledger.besu.ethereum.trie.pathbased.bonsai.storage.BonsaiExecutionWitnessBuilder;
 import org.hyperledger.besu.plugin.services.MetricsSystem;
 import org.hyperledger.besu.plugin.services.exception.StorageException;
 
 import java.util.List;
+import java.util.Map;
 import java.util.Optional;
 
 import io.vertx.core.Vertx;
@@ -96,10 +96,8 @@ public class EngineNewPayloadWithWitnessV5 extends EngineNewPayloadV5 {
       final List<Transaction> blobTransactions,
       final Hash latestValidAncestor) {
     final long startTimeNs = System.nanoTime();
-    final BlockWitnessAccumulator witnessAccumulator = new BlockWitnessAccumulator();
     final BlockProcessingResult executionResult =
-        mergeCoordinator.rememberBlock(
-            block, maybeBlockAccessList, Optional.of(witnessAccumulator));
+        mergeCoordinator.rememberBlock(block, maybeBlockAccessList);
 
     if (executionResult.isSuccessful()) {
       lastExecutionTimeInNs = System.nanoTime() - startTimeNs;
@@ -145,7 +143,11 @@ public class EngineNewPayloadWithWitnessV5 extends EngineNewPayloadV5 {
                   executionResult.getYield().flatMap(BlockProcessingOutputs::getBlockAccessList),
                   executionResult
                       .getYield()
-                      .flatMap(BlockProcessingOutputs::getWitnessAccumulator));
+                      .flatMap(BlockProcessingOutputs::getBlockAccessListBuilder),
+                  executionResult
+                      .getYield()
+                      .map(BlockProcessingOutputs::getAccessedAncestors)
+                      .orElse(Map.of()));
       if (witness.state().isEmpty()) {
         return new JsonRpcErrorResponse(reqId, RpcErrorType.INTERNAL_ERROR);
       }

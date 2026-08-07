@@ -238,7 +238,7 @@ public abstract class AbstractCallOperation extends AbstractOperation {
     // EELS calculate_delegation_cost. Record the delegator here, exactly where the EVM reads its
     // designator, so the witness needs no gas-cost inference to know the code was accessed.
     frame
-        .getWitnessTracker()
+        .getEip7928AccessList()
         .ifPresent(
             t -> {
               if (contract != null && hasCodeDelegation(contract.getCode())) {
@@ -259,11 +259,11 @@ public abstract class AbstractCallOperation extends AbstractOperation {
       final Bytes contractCode = contract.getCode();
       if (hasCodeDelegation(contractCode)) {
         final Address target = getTargetAddress(contractCode);
-        frame.getEip7928AccessList().ifPresent(t -> t.addTouchedAccount(target));
         frame
-            .getWitnessTracker()
+            .getEip7928AccessList()
             .ifPresent(
                 t -> {
+                  t.addTouchedAccount(target);
                   // EIP-8025 witness: the EVM reads the delegation target's code here — exactly
                   // where EELS calls get_code(target) after the call's gas checks pass but before
                   // the value/depth soft-failure check (system.py). Recording it here means the
@@ -280,7 +280,7 @@ public abstract class AbstractCallOperation extends AbstractOperation {
     // is created and AbstractMessageProcessor.process() never fires, mirroring EELS get_code(to)
     // which is called before the balance/depth checks but after the gas check.
     frame
-        .getWitnessTracker()
+        .getEip7928AccessList()
         .ifPresent(
             t -> {
               if (contract == null || !hasCodeDelegation(contract.getCode())) {
@@ -346,7 +346,6 @@ public abstract class AbstractCallOperation extends AbstractOperation {
     if (frame.getEip7928AccessList().isPresent()) {
       builder.eip7928AccessList(frame.getEip7928AccessList().get());
     }
-    frame.getWitnessTracker().ifPresent(builder::witnessTracker);
 
     builder.build();
     // see note in stack depth check about incrementing cost

@@ -22,7 +22,7 @@ import org.hyperledger.besu.ethereum.chain.Blockchain;
 import org.hyperledger.besu.ethereum.core.BlockHeader;
 import org.hyperledger.besu.ethereum.core.MutableWorldState;
 import org.hyperledger.besu.ethereum.mainnet.block.access.list.BlockAccessList;
-import org.hyperledger.besu.ethereum.mainnet.witness.BlockWitnessAccumulator;
+import org.hyperledger.besu.ethereum.mainnet.block.access.list.BlockAccessList.BlockAccessListBuilder;
 import org.hyperledger.besu.ethereum.rlp.RLP;
 import org.hyperledger.besu.ethereum.trie.pathbased.bonsai.NoOpBonsaiCachedWorldStorageManager;
 import org.hyperledger.besu.ethereum.trie.pathbased.bonsai.cache.CodeCache;
@@ -39,6 +39,7 @@ import org.hyperledger.besu.plugin.services.trielogs.TrieLog;
 
 import java.util.ArrayList;
 import java.util.List;
+import java.util.Map;
 import java.util.Optional;
 import java.util.Set;
 import java.util.concurrent.ConcurrentHashMap;
@@ -68,13 +69,15 @@ public class BonsaiExecutionWitnessBuilder {
 
   /**
    * Builds the EIP-8025 execution witness (state trie nodes, codes, headers) for a block. Uses the
-   * TrieLog + BAL for {@code state}, the {@link BlockWitnessAccumulator}'s accumulated code-read
-   * sets for {@code codes}, and the oldest accessed ancestor for {@code headers}.
+   * TrieLog + BAL for {@code state}, the {@link BlockAccessListBuilder}'s accumulated code-read
+   * sets for {@code codes}, and the oldest accessed ancestor from {@code accessedAncestors} for
+   * {@code headers}.
    */
   public Witness buildWitness(
       final BlockHeader blockHeader,
       final Optional<BlockAccessList> maybeBlockAccessList,
-      final Optional<BlockWitnessAccumulator> maybeWitnessAccumulator) {
+      final Optional<BlockAccessListBuilder> maybeBlockAccessListBuilder,
+      final Map<Long, Hash> accessedAncestors) {
     final TrieLog trieLog =
         worldStateProvider
             .getTrieLogManager()
@@ -114,18 +117,19 @@ public class BonsaiExecutionWitnessBuilder {
       final List<String> codes =
           buildCodes(
               ws,
-              maybeWitnessAccumulator.map(BlockWitnessAccumulator::getCodeReads).orElse(Set.of()),
-              maybeWitnessAccumulator
-                  .map(BlockWitnessAccumulator::getPreStateCodeReads)
+              maybeBlockAccessListBuilder
+                  .map(BlockAccessListBuilder::getCodeReads)
+                  .orElse(Set.of()),
+              maybeBlockAccessListBuilder
+                  .map(BlockAccessListBuilder::getPreStateCodeReads)
                   .orElse(Set.of()),
               inBlockCodeChanged);
+      final long oldestAncestor =
+          accessedAncestors.keySet().stream()
+              .min(Long::compare)
+              .orElse(blockHeader.getNumber() - 1);
       final List<String> headers =
-          buildHeaders(
-              blockchain,
-              maybeWitnessAccumulator
-                  .map(BlockWitnessAccumulator::getOldestAccessedAncestor)
-                  .orElse(blockHeader.getNumber() - 1),
-              blockHeader.getNumber());
+          buildHeaders(blockchain, oldestAncestor, blockHeader.getNumber());
       return new Witness(state, codes, headers);
     } catch (final IllegalStateException e) {
       throw e;
@@ -204,12 +208,11 @@ public class BonsaiExecutionWitnessBuilder {
    * Returns the RLP-encoded pre-state contract bytecodes required by a stateless verifier,
    * deduplicated and sorted, implementing the EIP-8025 {@code get_witness_codes} rule.
    *
-   * <p>{@code preStateAddresses} were read explicitly from the parent state (EIP-7702
-   * re-delegation), so their pre-state code is always included. {@code executionAddresses} were
-   * read from the account's current code during execution; their pre-state code is included only
-   * when the code was <em>not</em> written in-block ({@code inBlockCodeChanged}) — if it was, the
-   * verifier already has that code from the block, matching EELS get_code, which does not record
-   * reads served from {@code code_writes}. Empty code is never included. Lookups run in parallel.
+   * <p>{@code preStateAddresses} (EIP-7702 authority reads) are always included — the same
+   * transaction that reads the authority's pre-state code also writes new code to it, so the
+   * verifier needs the old version even though the address appears in {@code inBlockCodeChanged}.
+   * {@code executionAddresses} are filtered: if the code was written in-block the verifier already
+   * has it from {@code code_writes}. Empty code is never included. Lookups run in parallel.
    */
   private List<String> buildCodes(
       final BonsaiWorldState worldView,

@@ -47,4 +47,20 @@ public interface Eip7928AccessList {
 
   /** Clears all tracked access list entries. */
   void clear();
+
+  /**
+   * Records that the given account's contract code was read during execution. No-op by default;
+   * overridden when witness collection is enabled.
+   *
+   * @param address the address whose code was read
+   */
+  default void addCodeRead(final Address address) {}
+
+  /**
+   * Records that the given account's pre-state contract code was read (EIP-7702 authority check).
+   * No-op by default; overridden when witness collection is enabled.
+   *
+   * @param address the address whose pre-state code was read
+   */
+  default void addPreStateCodeRead(final Address address) {}
 }

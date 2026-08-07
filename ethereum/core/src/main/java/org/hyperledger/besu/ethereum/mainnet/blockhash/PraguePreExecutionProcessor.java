@@ -19,7 +19,6 @@ import org.hyperledger.besu.ethereum.mainnet.block.access.list.AccessLocationTra
 import org.hyperledger.besu.ethereum.mainnet.systemcall.BlockProcessingContext;
 import org.hyperledger.besu.ethereum.mainnet.systemcall.SystemCallNoCodeAtAddressException;
 import org.hyperledger.besu.ethereum.mainnet.systemcall.SystemCallProcessor;
-import org.hyperledger.besu.evm.witness.WitnessTracker;
 
 import java.util.Optional;
 
@@ -61,22 +60,13 @@ public class PraguePreExecutionProcessor extends CancunPreExecutionProcessor {
   public Void process(
       final BlockProcessingContext context,
       final Optional<AccessLocationTracker> accessLocationTracker) {
-    return process(context, accessLocationTracker, Optional.empty());
-  }
-
-  @Override
-  public Void process(
-      final BlockProcessingContext context,
-      final Optional<AccessLocationTracker> accessLocationTracker,
-      final Optional<WitnessTracker> witnessTracker) {
-    super.process(context, accessLocationTracker, witnessTracker);
+    super.process(context, accessLocationTracker);
     SystemCallProcessor processor =
         new SystemCallProcessor(context.getProtocolSpec().getTransactionProcessor());
 
     Bytes inputData = context.getBlockHeader().getParentHash().getBytes();
     try {
-      processor.process(
-          historyStorageAddress, context, inputData, accessLocationTracker, witnessTracker);
+      processor.process(historyStorageAddress, context, inputData, accessLocationTracker);
     } catch (SystemCallNoCodeAtAddressException e) {
       // According to EIP-2935, the system call should fail silently if no code exists at the
       // contract address

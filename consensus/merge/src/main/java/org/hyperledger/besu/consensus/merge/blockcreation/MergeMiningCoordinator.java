@@ -26,7 +26,6 @@ import org.hyperledger.besu.ethereum.core.BlockHeader;
 import org.hyperledger.besu.ethereum.core.Withdrawal;
 import org.hyperledger.besu.ethereum.eth.manager.EthScheduler;
 import org.hyperledger.besu.ethereum.mainnet.block.access.list.BlockAccessList;
-import org.hyperledger.besu.ethereum.mainnet.witness.BlockWitnessAccumulator;
 import org.hyperledger.besu.plugin.services.tracer.BlockAwareOperationTracer;
 
 import java.util.List;
@@ -99,11 +98,6 @@ public interface MergeMiningCoordinator extends MiningCoordinator {
       final Block block,
       final Optional<BlockAccessList> blockAccessList,
       final BlockAwareOperationTracer tracer);
-
-  BlockProcessingResult rememberBlock(
-      final Block block,
-      final Optional<BlockAccessList> blockAccessList,
-      final Optional<BlockWitnessAccumulator> witnessAccumulator);
 
   /**
    * Validate block.
