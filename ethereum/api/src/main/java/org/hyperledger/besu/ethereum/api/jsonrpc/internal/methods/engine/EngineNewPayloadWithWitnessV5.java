@@ -42,7 +42,6 @@ import org.hyperledger.besu.plugin.services.MetricsSystem;
 import org.hyperledger.besu.plugin.services.exception.StorageException;
 
 import java.util.List;
-import java.util.Map;
 import java.util.Optional;
 
 import io.vertx.core.Vertx;
@@ -141,13 +140,7 @@ public class EngineNewPayloadWithWitnessV5 extends EngineNewPayloadV5 {
               .buildWitness(
                   blockHeader,
                   executionResult.getYield().flatMap(BlockProcessingOutputs::getBlockAccessList),
-                  executionResult
-                      .getYield()
-                      .flatMap(BlockProcessingOutputs::getBlockAccessListBuilder),
-                  executionResult
-                      .getYield()
-                      .map(BlockProcessingOutputs::getAccessedAncestors)
-                      .orElse(Map.of()));
+                  executionResult.getYield().flatMap(BlockProcessingOutputs::getWitnessData));
       if (witness.state().isEmpty()) {
         return new JsonRpcErrorResponse(reqId, RpcErrorType.INTERNAL_ERROR);
       }

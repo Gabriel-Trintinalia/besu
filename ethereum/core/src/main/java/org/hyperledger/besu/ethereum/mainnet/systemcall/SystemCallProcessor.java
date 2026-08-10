@@ -181,6 +181,7 @@ public class SystemCallProcessor {
     maybeAccessLocationTracker.ifPresent(
         tracker -> {
           builder.eip7928AccessList(tracker);
+          builder.codeReadTracker(tracker);
           tracker.addTouchedAccount(callAddress);
         });
 

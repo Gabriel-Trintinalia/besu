@@ -70,7 +70,6 @@ import java.util.Arrays;
 import java.util.Collection;
 import java.util.Collections;
 import java.util.List;
-import java.util.Map;
 import java.util.Optional;
 
 import org.apache.tuweni.bytes.Bytes;
@@ -285,11 +284,7 @@ public class BlockchainReferenceTestTools {
             .buildWitness(
               block.getHeader(),
               processingResult.getYield().flatMap(BlockProcessingOutputs::getBlockAccessList),
-              processingResult.getYield().flatMap(BlockProcessingOutputs::getBlockAccessListBuilder),
-              processingResult
-                  .getYield()
-                  .map(BlockProcessingOutputs::getAccessedAncestors)
-                  .orElse(Map.of()));
+              processingResult.getYield().flatMap(BlockProcessingOutputs::getWitnessData));
 
         logWitnessDiff("state", got.state(), expected.state(), block.getHash());
         logWitnessDiff("codes", got.codes(), expected.codes(), block.getHash());

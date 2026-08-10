@@ -23,6 +23,7 @@ import org.hyperledger.besu.evm.worldstate.WorldUpdater;
 
 import java.util.ArrayList;
 import java.util.Arrays;
+import java.util.Collections;
 import java.util.Comparator;
 import java.util.HashMap;
 import java.util.HashSet;
@@ -31,6 +32,7 @@ import java.util.Map;
 import java.util.Objects;
 import java.util.Optional;
 import java.util.Set;
+import java.util.concurrent.ConcurrentHashMap;
 
 import org.apache.tuweni.bytes.Bytes;
 import org.apache.tuweni.units.bigints.UInt256;
@@ -171,7 +173,8 @@ public record BlockAccessList(List<AccountChanges> accountChanges, Optional<Byte
 
   public static class BlockAccessListBuilder {
     final Map<Address, AccountBuilder> accountChangesBuilders = new HashMap<>();
-    private final List<AccessLocationTracker> trackers = new ArrayList<>();
+    private final Set<Address> codeReads = ConcurrentHashMap.newKeySet();
+    private final Set<Address> preStateCodeReads = ConcurrentHashMap.newKeySet();
 
     public BlockAccessListBuilder() {}
 
@@ -191,42 +194,12 @@ public record BlockAccessList(List<AccountChanges> accountChanges, Optional<Byte
       return new AccessLocationTracker((long) transactionLocation + 1L);
     }
 
-    // Instance factory methods — create trackers and register with this builder so
-    // getCodeReads() / getPreStateCodeReads() aggregate across them.
-    public AccessLocationTracker newPreExecutionTracker() {
-      final AccessLocationTracker tracker = new AccessLocationTracker(0);
-      trackers.add(tracker);
-      return tracker;
-    }
-
-    public AccessLocationTracker newPostExecutionTracker(final int numberOfTransactions) {
-      final AccessLocationTracker tracker =
-          new AccessLocationTracker((long) numberOfTransactions + 1L);
-      trackers.add(tracker);
-      return tracker;
-    }
-
-    public AccessLocationTracker newTransactionTracker(final int transactionLocation) {
-      final AccessLocationTracker tracker =
-          new AccessLocationTracker((long) transactionLocation + 1L);
-      trackers.add(tracker);
-      return tracker;
-    }
-
     public Set<Address> getCodeReads() {
-      final Set<Address> result = new java.util.LinkedHashSet<>();
-      for (final AccessLocationTracker t : trackers) {
-        result.addAll(t.getCodeReads());
-      }
-      return result;
+      return Collections.unmodifiableSet(codeReads);
     }
 
     public Set<Address> getPreStateCodeReads() {
-      final Set<Address> result = new java.util.LinkedHashSet<>();
-      for (final AccessLocationTracker t : trackers) {
-        result.addAll(t.getPreStateCodeReads());
-      }
-      return result;
+      return Collections.unmodifiableSet(preStateCodeReads);
     }
 
     public AccountBuilder getOrCreateAccountBuilder(final Address address) {
@@ -276,6 +249,8 @@ public record BlockAccessList(List<AccountChanges> accountChanges, Optional<Byte
                           builder.addCodeChange(partialBlockAccessView.getTxIndex(), change);
                         });
               });
+      codeReads.addAll(partialBlockAccessView.getCodeReads());
+      preStateCodeReads.addAll(partialBlockAccessView.getPreStateCodeReads());
     }
 
     /**

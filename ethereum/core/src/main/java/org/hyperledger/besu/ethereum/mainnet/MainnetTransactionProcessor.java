@@ -232,8 +232,7 @@ public class MainnetTransactionProcessor {
       // the executor needs that bytecode to resolve the sender's code pointer.
       accessLocationTracker.ifPresent(
           t -> {
-            final var senderAccount = worldState.get(senderAddress);
-            if (senderAccount != null && !senderAccount.getCodeHash().equals(Hash.EMPTY)) {
+            if (sender.hasCode()) {
               t.addCodeRead(senderAddress);
             }
           });
@@ -402,7 +401,11 @@ public class MainnetTransactionProcessor {
               .blockHashLookup(blockHashLookup)
               .eip2930AccessListWarmStorage(eip2930StorageList);
 
-      accessLocationTracker.ifPresent(commonMessageFrameBuilder::eip7928AccessList);
+      accessLocationTracker.ifPresent(
+          t -> {
+            commonMessageFrameBuilder.eip7928AccessList(t);
+            commonMessageFrameBuilder.codeReadTracker(t);
+          });
 
       if (transaction.getVersionedHashes().isPresent()) {
         commonMessageFrameBuilder.versionedHashes(

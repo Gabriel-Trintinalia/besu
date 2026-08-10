@@ -34,7 +34,6 @@ import org.hyperledger.besu.ethereum.mainnet.HeaderValidationMode;
 import org.hyperledger.besu.ethereum.mainnet.ProtocolSchedule;
 import org.hyperledger.besu.ethereum.trie.pathbased.bonsai.storage.BonsaiExecutionWitnessBuilder;
 
-import java.util.Map;
 import java.util.Optional;
 
 /**
@@ -139,8 +138,7 @@ public class DebugExecutionWitness extends AbstractBlockParameterOrBlockHashMeth
           witnessBuilder.buildWitness(
               blockHeader,
               result.getYield().flatMap(BlockProcessingOutputs::getBlockAccessList),
-              result.getYield().flatMap(BlockProcessingOutputs::getBlockAccessListBuilder),
-              result.getYield().map(BlockProcessingOutputs::getAccessedAncestors).orElse(Map.of()));
+              result.getYield().flatMap(BlockProcessingOutputs::getWitnessData));
       if (witness.state().isEmpty()) {
         return new JsonRpcErrorResponse(reqId, RpcErrorType.INTERNAL_ERROR);
       }

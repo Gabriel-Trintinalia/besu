@@ -20,11 +20,13 @@ import org.hyperledger.besu.datatypes.Wei;
 
 import java.util.ArrayList;
 import java.util.Arrays;
+import java.util.Collections;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.Objects;
 import java.util.Optional;
+import java.util.Set;
 
 import org.apache.tuweni.bytes.Bytes;
 import org.apache.tuweni.units.bigints.UInt256;
@@ -50,10 +52,18 @@ public final class PartialBlockAccessView {
 
   private final long txIndex;
   private final List<AccountChanges> accountChanges;
+  private final Set<Address> codeReads;
+  private final Set<Address> preStateCodeReads;
 
-  public PartialBlockAccessView(final List<AccountChanges> accountChanges, final long txIndex) {
+  public PartialBlockAccessView(
+      final List<AccountChanges> accountChanges,
+      final long txIndex,
+      final Set<Address> codeReads,
+      final Set<Address> preStateCodeReads) {
     this.accountChanges = accountChanges;
     this.txIndex = txIndex;
+    this.codeReads = codeReads;
+    this.preStateCodeReads = preStateCodeReads;
   }
 
   @Override
@@ -72,6 +82,14 @@ public final class PartialBlockAccessView {
 
   public List<AccountChanges> accountChanges() {
     return accountChanges;
+  }
+
+  public Set<Address> getCodeReads() {
+    return codeReads;
+  }
+
+  public Set<Address> getPreStateCodeReads() {
+    return preStateCodeReads;
   }
 
   @Override
@@ -156,8 +174,6 @@ public final class PartialBlockAccessView {
           + storageReads
           + ", postBalance="
           + postBalance
-          + ", postBalance="
-          + postBalance
           + ", newCode="
           + newCode
           + '}';
@@ -167,10 +183,23 @@ public final class PartialBlockAccessView {
   /** Builder for PartialBlockAccessView. */
   public static class PartialBlockAccessViewBuilder {
     private long txIndex;
+    private Set<Address> codeReads = Collections.emptySet();
+    private Set<Address> preStateCodeReads = Collections.emptySet();
     private final Map<Address, AccountChangesBuilder> accountBuilders = new HashMap<>();
 
     public PartialBlockAccessViewBuilder withTxIndex(final long txIndex) {
       this.txIndex = txIndex;
+      return this;
+    }
+
+    public PartialBlockAccessViewBuilder withCodeReads(final Set<Address> codeReads) {
+      this.codeReads = codeReads;
+      return this;
+    }
+
+    public PartialBlockAccessViewBuilder withPreStateCodeReads(
+        final Set<Address> preStateCodeReads) {
+      this.preStateCodeReads = preStateCodeReads;
       return this;
     }
 
@@ -188,7 +217,7 @@ public final class PartialBlockAccessView {
               Arrays.compareUnsigned(
                   left.getAddress().getBytes().toArrayUnsafe(),
                   right.getAddress().getBytes().toArrayUnsafe()));
-      return new PartialBlockAccessView(accountChanges, txIndex);
+      return new PartialBlockAccessView(accountChanges, txIndex, codeReads, preStateCodeReads);
     }
   }
 

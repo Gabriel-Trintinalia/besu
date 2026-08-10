@@ -18,11 +18,11 @@ import static org.hyperledger.besu.ethereum.trie.pathbased.common.provider.World
 
 import org.hyperledger.besu.datatypes.Address;
 import org.hyperledger.besu.datatypes.Hash;
+import org.hyperledger.besu.ethereum.WitnessData;
 import org.hyperledger.besu.ethereum.chain.Blockchain;
 import org.hyperledger.besu.ethereum.core.BlockHeader;
 import org.hyperledger.besu.ethereum.core.MutableWorldState;
 import org.hyperledger.besu.ethereum.mainnet.block.access.list.BlockAccessList;
-import org.hyperledger.besu.ethereum.mainnet.block.access.list.BlockAccessList.BlockAccessListBuilder;
 import org.hyperledger.besu.ethereum.rlp.RLP;
 import org.hyperledger.besu.ethereum.trie.pathbased.bonsai.NoOpBonsaiCachedWorldStorageManager;
 import org.hyperledger.besu.ethereum.trie.pathbased.bonsai.cache.CodeCache;
@@ -69,15 +69,14 @@ public class BonsaiExecutionWitnessBuilder {
 
   /**
    * Builds the EIP-8025 execution witness (state trie nodes, codes, headers) for a block. Uses the
-   * TrieLog + BAL for {@code state}, the {@link BlockAccessListBuilder}'s accumulated code-read
-   * sets for {@code codes}, and the oldest accessed ancestor from {@code accessedAncestors} for
-   * {@code headers}.
+   * TrieLog + BAL for {@code state}, the {@link WitnessData}'s accumulated code-read sets for
+   * {@code codes}, and the oldest accessed ancestor from {@link WitnessData#accessedAncestors()}
+   * for {@code headers}.
    */
   public Witness buildWitness(
       final BlockHeader blockHeader,
       final Optional<BlockAccessList> maybeBlockAccessList,
-      final Optional<BlockAccessListBuilder> maybeBlockAccessListBuilder,
-      final Map<Long, Hash> accessedAncestors) {
+      final Optional<WitnessData> maybeWitnessData) {
     final TrieLog trieLog =
         worldStateProvider
             .getTrieLogManager()
@@ -117,13 +116,11 @@ public class BonsaiExecutionWitnessBuilder {
       final List<String> codes =
           buildCodes(
               ws,
-              maybeBlockAccessListBuilder
-                  .map(BlockAccessListBuilder::getCodeReads)
-                  .orElse(Set.of()),
-              maybeBlockAccessListBuilder
-                  .map(BlockAccessListBuilder::getPreStateCodeReads)
-                  .orElse(Set.of()),
+              maybeWitnessData.map(WitnessData::codeReads).orElse(Set.of()),
+              maybeWitnessData.map(WitnessData::preStateCodeReads).orElse(Set.of()),
               inBlockCodeChanged);
+      final Map<Long, Hash> accessedAncestors =
+          maybeWitnessData.map(WitnessData::accessedAncestors).orElse(Map.of());
       final long oldestAncestor =
           accessedAncestors.keySet().stream()
               .min(Long::compare)

@@ -95,7 +95,7 @@ public class MessageCallProcessor extends AbstractMessageProcessor {
     // EIP-8025 witness: record code read at frame entry. Delegated accounts add both the
     // designator address and the delegation target.
     frame
-        .getEip7928AccessList()
+        .getCodeReadTracker()
         .ifPresent(
             t -> {
               final Address contract = frame.getContractAddress();

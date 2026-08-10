@@ -20,6 +20,7 @@ import org.hyperledger.besu.datatypes.Wei;
 import org.hyperledger.besu.ethereum.mainnet.block.access.list.PartialBlockAccessView.AccountChangesBuilder;
 import org.hyperledger.besu.ethereum.mainnet.block.access.list.PartialBlockAccessView.PartialBlockAccessViewBuilder;
 import org.hyperledger.besu.evm.account.Account;
+import org.hyperledger.besu.evm.frame.CodeReadTracker;
 import org.hyperledger.besu.evm.frame.Eip7928AccessList;
 import org.hyperledger.besu.evm.worldstate.StackedUpdater;
 import org.hyperledger.besu.evm.worldstate.UpdateTrackingAccount;
@@ -35,17 +36,15 @@ import java.util.concurrent.ConcurrentHashMap;
 import org.apache.tuweni.bytes.Bytes;
 import org.apache.tuweni.units.bigints.UInt256;
 
-public class AccessLocationTracker implements Eip7928AccessList {
+public class AccessLocationTracker implements Eip7928AccessList, CodeReadTracker {
 
   private final long blockAccessIndex;
   private final Map<Address, AccountAccessList> touchedAccounts = new ConcurrentHashMap<>();
-  private final Set<Address> codeReads;
-  private final Set<Address> preStateCodeReads;
+  private final Set<Address> codeReads = ConcurrentHashMap.newKeySet();
+  private final Set<Address> preStateCodeReads = ConcurrentHashMap.newKeySet();
 
   public AccessLocationTracker(final long blockAccessIndex) {
     this.blockAccessIndex = blockAccessIndex;
-    this.codeReads = ConcurrentHashMap.newKeySet();
-    this.preStateCodeReads = ConcurrentHashMap.newKeySet();
   }
 
   @Override
@@ -73,11 +72,11 @@ public class AccessLocationTracker implements Eip7928AccessList {
     preStateCodeReads.add(address);
   }
 
-  Set<Address> getCodeReads() {
+  public Set<Address> getCodeReads() {
     return codeReads;
   }
 
-  Set<Address> getPreStateCodeReads() {
+  public Set<Address> getPreStateCodeReads() {
     return preStateCodeReads;
   }
 
@@ -115,6 +114,8 @@ public class AccessLocationTracker implements Eip7928AccessList {
     final StackedUpdater<?, ?> stackedUpdater = (StackedUpdater<?, ?>) updater;
     final PartialBlockAccessViewBuilder builder = new PartialBlockAccessViewBuilder();
     builder.withTxIndex(this.blockAccessIndex);
+    builder.withCodeReads(codeReads);
+    builder.withPreStateCodeReads(preStateCodeReads);
 
     final Collection<Address> deletedAddressesCol = stackedUpdater.getDeletedAccountAddresses();
     final Set<Address> deletedAddresses =
@@ -136,7 +137,8 @@ public class AccessLocationTracker implements Eip7928AccessList {
 
     for (final Map.Entry<Address, AccountAccessList> entry : touchedAccounts.entrySet()) {
       final Address address = entry.getKey();
-      final Set<UInt256> touchedSlots = entry.getValue().getSlots();
+      final AccountAccessList accountAccessList = entry.getValue();
+      final Set<UInt256> touchedSlots = accountAccessList.getSlots();
       final AccountChangesBuilder accountBuilder = builder.getOrCreateAccountBuilder(address);
 
       final boolean isDeleted = deletedAddresses.contains(address);

@@ -23,6 +23,7 @@ import org.hyperledger.besu.datatypes.Wei;
 import org.hyperledger.besu.ethereum.BlockProcessingOutputs;
 import org.hyperledger.besu.ethereum.BlockProcessingResult;
 import org.hyperledger.besu.ethereum.ProtocolContext;
+import org.hyperledger.besu.ethereum.WitnessData;
 import org.hyperledger.besu.ethereum.chain.Blockchain;
 import org.hyperledger.besu.ethereum.core.Block;
 import org.hyperledger.besu.ethereum.core.BlockHeader;
@@ -288,7 +289,8 @@ public abstract class AbstractBlockProcessor implements BlockProcessor {
 
     try {
       final Optional<AccessLocationTracker> preExecutionAccessLocationTracker =
-          blockAccessListBuilder.map(BlockAccessListBuilder::newPreExecutionTracker);
+          blockAccessListBuilder.map(
+              b -> BlockAccessListBuilder.createPreExecutionAccessLocationTracker());
       final BlockProcessingContext blockProcessingContext =
           new BlockProcessingContext(
               blockHeader,
@@ -444,7 +446,10 @@ public abstract class AbstractBlockProcessor implements BlockProcessor {
       }
 
       final Optional<AccessLocationTracker> postExecutionAccessLocationTracker =
-          blockAccessListBuilder.map(b -> b.newPostExecutionTracker(transactions.size()));
+          blockAccessListBuilder.map(
+              b ->
+                  BlockAccessListBuilder.createPostExecutionAccessLocationTracker(
+                      transactions.size()));
       final Optional<WithdrawalsProcessor> maybeWithdrawalsProcessor =
           protocolSpec.getWithdrawalsProcessor();
       if (maybeWithdrawalsProcessor.isPresent() && maybeWithdrawals.isPresent()) {
@@ -583,6 +588,9 @@ public abstract class AbstractBlockProcessor implements BlockProcessor {
       final long gasMetered = Math.max(cumulativeRegularGasUsed, cumulativeStateGasUsed);
 
       final Map<Long, Hash> accessedAncestors = blockHashLookup.getAccessedAncestors();
+      final Optional<WitnessData> witnessData =
+          blockAccessListBuilder.map(
+              b -> new WitnessData(b.getCodeReads(), b.getPreStateCodeReads(), accessedAncestors));
 
       return new BlockProcessingResult(
           Optional.of(
@@ -592,8 +600,7 @@ public abstract class AbstractBlockProcessor implements BlockProcessor {
                   maybeRequests,
                   maybeBlockAccessList,
                   gasMetered,
-                  accessedAncestors,
-                  blockAccessListBuilder)),
+                  witnessData)),
           parallelizedTxFound ? Optional.of(nbParallelTx) : Optional.empty());
     } finally {
       stateRootCommitter.cancel();
@@ -663,7 +670,8 @@ public abstract class AbstractBlockProcessor implements BlockProcessor {
   private Optional<AccessLocationTracker> createTransactionAccessLocationTracker(
       final Optional<BlockAccessListBuilder> blockAccessListBuilder,
       final int transactionLocation) {
-    return blockAccessListBuilder.map(b -> b.newTransactionTracker(transactionLocation));
+    return blockAccessListBuilder.map(
+        b -> BlockAccessListBuilder.createTransactionAccessLocationTracker(transactionLocation));
   }
 
   private void applyAccessLocationTracker(
@@ -671,9 +679,7 @@ public abstract class AbstractBlockProcessor implements BlockProcessor {
       final Optional<BlockAccessListBuilder> blockAccessListBuilder,
       final WorldUpdater updater) {
     accessLocationTracker.ifPresent(
-        tracker ->
-            blockAccessListBuilder.ifPresent(
-                builder -> builder.apply(tracker.createPartialBlockAccessView(updater))));
+        tracker -> blockAccessListBuilder.ifPresent(builder -> builder.apply(tracker, updater)));
   }
 
   private void applyPartialBlockAccessView(
