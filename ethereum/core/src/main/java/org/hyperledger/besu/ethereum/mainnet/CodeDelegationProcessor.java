@@ -148,9 +148,9 @@ public class CodeDelegationProcessor {
             ? worldUpdater.getAccount(authorizer)
             : worldUpdater.createAccount(authorizer);
     // EIP-8025 witness: EELS validate_authorization reads the authority's pre-state code here to
-    // check whether it already holds a delegation designator. Record this as a pre-state code read
-    // so the witness includes the authority's bytecode for any authority that passes validation.
-    codeReadTracker.ifPresent(t -> t.addPreStateCodeRead(authorizer));
+    // check whether it already holds a delegation designator. Record this as an authorization code
+    // read so the witness includes the authority's bytecode for any authority that passes validation.
+    codeReadTracker.ifPresent(t -> t.addAuthorizationCodeRead(authorizer));
 
     if (authorityAlreadyExists) {
       // Only the pre-Amsterdam refund model reads this count.
