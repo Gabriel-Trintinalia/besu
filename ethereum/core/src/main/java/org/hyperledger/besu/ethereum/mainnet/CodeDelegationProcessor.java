@@ -22,6 +22,7 @@ import org.hyperledger.besu.datatypes.CodeDelegation;
 import org.hyperledger.besu.ethereum.core.Transaction;
 import org.hyperledger.besu.evm.account.Account;
 import org.hyperledger.besu.evm.account.MutableAccount;
+import org.hyperledger.besu.evm.frame.CodeReadTracker;
 import org.hyperledger.besu.evm.worldstate.CodeDelegationService;
 import org.hyperledger.besu.evm.worldstate.WorldUpdater;
 
@@ -72,6 +73,13 @@ public class CodeDelegationProcessor {
    */
   public CodeDelegationResult process(
       final WorldUpdater worldUpdater, final Transaction transaction) {
+    return process(worldUpdater, transaction, Optional.empty());
+  }
+
+  public CodeDelegationResult process(
+      final WorldUpdater worldUpdater,
+      final Transaction transaction,
+      final Optional<CodeReadTracker> codeReadTracker) {
     final CodeDelegationResult result = new CodeDelegationResult();
 
     // Accounts already written by this transaction. The sender's leaf was written at inclusion
@@ -94,7 +102,12 @@ public class CodeDelegationProcessor {
         .forEach(
             codeDelegation ->
                 processCodeDelegation(
-                    worldUpdater, codeDelegation, result, writtenAccounts, authBaseSettled));
+                    worldUpdater,
+                    codeDelegation,
+                    result,
+                    writtenAccounts,
+                    authBaseSettled,
+                    codeReadTracker));
 
     return result;
   }
@@ -104,7 +117,8 @@ public class CodeDelegationProcessor {
       final CodeDelegation codeDelegation,
       final CodeDelegationResult result,
       final Set<Address> writtenAccounts,
-      final Set<Address> authBaseSettled) {
+      final Set<Address> authBaseSettled,
+      final Optional<CodeReadTracker> codeReadTracker) {
     LOG.trace("Processing code delegation: {}", codeDelegation);
 
     if (!isCodeDelegationValid(codeDelegation)) {
@@ -144,6 +158,10 @@ public class CodeDelegationProcessor {
         authorityAlreadyExists
             ? worldUpdater.getAccount(authorizer)
             : worldUpdater.createAccount(authorizer);
+    // EIP-8025 witness: EELS validate_authorization reads the authority's pre-state code here to
+    // check whether it already holds a delegation designator. Record this as a pre-state code read
+    // so the witness includes the authority's bytecode for any authority that passes validation.
+    codeReadTracker.ifPresent(t -> t.addPreStateCodeRead(authorizer));
 
     if (authorityAlreadyExists) {
       // Pre-Amsterdam (Prague/Osaka) refund model uses this count.
