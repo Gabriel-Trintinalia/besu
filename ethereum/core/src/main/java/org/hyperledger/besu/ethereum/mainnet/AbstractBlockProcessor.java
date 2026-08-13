@@ -283,7 +283,8 @@ public abstract class AbstractBlockProcessor implements BlockProcessor {
               protocolSpec,
               blockHashLookup,
               !blockTracer.isEnabled() ? OperationTracer.NO_TRACING : blockTracer,
-              blockAccessListBuilder);
+              blockAccessListBuilder,
+              witnessCodeTracker);
       protocolSpec
           .getPreExecutionProcessor()
           .process(blockProcessingContext, preExecutionAccessLocationTracker);
@@ -347,7 +348,7 @@ public abstract class AbstractBlockProcessor implements BlockProcessor {
                 i,
                 blockHashLookup,
                 transactionLocationTracker,
-                witnessCodeTracker.map(t -> t));
+                witnessCodeTracker);
 
         if (transactionProcessingResult.isInvalid()) {
           String errorMessage =
@@ -650,7 +651,7 @@ public abstract class AbstractBlockProcessor implements BlockProcessor {
       final int location,
       final BlockHashLookup blockHashLookup,
       final Optional<AccessLocationTracker> accessLocationTracker,
-      final Optional<CodeReadTracker> codeReadTracker) {
+      final Optional<? extends CodeReadTracker> codeReadTracker) {
     return transactionProcessor.processTransaction(
         transactionUpdater,
         blockProcessingContext.getBlockHeader(),
@@ -661,7 +662,7 @@ public abstract class AbstractBlockProcessor implements BlockProcessor {
         TransactionValidationParams.processingBlock(),
         blobGasPrice,
         accessLocationTracker,
-        codeReadTracker);
+        codeReadTracker.map(t -> t));
   }
 
   @SuppressWarnings(
