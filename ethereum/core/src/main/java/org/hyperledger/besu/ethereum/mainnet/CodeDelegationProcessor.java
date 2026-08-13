@@ -134,6 +134,9 @@ public class CodeDelegationProcessor {
     // EIP-2929 warms the authority as soon as its signature recovers, ahead of the nonce/code
     // checks, so every path from here records an access. The block-access-list touch waits for the
     // runtime charge to replay them, so an out-of-gas leaves the authorities after it untouched.
+    // EIP-8025 witness: record the authority's pre-state code read before the nonce/code checks so
+    // the witness includes the bytecode even for authorities whose authorization ultimately fails.
+    codeReadTracker.ifPresent(t -> t.addAuthorizationCodeRead(authorizer));
     if (!canSetCodeDelegation(codeDelegation, maybeExistingAccount)) {
       result.addAuthorityAccess(CodeDelegationResult.AuthorityAccess.touchOnly(authorizer));
       return;
@@ -147,11 +150,6 @@ public class CodeDelegationProcessor {
         authorityAlreadyExists
             ? worldUpdater.getAccount(authorizer)
             : worldUpdater.createAccount(authorizer);
-    // EIP-8025 witness: EELS validate_authorization reads the authority's pre-state code here to
-    // check whether it already holds a delegation designator. Record this as an authorization code
-    // read so the witness includes the authority's bytecode for any authority that passes
-    // validation.
-    codeReadTracker.ifPresent(t -> t.addAuthorizationCodeRead(authorizer));
 
     if (authorityAlreadyExists) {
       // Only the pre-Amsterdam refund model reads this count.
