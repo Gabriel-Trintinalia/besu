@@ -46,6 +46,7 @@ import org.hyperledger.besu.ethereum.eth.transactions.TransactionPool;
 import org.hyperledger.besu.ethereum.mainnet.AbstractGasLimitSpecification;
 import org.hyperledger.besu.ethereum.mainnet.HeaderValidationMode;
 import org.hyperledger.besu.ethereum.mainnet.ProtocolSchedule;
+import org.hyperledger.besu.ethereum.mainnet.WitnessCodeTracker;
 import org.hyperledger.besu.ethereum.mainnet.block.access.list.BlockAccessList;
 import org.hyperledger.besu.ethereum.trie.MerkleTrieException;
 import org.hyperledger.besu.plugin.services.exception.StorageException;
@@ -640,6 +641,13 @@ public class MergeCoordinator implements MergeMiningCoordinator, BadChainListene
 
   private BlockProcessingResult validateBlock(
       final Block block, final Optional<BlockAccessList> blockAccessList) {
+    return validateBlock(block, blockAccessList, Optional.empty());
+  }
+
+  private BlockProcessingResult validateBlock(
+      final Block block,
+      final Optional<BlockAccessList> blockAccessList,
+      final Optional<WitnessCodeTracker> witnessCodeTracker) {
     final var validationResult =
         protocolSchedule
             .getByBlockHeader(block.getHeader())
@@ -650,7 +658,9 @@ public class MergeCoordinator implements MergeMiningCoordinator, BadChainListene
                 HeaderValidationMode.FULL,
                 HeaderValidationMode.NONE,
                 blockAccessList,
-                false);
+                false,
+                true,
+                witnessCodeTracker);
 
     return validationResult;
   }
@@ -681,9 +691,17 @@ public class MergeCoordinator implements MergeMiningCoordinator, BadChainListene
   @Override
   public BlockProcessingResult rememberBlock(
       final Block block, final Optional<BlockAccessList> blockAccessList) {
+    return rememberBlock(block, blockAccessList, Optional.empty());
+  }
+
+  @Override
+  public BlockProcessingResult rememberBlock(
+      final Block block,
+      final Optional<BlockAccessList> blockAccessList,
+      final Optional<WitnessCodeTracker> witnessCodeTracker) {
     LOG.atDebug().setMessage("Remember block {}").addArgument(block::toLogString).log();
     final var chain = protocolContext.getBlockchain();
-    final var validationResult = validateBlock(block, blockAccessList);
+    final var validationResult = validateBlock(block, blockAccessList, witnessCodeTracker);
     validationResult
         .getYield()
         .ifPresentOrElse(

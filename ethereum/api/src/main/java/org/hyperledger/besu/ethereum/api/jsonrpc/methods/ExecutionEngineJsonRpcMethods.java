@@ -53,6 +53,7 @@ import org.hyperledger.besu.ethereum.api.jsonrpc.internal.methods.engine.EngineN
 import org.hyperledger.besu.ethereum.api.jsonrpc.internal.methods.engine.EngineNewPayloadV3;
 import org.hyperledger.besu.ethereum.api.jsonrpc.internal.methods.engine.EngineNewPayloadV4;
 import org.hyperledger.besu.ethereum.api.jsonrpc.internal.methods.engine.EngineNewPayloadV5;
+import org.hyperledger.besu.ethereum.api.jsonrpc.internal.methods.engine.EngineNewPayloadWithWitnessV5;
 import org.hyperledger.besu.ethereum.api.jsonrpc.internal.methods.engine.EnginePreparePayloadDebug;
 import org.hyperledger.besu.ethereum.api.jsonrpc.internal.methods.engine.EngineQosTimer;
 import org.hyperledger.besu.ethereum.api.jsonrpc.internal.results.BlockResultFactory;
@@ -133,6 +134,8 @@ public class ExecutionEngineJsonRpcMethods extends ApiGroupJsonRpcMethods {
       executionEngineApisSupported.addAll(
           createEngineForkchoiceUpdatedMethods(constructorArguments));
       executionEngineApisSupported.addAll(createEngineNewPayloadMethods(constructorArguments));
+      executionEngineApisSupported.addAll(
+          createEngineNewPayloadWithWitnessMethods(constructorArguments));
 
       executionEngineApisSupported.addAll(
           Arrays.asList(
@@ -266,6 +269,16 @@ public class ExecutionEngineJsonRpcMethods extends ApiGroupJsonRpcMethods {
         .build(constructorArguments);
   }
 
+  /**
+   * {@code engine_newPayloadWithWitnessV5} is a distinct method rather than another version in the
+   * newPayload series, so it is registered on its own from Amsterdam onwards.
+   */
+  private Collection<? extends JsonRpcMethod> createEngineNewPayloadWithWitnessMethods(
+      final ConstructorArguments constructorArguments) {
+    return VersionScheduler.startsFrom(AMSTERDAM, EngineNewPayloadWithWitnessV5::new)
+        .build(constructorArguments);
+  }
+
   @VisibleForTesting
   static class VersionScheduler {
     final List<MethodVersionBuildData> readyMethods = new ArrayList<>();
@@ -286,6 +299,14 @@ public class ExecutionEngineJsonRpcMethods extends ApiGroupJsonRpcMethods {
         final EngineMethodFactory firstVersion, final HardforkId to) {
       final VersionScheduler vs = new VersionScheduler();
       vs.readyMethods.add(new MethodVersionBuildData(firstVersion, null, to));
+      return vs;
+    }
+
+    /** Registers a single method that is active from {@code from} onwards, with no end fork. */
+    static VersionScheduler startsFrom(
+        final HardforkId from, final EngineMethodFactory firstVersion) {
+      final VersionScheduler vs = new VersionScheduler();
+      vs.readyMethods.add(new MethodVersionBuildData(firstVersion, from, null));
       return vs;
     }
 
