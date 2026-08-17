@@ -233,6 +233,18 @@ public abstract class AbstractCallOperation extends AbstractOperation {
     final Account contract = getAccount(to, frame);
     cost = clampedAdd(cost, gasCalculator().calculateCodeDelegationResolutionGas(frame, contract));
 
+    // EIP-8025 witness: delegation-resolution gas is charged above, meaning the caller's designator
+    // code is read at this point. Record it before the subsequent gas check so the witness captures
+    // the caller's code even when the call OOGs after delegation resolution.
+    frame
+        .getCodeReadTracker()
+        .ifPresent(
+            t -> {
+              if (contract != null && hasCodeDelegation(contract.getCode())) {
+                t.addCodeRead(to);
+              }
+            });
+
     if (frame.getRemainingGas() < cost) {
       return new OperationResult(cost, ExceptionalHaltReason.INSUFFICIENT_GAS);
     }
@@ -252,11 +264,35 @@ public abstract class AbstractCallOperation extends AbstractOperation {
     if (contract != null) {
       final Bytes contractCode = contract.getCode();
       if (hasCodeDelegation(contractCode)) {
+        final Address target = getTargetAddress(contractCode);
+        frame.getEip7928AccessList().ifPresent(t -> t.addTouchedAccount(target));
         frame
-            .getEip7928AccessList()
-            .ifPresent(t -> t.addTouchedAccount(getTargetAddress(contractCode)));
+            .getCodeReadTracker()
+            .ifPresent(
+                t -> {
+                  // EIP-8025 witness: the EVM reads the delegation target's code here — exactly
+                  // where EELS calls get_code(target) after the call's gas checks pass but before
+                  // the value/depth soft-failure check (system.py). Recording it here means the
+                  // witness includes the target's bytecode even when the call later soft-fails
+                  // (insufficient balance / max depth) and no child frame is created, so the
+                  // witness needs no gas-cost inference to know the code was accessed.
+                  t.addCodeRead(target);
+                });
       }
     }
+
+    // EIP-8025 witness: for non-delegated contracts, record the call target after the gas checks
+    // pass. This covers soft-fail cases (insufficient balance, max depth) where no child frame
+    // is created and AbstractMessageProcessor.process() never fires, mirroring EELS get_code(to)
+    // which is called before the balance/depth checks but after the gas checks.
+    frame
+        .getCodeReadTracker()
+        .ifPresent(
+            t -> {
+              if (contract == null || !hasCodeDelegation(contract.getCode())) {
+                t.addCodeRead(to);
+              }
+            });
 
     frame.clearReturnData();
 
@@ -306,6 +342,9 @@ public abstract class AbstractCallOperation extends AbstractOperation {
     if (frame.getEip7928AccessList().isPresent()) {
       builder.eip7928AccessList(frame.getEip7928AccessList().get());
     }
+    if (frame.getCodeReadTracker().isPresent()) {
+      builder.codeReadTracker(frame.getCodeReadTracker().get());
+    }
 
     builder.build();
     // see note in stack depth check about incrementing cost
@@ -354,7 +393,12 @@ public abstract class AbstractCallOperation extends AbstractOperation {
     if (childFrame.getState() == State.COMPLETED_SUCCESS) {
       frame.incrementStateGasSpilled(childFrame.getStateGasSpilled());
     } else {
-      refundCallNewAccountStateGas(frame, childFrame.getContractAddress(), childFrame.getValue());
+      // Refund must mirror the NEW_ACCOUNT charge, which used the call's recipient address
+      // (address(frame)). For CALL that equals the contract address, but for CALLCODE the
+      // recipient is the caller itself while the contract address is the code target — using
+      // the contract address here would refund a charge that was never made (value transfer to
+      // an empty precompile), driving state gas negative.
+      refundCallNewAccountStateGas(frame, childFrame.getRecipientAddress(), childFrame.getValue());
     }
 
     frame.popStackItems(getStackItemsConsumed());

@@ -72,7 +72,6 @@ import org.apache.tuweni.bytes.Bytes32;
 public class BlockchainReferenceTestCaseSpec {
 
   private final String network;
-
   private final SpecConfig specConfig;
 
   private final CandidateBlock[] candidateBlocks;
@@ -137,13 +136,13 @@ public class BlockchainReferenceTestCaseSpec {
   @JsonCreator
   public BlockchainReferenceTestCaseSpec(
       @JsonProperty("network") final String network,
+      @JsonProperty("config") final SpecConfig specConfig,
       @JsonProperty("blocks") final CandidateBlock[] candidateBlocks,
       @JsonProperty("genesisBlockHeader") final ReferenceTestBlockHeader genesisBlockHeader,
       @SuppressWarnings("unused") @JsonProperty("genesisRLP") final String genesisRLP,
       @JsonProperty("pre") final Map<String, ReferenceTestWorldState.AccountMock> accounts,
       @JsonProperty("lastblockhash") final String lastBlockHash,
-      @JsonProperty("sealEngine") final String sealEngine,
-      @JsonProperty("config") final SpecConfig specConfig) {
+      @JsonProperty("sealEngine") final String sealEngine) {
     this.network = network;
     this.specConfig = specConfig;
     this.candidateBlocks = candidateBlocks;
@@ -176,7 +175,8 @@ public class BlockchainReferenceTestCaseSpec {
         .withWorldStateArchive(
             buildWorldStateArchive(
                 storageConfiguration,
-                Stream.of(candidateBlocks).filter(CandidateBlock::isExecutable).count(),
+                // +1 layer so the parent world state stays cached for the EIP-8025 witness build.
+                Stream.of(candidateBlocks).filter(CandidateBlock::isExecutable).count() + 1,
                 blockchain))
         .withConsensusContext(new ConsensusContextFixture())
         .build();
@@ -261,22 +261,24 @@ public class BlockchainReferenceTestCaseSpec {
     }
   }
 
-  @JsonIgnoreProperties({
-    "blocknumber",
-    "chainname",
-    "chainnetwork",
-    "expectExceptionByzantium",
-    "expectExceptionConstantinople",
-    "expectExceptionConstantinopleFix",
-    "expectExceptionIstanbul",
-    "expectExceptionEIP150",
-    "expectExceptionEIP158",
-    "expectExceptionFrontier",
-    "expectExceptionHomestead",
-    "hasBigInt",
-    "rlp_decoded",
-    "receipts"
-  })
+  @JsonIgnoreProperties(
+      ignoreUnknown = true,
+      value = {
+        "blocknumber",
+        "chainname",
+        "chainnetwork",
+        "expectExceptionByzantium",
+        "expectExceptionConstantinople",
+        "expectExceptionConstantinopleFix",
+        "expectExceptionIstanbul",
+        "expectExceptionEIP150",
+        "expectExceptionEIP158",
+        "expectExceptionFrontier",
+        "expectExceptionHomestead",
+        "hasBigInt",
+        "rlp_decoded",
+        "receipts"
+      })
   public static class CandidateBlock {
 
     private final Bytes rlp;
@@ -286,6 +288,8 @@ public class BlockchainReferenceTestCaseSpec {
     private final BlockAccessList blockAccessList;
     private final String expectException;
     private final String expectExceptionALL;
+    private final FixtureExecutionWitness executionWitness;
+    private final boolean witnessMutated;
 
     @JsonCreator
     public CandidateBlock(
@@ -303,7 +307,9 @@ public class BlockchainReferenceTestCaseSpec {
             @JsonAlias("rlp_decoded")
             final BlockAccessList blockAccessList,
         @JsonProperty("expectException") final String expectException,
-        @JsonProperty("expectExceptionALL") final String expectExceptionALL) {
+        @JsonProperty("expectExceptionALL") final String expectExceptionALL,
+        @JsonProperty("executionWitness") final FixtureExecutionWitness executionWitness,
+        @JsonProperty("executionWitnessMutated") final Boolean witnessMutated) {
       boolean blockValid = true;
       Bytes rlpAttempt = null;
       try {
@@ -329,6 +335,8 @@ public class BlockchainReferenceTestCaseSpec {
       this.blockAccessList = blockAccessList;
       this.expectException = expectException;
       this.expectExceptionALL = expectExceptionALL;
+      this.executionWitness = executionWitness;
+      this.witnessMutated = Boolean.TRUE.equals(witnessMutated);
     }
 
     public boolean isValid() {
@@ -374,6 +382,10 @@ public class BlockchainReferenceTestCaseSpec {
     public Optional<BlockAccessList> getBlockAccessList() {
       return Optional.ofNullable(blockAccessList);
     }
+
+    public Optional<FixtureExecutionWitness> getExpectedWitness() {
+      return witnessMutated ? Optional.empty() : Optional.ofNullable(executionWitness);
+    }
   }
 
   @JsonIgnoreProperties(ignoreUnknown = true)
@@ -392,8 +404,7 @@ public class BlockchainReferenceTestCaseSpec {
               final ObjectNode forkNode = root.putObject(fork.toLowerCase(Locale.ROOT));
               params.forEach(
                   (key, hexValue) ->
-                      forkNode.put(
-                          key.toLowerCase(Locale.ROOT), Math.toIntExact(Long.decode(hexValue))));
+                      forkNode.put(key.toLowerCase(Locale.ROOT), Long.decode(hexValue).intValue()));
             });
         this.blobScheduleOptions = Optional.of(new BlobScheduleOptions(root));
       }
