@@ -99,7 +99,12 @@ public class CodeDelegationProcessor {
         .forEach(
             codeDelegation ->
                 processCodeDelegation(
-                    worldUpdater, codeDelegation, result, writtenAccounts, authBaseSettled, codeReadTracker));
+                    worldUpdater,
+                    codeDelegation,
+                    result,
+                    writtenAccounts,
+                    authBaseSettled,
+                    codeReadTracker));
 
     return result;
   }
