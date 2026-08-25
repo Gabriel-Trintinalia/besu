@@ -22,7 +22,6 @@ import org.hyperledger.besu.datatypes.CodeDelegation;
 import org.hyperledger.besu.ethereum.core.Transaction;
 import org.hyperledger.besu.evm.account.Account;
 import org.hyperledger.besu.evm.account.MutableAccount;
-import org.hyperledger.besu.evm.frame.CodeReadTracker;
 import org.hyperledger.besu.evm.worldstate.CodeDelegationService;
 import org.hyperledger.besu.evm.worldstate.WorldUpdater;
 
@@ -73,13 +72,6 @@ public class CodeDelegationProcessor {
    */
   public CodeDelegationResult process(
       final WorldUpdater worldUpdater, final Transaction transaction) {
-    return process(worldUpdater, transaction, Optional.empty());
-  }
-
-  public CodeDelegationResult process(
-      final WorldUpdater worldUpdater,
-      final Transaction transaction,
-      final Optional<CodeReadTracker> codeReadTracker) {
     final CodeDelegationResult result = new CodeDelegationResult();
 
     // ACCOUNT_WRITE is owed on the transaction's first write to a leaf. The sender's was written
@@ -99,12 +91,7 @@ public class CodeDelegationProcessor {
         .forEach(
             codeDelegation ->
                 processCodeDelegation(
-                    worldUpdater,
-                    codeDelegation,
-                    result,
-                    writtenAccounts,
-                    authBaseSettled,
-                    codeReadTracker));
+                    worldUpdater, codeDelegation, result, writtenAccounts, authBaseSettled));
 
     return result;
   }
@@ -114,8 +101,7 @@ public class CodeDelegationProcessor {
       final CodeDelegation codeDelegation,
       final CodeDelegationResult result,
       final Set<Address> writtenAccounts,
-      final Set<Address> authBaseSettled,
-      final Optional<CodeReadTracker> codeReadTracker) {
+      final Set<Address> authBaseSettled) {
     LOG.trace("Processing code delegation: {}", codeDelegation);
 
     if (!isCodeDelegationValid(codeDelegation)) {
@@ -139,9 +125,6 @@ public class CodeDelegationProcessor {
     // EIP-2929 warms the authority as soon as its signature recovers, ahead of the nonce/code
     // checks, so every path from here records an access. The block-access-list touch waits for the
     // runtime charge to replay them, so an out-of-gas leaves the authorities after it untouched.
-    // EIP-8025 witness: record the authority's pre-state code read before the nonce/code checks so
-    // the witness includes the bytecode even for authorities whose authorization ultimately fails.
-    codeReadTracker.ifPresent(t -> t.addAuthorizationCodeRead(authorizer));
     if (!canSetCodeDelegation(codeDelegation, maybeExistingAccount)) {
       result.addAuthorityAccess(CodeDelegationResult.AuthorityAccess.touchOnly(authorizer));
       return;
