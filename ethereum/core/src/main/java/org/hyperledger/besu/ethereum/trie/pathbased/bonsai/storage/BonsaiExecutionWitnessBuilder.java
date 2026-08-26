@@ -38,10 +38,11 @@ import org.hyperledger.besu.plugin.services.trielogs.TrieLog;
 import org.hyperledger.besu.plugin.services.worldstate.MutableWorldState;
 
 import java.util.ArrayList;
+import java.util.HashSet;
 import java.util.List;
 import java.util.Map;
 import java.util.Set;
-import java.util.concurrent.ConcurrentHashMap;
+import java.util.stream.Stream;
 
 import org.apache.tuweni.bytes.Bytes;
 
@@ -196,12 +197,11 @@ public class BonsaiExecutionWitnessBuilder {
       final Set<Address> executionAddresses,
       final Set<Address> preStateAddresses,
       final Set<Address> inBlockCodeChanged) {
-    final var resultSet = ConcurrentHashMap.<String>newKeySet();
-    java.util.stream.Stream.concat(
+    final Set<String> resultSet = new HashSet<>();
+    Stream.concat(
             preStateAddresses.stream(),
             executionAddresses.stream().filter(a -> !inBlockCodeChanged.contains(a)))
         .distinct()
-        .parallel()
         .forEach(
             address -> {
               final var account = worldView.get(address);
@@ -223,7 +223,7 @@ public class BonsaiExecutionWitnessBuilder {
     if (bal.isEmpty()) {
       return Set.of();
     }
-    final Set<Address> changed = ConcurrentHashMap.newKeySet();
+    final Set<Address> changed = new HashSet<>();
     for (final var accountChanges : bal.accountChanges()) {
       if (!accountChanges.codeChanges().isEmpty()) {
         changed.add(accountChanges.address());
