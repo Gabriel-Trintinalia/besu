@@ -234,7 +234,9 @@ public class BonsaiExecutionWitnessBuilder {
 
   /**
    * Returns RLP-encoded headers for every block from {@code oldestAncestor} up to (but not
-   * including) the chain head, ordered ascending by block number as required by EIP-8025.
+   * including) {@code blockNumber} — that is, ending at the parent of the block the witness is
+   * being built for, which is not necessarily the chain head. Ordered ascending by block number as
+   * required by EIP-8025.
    */
   private List<String> buildHeaders(
       final Blockchain blockchain, final long oldestAncestor, final long blockNumber) {
