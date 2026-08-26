@@ -24,8 +24,7 @@ import com.fasterxml.jackson.annotation.JsonProperty;
  * <ul>
  *   <li>{@code state} — RLP-encoded trie nodes touched during block execution, sorted lex.
  *   <li>{@code codes} — contract bytecodes accessed during block execution, sorted lex.
- *   <li>{@code headers} — RLP-encoded ancestor block headers, ascending by block number (genesis
- *       first).
+ *   <li>{@code headers} — RLP-encoded ancestor block headers, ascending by block number.
  * </ul>
  */
 public record ExecutionWitnessResult(
