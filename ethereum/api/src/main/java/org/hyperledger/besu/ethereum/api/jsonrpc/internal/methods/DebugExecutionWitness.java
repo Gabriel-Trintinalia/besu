@@ -48,9 +48,10 @@ import org.slf4j.LoggerFactory;
  *
  * <p>Re-execution is required (rather than reading a stored witness) because state-access patterns
  * (SLOAD/SSTORE, BALANCE, CALL targets, BLOCKHASH ancestors) are only observable at execution time
- * and are not persisted separately. Code-read and ancestor tracking is performed via EVM operation
- * hooks that write into the per-transaction {@code AccessLocationTracker}; the block processor
- * accumulates this into a {@code BlockAccessListBuilder} carried in {@link BlockProcessingOutputs}.
+ * and are not persisted separately. Code reads are recorded by EVM operation hooks that write into
+ * the frame's {@code CodeReadTracker}, backed by a block-scoped {@code WitnessCodeTracker};
+ * BLOCKHASH ancestors come from {@code BlockHashLookup#getAccessedAncestors()}. Both are collected
+ * into the {@code WitnessCodeReads} carried in {@link BlockProcessingOutputs}.
  *
  * <p>Error responses:
  *
