@@ -185,7 +185,11 @@ public class BonsaiExecutionWitnessBuilder {
    * transaction that reads the authority's pre-state code also writes new code to it, so the
    * verifier needs the old version even though the address appears in {@code inBlockCodeChanged}.
    * {@code executionAddresses} are filtered: if the code was written in-block the verifier already
-   * has it from {@code code_writes}. Empty code is never included. Lookups run in parallel.
+   * has it from {@code code_writes}. Empty code is never included.
+   *
+   * <p>Lookups are sequential: a block touches only a handful of code-bearing accounts, so the
+   * split and join overhead of a parallel stream outweighs the gain, and running them on the common
+   * ForkJoinPool would let a witness request contend with block processing.
    */
   private List<String> buildCodes(
       final BonsaiWorldState worldView,
