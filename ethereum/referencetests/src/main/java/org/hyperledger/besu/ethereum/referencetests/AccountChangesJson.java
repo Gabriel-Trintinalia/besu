@@ -157,8 +157,6 @@ public class AccountChangesJson {
     }
 
     public NonceChange toNonceChange() {
-      // A nonce is a uint64, so it can exceed Long.MAX_VALUE (EIP-2681 caps it at 2^64-1).
-      // Long.decode would throw; Besu holds nonces as a two's-complement signed long.
       return new NonceChange(
           decodeIndex(blockAccessIndex), postNonce != null ? decodeUnsignedLong(postNonce) : 0L);
     }
