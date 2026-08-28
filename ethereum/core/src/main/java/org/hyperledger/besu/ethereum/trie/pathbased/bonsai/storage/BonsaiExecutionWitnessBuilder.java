@@ -37,13 +37,15 @@ import org.hyperledger.besu.metrics.noop.NoOpMetricsSystem;
 import org.hyperledger.besu.plugin.services.trielogs.TrieLog;
 import org.hyperledger.besu.plugin.services.worldstate.MutableWorldState;
 
-import java.util.ArrayList;
+import java.util.ArrayDeque;
+import java.util.Deque;
 import java.util.HashSet;
 import java.util.List;
 import java.util.Map;
 import java.util.Set;
 import java.util.stream.Stream;
 
+import com.google.common.annotations.VisibleForTesting;
 import org.apache.tuweni.bytes.Bytes;
 
 /**
@@ -87,13 +89,7 @@ public class BonsaiExecutionWitnessBuilder {
                     new IllegalStateException(
                         "trie log missing for block " + blockHeader.getHash()));
 
-    final BlockHeader parentHeader =
-        blockchain
-            .getBlockHeader(blockHeader.getParentHash())
-            .orElseThrow(
-                () ->
-                    new IllegalStateException(
-                        "Parent header not found: " + blockHeader.getParentHash()));
+    final BlockHeader parentHeader = headerByHash(blockHeader.getParentHash());
 
     try (final MutableWorldState worldState =
         worldStateProvider
@@ -123,8 +119,7 @@ public class BonsaiExecutionWitnessBuilder {
           accessedAncestors.keySet().stream()
               .min(Long::compare)
               .orElse(blockHeader.getNumber() - 1);
-      final List<String> headers =
-          buildHeaders(blockchain, oldestAncestor, blockHeader.getNumber());
+      final List<String> headers = buildHeaders(oldestAncestor, blockHeader);
       return new Witness(state, codes, headers);
     } catch (final IllegalStateException e) {
       throw e;
@@ -238,22 +233,23 @@ public class BonsaiExecutionWitnessBuilder {
    * being built for, which is not necessarily the chain head. Ordered ascending by block number as
    * required by EIP-8025.
    */
-  private List<String> buildHeaders(
-      final Blockchain blockchain, final long oldestAncestor, final long blockNumber) {
-    final List<String> result = new ArrayList<>();
-    for (long number = oldestAncestor; number < blockNumber; number++) {
-      final long n = number;
-      result.add(
-          RLP.encode(
-                  blockchain
-                          .getBlockHeader(n)
-                          .orElseThrow(
-                              () ->
-                                  new IllegalStateException(
-                                      "ancestor header missing for block " + n))
-                      ::writeTo)
-              .toHexString());
+  @VisibleForTesting
+  List<String> buildHeaders(final long oldestAncestor, final BlockHeader blockHeader) {
+    // The number bounds the walk, the parent hash resolves it: getBlockHeader(long) is
+    // canonical-by-height, the wrong ancestry for a block on a fork.
+    final Deque<String> result = new ArrayDeque<>();
+    Hash hash = blockHeader.getParentHash();
+    for (long number = blockHeader.getNumber() - 1; number >= oldestAncestor; number--) {
+      final BlockHeader ancestor = headerByHash(hash);
+      result.addFirst(RLP.encode(ancestor::writeTo).toHexString()); // addFirst: EIP-8025 ascending
+      hash = ancestor.getParentHash();
     }
-    return result;
+    return List.copyOf(result);
+  }
+
+  private BlockHeader headerByHash(final Hash hash) {
+    return blockchain
+        .getBlockHeader(hash)
+        .orElseThrow(() -> new IllegalStateException("header not found: " + hash));
   }
 }

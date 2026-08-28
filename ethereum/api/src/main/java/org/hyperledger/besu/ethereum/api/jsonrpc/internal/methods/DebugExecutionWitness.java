@@ -183,6 +183,13 @@ public class DebugExecutionWitness extends AbstractBlockParameterOrBlockHashMeth
       LOG.error("Failed to build execution witness for block {}", blockHeader.getHash(), e);
       return new JsonRpcErrorResponse(reqId, RpcErrorType.INTERNAL_ERROR);
     }
+
+    // Verifying a block needs at least the state root node, so an empty state list means collection
+    // silently produced nothing rather than a witness a stateless verifier could use.
+    if (witness.state().isEmpty()) {
+      LOG.error("Empty witness state for block {}", blockHeader.getHash());
+      return new JsonRpcErrorResponse(reqId, RpcErrorType.INTERNAL_ERROR);
+    }
     return new ExecutionWitnessResult(witness.state(), witness.codes(), witness.headers());
   }
 }
