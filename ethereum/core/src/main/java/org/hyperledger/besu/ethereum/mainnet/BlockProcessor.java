@@ -121,6 +121,34 @@ public interface BlockProcessor {
       final AbstractBlockProcessor.PreprocessingFunction preprocessingBlockFunction);
 
   /**
+   * Processes the block with an optional witness code tracker, letting the implementation choose
+   * its own preprocessing strategy.
+   *
+   * <p>Callers that do not have a specific preprocessing function in mind must use this overload
+   * rather than passing {@link AbstractBlockProcessor.PreprocessingFunction.NoPreprocessing}
+   * explicitly: subclasses such as {@code MainnetParallelBlockProcessor} select their strategy by
+   * overriding the overloads that omit the function, so naming one here silently opts out of
+   * parallel transaction processing.
+   *
+   * @param protocolContext the current context of the protocol
+   * @param blockchain the blockchain to append the block to
+   * @param worldState the world state to apply changes to
+   * @param block the block to process
+   * @param blockAccessList the optional block access list
+   * @param witnessCodeTracker optional tracker for EIP-8025 code reads
+   * @return the block processing result
+   */
+  default BlockProcessingResult processBlock(
+      final ProtocolContext protocolContext,
+      final Blockchain blockchain,
+      final MutableWorldState worldState,
+      final Block block,
+      final Optional<BlockAccessList> blockAccessList,
+      final Optional<WitnessCodeTracker> witnessCodeTracker) {
+    return processBlock(protocolContext, blockchain, worldState, block, blockAccessList);
+  }
+
+  /**
    * Processes the block with an optional witness code tracker.
    *
    * @param protocolContext the current context of the protocol

@@ -20,7 +20,6 @@ import org.hyperledger.besu.ethereum.core.Block;
 import org.hyperledger.besu.ethereum.core.BlockHeader;
 import org.hyperledger.besu.ethereum.core.Request;
 import org.hyperledger.besu.ethereum.core.TransactionReceipt;
-import org.hyperledger.besu.ethereum.mainnet.AbstractBlockProcessor;
 import org.hyperledger.besu.ethereum.mainnet.BlockAccessListValidator;
 import org.hyperledger.besu.ethereum.mainnet.BlockBodyValidator;
 import org.hyperledger.besu.ethereum.mainnet.BlockHeaderValidator;
@@ -373,13 +372,7 @@ public class MainnetBlockValidator implements BlockValidator {
       final Optional<BlockAccessList> blockAccessList,
       final Optional<WitnessCodeTracker> witnessCodeTracker) {
     return blockProcessor.processBlock(
-        context,
-        context.getBlockchain(),
-        worldState,
-        block,
-        blockAccessList,
-        new AbstractBlockProcessor.PreprocessingFunction.NoPreprocessing(),
-        witnessCodeTracker);
+        context, context.getBlockchain(), worldState, block, blockAccessList, witnessCodeTracker);
   }
 
   @Override

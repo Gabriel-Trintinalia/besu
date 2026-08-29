@@ -28,6 +28,7 @@ import org.hyperledger.besu.ethereum.mainnet.MainnetTransactionProcessor;
 import org.hyperledger.besu.ethereum.mainnet.MiningBeneficiaryCalculator;
 import org.hyperledger.besu.ethereum.mainnet.ProtocolSchedule;
 import org.hyperledger.besu.ethereum.mainnet.ProtocolSpecBuilder;
+import org.hyperledger.besu.ethereum.mainnet.WitnessCodeTracker;
 import org.hyperledger.besu.ethereum.mainnet.block.access.list.AccessLocationTracker;
 import org.hyperledger.besu.ethereum.mainnet.block.access.list.BlockAccessList;
 import org.hyperledger.besu.ethereum.mainnet.systemcall.BlockProcessingContext;
@@ -141,6 +142,23 @@ public class MainnetParallelBlockProcessor extends MainnetBlockProcessor {
       final MutableWorldState worldState,
       final Block block,
       final Optional<BlockAccessList> blockAccessList) {
+    return processBlock(
+        protocolContext, blockchain, worldState, block, blockAccessList, Optional.empty());
+  }
+
+  /**
+   * Every {@code processBlock} overload that does not take an explicit {@code
+   * PreprocessingFunction} must be overridden here, because that is how this class selects parallel
+   * execution. An overload left to the superclass silently runs transactions sequentially.
+   */
+  @Override
+  public BlockProcessingResult processBlock(
+      final ProtocolContext protocolContext,
+      final Blockchain blockchain,
+      final MutableWorldState worldState,
+      final Block block,
+      final Optional<BlockAccessList> blockAccessList,
+      final Optional<WitnessCodeTracker> witnessCodeTracker) {
     final BlockProcessingResult blockProcessingResult =
         super.processBlock(
             protocolContext,
@@ -148,7 +166,8 @@ public class MainnetParallelBlockProcessor extends MainnetBlockProcessor {
             worldState,
             block,
             blockAccessList,
-            new ParallelTransactionPreprocessing(transactionProcessor, executor, balConfiguration));
+            new ParallelTransactionPreprocessing(transactionProcessor, executor, balConfiguration),
+            witnessCodeTracker);
     if (blockProcessingResult.isFailed()) {
       // Fallback to non-parallel processing if there is a block processing exception .
       LOG.info(
@@ -158,7 +177,8 @@ public class MainnetParallelBlockProcessor extends MainnetBlockProcessor {
       if (worldState instanceof BonsaiWorldState) {
         ((BonsaiWorldStateUpdateAccumulator) worldState.updater()).reset();
       }
-      return super.processBlock(protocolContext, blockchain, worldState, block, blockAccessList);
+      return super.processBlock(
+          protocolContext, blockchain, worldState, block, blockAccessList, witnessCodeTracker);
     }
     return blockProcessingResult;
   }
