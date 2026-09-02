@@ -40,13 +40,51 @@ public class AccessLocationTracker implements Eip7928AccessList {
   private final long blockAccessIndex;
   private final Map<Address, AccountAccessList> touchedAccounts = new ConcurrentHashMap<>();
 
+  /**
+   * EIP-8025 code reads. Collected only when witness generation asked for them, so ordinary block
+   * import pays a branch and nothing else. Never contributes to the block access list.
+   */
+  private final boolean collectCodeReads;
+
+  private final Set<Address> codeReads = ConcurrentHashMap.newKeySet();
+  private final Set<Address> authorizationCodeReads = ConcurrentHashMap.newKeySet();
+
   public AccessLocationTracker(final long blockAccessIndex) {
+    this(blockAccessIndex, false);
+  }
+
+  public AccessLocationTracker(final long blockAccessIndex, final boolean collectCodeReads) {
     this.blockAccessIndex = blockAccessIndex;
+    this.collectCodeReads = collectCodeReads;
   }
 
   @Override
   public void clear() {
     touchedAccounts.clear();
+    codeReads.clear();
+    authorizationCodeReads.clear();
+  }
+
+  @Override
+  public void addCodeRead(final Address address) {
+    if (collectCodeReads) {
+      codeReads.add(address);
+    }
+  }
+
+  @Override
+  public void addAuthorizationCodeRead(final Address address) {
+    if (collectCodeReads) {
+      authorizationCodeReads.add(address);
+    }
+  }
+
+  public Set<Address> getCodeReads() {
+    return codeReads;
+  }
+
+  public Set<Address> getAuthorizationCodeReads() {
+    return authorizationCodeReads;
   }
 
   @Override
@@ -93,6 +131,7 @@ public class AccessLocationTracker implements Eip7928AccessList {
     final StackedUpdater<?, ?> stackedUpdater = (StackedUpdater<?, ?>) updater;
     final PartialBlockAccessViewBuilder builder = new PartialBlockAccessViewBuilder();
     builder.withTxIndex(this.blockAccessIndex);
+    builder.withCodeReads(codeReads, authorizationCodeReads);
 
     final Collection<Address> deletedAddressesCol = stackedUpdater.getDeletedAccountAddresses();
     final Set<Address> deletedAddresses =

@@ -33,7 +33,6 @@ import org.hyperledger.besu.ethereum.core.Block;
 import org.hyperledger.besu.ethereum.core.BlockHeader;
 import org.hyperledger.besu.ethereum.mainnet.HeaderValidationMode;
 import org.hyperledger.besu.ethereum.mainnet.ProtocolSchedule;
-import org.hyperledger.besu.ethereum.mainnet.WitnessCodeTracker;
 import org.hyperledger.besu.ethereum.mainnet.block.access.list.BlockAccessList;
 import org.hyperledger.besu.ethereum.trie.pathbased.bonsai.storage.BonsaiExecutionWitnessBuilder;
 
@@ -49,7 +48,7 @@ import org.slf4j.LoggerFactory;
  * <p>Re-execution is required (rather than reading a stored witness) because state-access patterns
  * (SLOAD/SSTORE, BALANCE, CALL targets, BLOCKHASH ancestors) are only observable at execution time
  * and are not persisted separately. Code reads are recorded by EVM operation hooks that write into
- * the frame's {@code CodeReadTracker}, backed by a block-scoped {@code WitnessCodeTracker};
+ * the frame's EIP-7928 access observer, merged per transaction by the block access list builder;
  * BLOCKHASH ancestors come from {@code BlockHashLookup#getAccessedAncestors()}. Both are collected
  * into the {@code WitnessCodeReads} carried in {@link BlockProcessingOutputs}.
  *
@@ -138,7 +137,7 @@ public class DebugExecutionWitness extends AbstractBlockParameterOrBlockHashMeth
                 Optional.empty(),
                 false,
                 false,
-                Optional.of(new WitnessCodeTracker()));
+                true);
 
     if (!result.isSuccessful()) {
       return new JsonRpcErrorResponse(reqId, RpcErrorType.INTERNAL_ERROR);

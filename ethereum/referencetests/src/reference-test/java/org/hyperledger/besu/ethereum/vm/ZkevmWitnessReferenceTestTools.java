@@ -33,7 +33,6 @@ import org.hyperledger.besu.ethereum.mainnet.ProtocolSchedule;
 import org.hyperledger.besu.ethereum.mainnet.ProtocolScheduleBuilder;
 import org.hyperledger.besu.ethereum.mainnet.ProtocolSpec;
 import org.hyperledger.besu.ethereum.mainnet.ProtocolSpecAdapters;
-import org.hyperledger.besu.ethereum.mainnet.WitnessCodeTracker;
 import org.hyperledger.besu.ethereum.mainnet.block.access.list.BlockAccessList;
 import org.hyperledger.besu.ethereum.referencetests.BlockchainReferenceTestCaseSpec;
 import org.hyperledger.besu.ethereum.referencetests.FixtureExecutionWitness;
@@ -119,9 +118,8 @@ public class ZkevmWitnessReferenceTestTools {
                 ? HeaderValidationMode.LIGHT
                 : HeaderValidationMode.FULL;
 
-        // The witness code tracker has to be supplied up front: WitnessCodeReads is only produced
-        // when block processing is given one.
-        final WitnessCodeTracker witnessCodeTracker = new WitnessCodeTracker();
+        // Witness collection has to be requested up front: WitnessCodeReads is only produced when
+        // block processing is told to collect it.
         final BlockProcessingResult processingResult =
             protocolSpec
                 .getBlockValidator()
@@ -133,7 +131,7 @@ public class ZkevmWitnessReferenceTestTools {
                     candidateBlock.getBlockAccessList(),
                     false,
                     false,
-                    Optional.of(witnessCodeTracker));
+                    true);
 
         final boolean imported = processingResult.isSuccessful();
         assertThat(imported)
@@ -194,7 +192,7 @@ public class ZkevmWitnessReferenceTestTools {
             EvmConfiguration.DEFAULT,
             MiningConfiguration.MINING_DISABLED,
             new BadBlockManager(),
-            false,
+            true, // parallel transaction processing
             BalConfiguration.DEFAULT,
             new NoOpMetricsSystem())
         .createProtocolSchedule();

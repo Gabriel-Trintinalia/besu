@@ -121,6 +121,32 @@ public interface BlockProcessor {
       final AbstractBlockProcessor.PreprocessingFunction preprocessingBlockFunction);
 
   /**
+   * Processes the block, letting the implementation choose its own preprocessing strategy.
+   *
+   * <p>Callers without a specific strategy in mind must use this overload rather than passing
+   * {@link AbstractBlockProcessor.PreprocessingFunction.NoPreprocessing} explicitly: subclasses
+   * such as {@code MainnetParallelBlockProcessor} select parallel execution by overriding the
+   * overloads that omit the function, so naming one silently opts out of it.
+   *
+   * @param protocolContext the current context of the protocol
+   * @param blockchain the blockchain to append the block to
+   * @param worldState the world state to apply changes to
+   * @param block the block to process
+   * @param blockAccessList the optional block access list
+   * @param collectCodeReads whether to collect EIP-8025 witness code reads
+   * @return the block processing result
+   */
+  default BlockProcessingResult processBlock(
+      final ProtocolContext protocolContext,
+      final Blockchain blockchain,
+      final MutableWorldState worldState,
+      final Block block,
+      final Optional<BlockAccessList> blockAccessList,
+      final boolean collectCodeReads) {
+    return processBlock(protocolContext, blockchain, worldState, block, blockAccessList);
+  }
+
+  /**
    * Processes the block with an optional witness code tracker.
    *
    * @param protocolContext the current context of the protocol
@@ -129,7 +155,7 @@ public interface BlockProcessor {
    * @param block the block to process
    * @param blockAccessList the optional block access list
    * @param preprocessingBlockFunction a preprocessing function for block execution
-   * @param witnessCodeTracker optional tracker for EIP-8025 code reads
+   * @param collectCodeReads whether to collect EIP-8025 witness code reads
    * @return the block processing result
    */
   default BlockProcessingResult processBlock(
@@ -139,7 +165,7 @@ public interface BlockProcessor {
       final Block block,
       final Optional<BlockAccessList> blockAccessList,
       final AbstractBlockProcessor.PreprocessingFunction preprocessingBlockFunction,
-      final Optional<WitnessCodeTracker> witnessCodeTracker) {
+      final boolean collectCodeReads) {
     return processBlock(
         protocolContext,
         blockchain,

@@ -52,7 +52,6 @@ import org.hyperledger.besu.ethereum.mainnet.ProtocolSpec;
 import org.hyperledger.besu.ethereum.mainnet.TransactionValidationParams;
 import org.hyperledger.besu.ethereum.mainnet.block.access.list.AccessLocationTracker;
 import org.hyperledger.besu.ethereum.mainnet.block.access.list.BlockAccessList;
-import org.hyperledger.besu.ethereum.mainnet.block.access.list.BlockAccessList.BlockAccessListBuilder;
 import org.hyperledger.besu.ethereum.processing.TransactionProcessingResult;
 import org.hyperledger.besu.evm.blockhash.BlockHashLookup;
 import org.hyperledger.besu.evm.tracing.OperationTracer;
@@ -700,9 +699,7 @@ public class BlockTransactionSelector implements BlockTransactionSelectionServic
             .createBlockHashLookup(blockchain, blockSelectionContext.pendingBlockHeader());
     final Optional<AccessLocationTracker> transactionLocationTracker =
         maybeBlockAccessListBuilder.map(
-            b ->
-                BlockAccessListBuilder.createTransactionAccessLocationTracker(
-                    currentTxnLocation.get()));
+            b -> b.createTransactionAccessLocationTracker(currentTxnLocation.get()));
     final TransactionProcessingResult result =
         transactionProcessor.processTransaction(
             txWorldStateUpdater,

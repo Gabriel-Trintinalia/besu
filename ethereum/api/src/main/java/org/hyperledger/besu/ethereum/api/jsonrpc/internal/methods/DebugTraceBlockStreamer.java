@@ -32,7 +32,6 @@ import org.hyperledger.besu.ethereum.mainnet.MainnetTransactionProcessor;
 import org.hyperledger.besu.ethereum.mainnet.ProtocolSchedule;
 import org.hyperledger.besu.ethereum.mainnet.ProtocolSpec;
 import org.hyperledger.besu.ethereum.mainnet.block.access.list.AccessLocationTracker;
-import org.hyperledger.besu.ethereum.mainnet.block.access.list.BlockAccessList;
 import org.hyperledger.besu.ethereum.processing.TransactionProcessingResult;
 import org.hyperledger.besu.ethereum.vm.DebugOperationTracer;
 import org.hyperledger.besu.ethereum.vm.StreamingDebugOperationTracer;
@@ -331,7 +330,8 @@ public class DebugTraceBlockStreamer {
         new DebugOperationTracer(traceOptions.opCodeTracerConfig(), true);
 
     final AccessLocationTracker accessListTracker =
-        BlockAccessList.BlockAccessListBuilder.createTransactionAccessLocationTracker(0);
+        // Tracing only: no block access list builder here, and no witness collection.
+        new AccessLocationTracker(1);
 
     final TransactionProcessingResult result =
         transactionProcessor.processTransaction(

@@ -218,7 +218,25 @@ public abstract class AbstractBlockProcessor implements BlockProcessor {
         block,
         blockAccessList,
         preprocessingBlockFunction,
-        Optional.empty());
+        false);
+  }
+
+  @Override
+  public BlockProcessingResult processBlock(
+      final ProtocolContext protocolContext,
+      final Blockchain blockchain,
+      final MutableWorldState worldState,
+      final Block block,
+      final Optional<BlockAccessList> blockAccessList,
+      final boolean collectCodeReads) {
+    return processBlock(
+        protocolContext,
+        blockchain,
+        worldState,
+        block,
+        blockAccessList,
+        new NoPreprocessing(),
+        collectCodeReads);
   }
 
   @Override
@@ -229,7 +247,7 @@ public abstract class AbstractBlockProcessor implements BlockProcessor {
       final Block block,
       final Optional<BlockAccessList> blockAccessList,
       final PreprocessingFunction preprocessingBlockFunction,
-      final Optional<WitnessCodeTracker> witnessCodeTracker) {
+      final boolean collectCodeReads) {
     final List<TransactionReceipt> receipts = new ArrayList<>();
     // EIP-7778: Track two separate cumulative gas values
     // cumulativeRegularGasUsed: For block gas limit enforcement (uses protocol-specific strategy)
@@ -268,13 +286,14 @@ public abstract class AbstractBlockProcessor implements BlockProcessor {
     final Optional<BlockAccessListBuilder> blockAccessListBuilder =
         protocolSpec
             .getBlockAccessListFactory()
-            .map(BlockAccessListFactory::newBlockAccessListBuilder);
+            .map(BlockAccessListFactory::newBlockAccessListBuilder)
+            .map(b -> b.collectingCodeReads(collectCodeReads));
 
     Optional<PreprocessingContext> preProcessingContext = Optional.empty();
     try {
       final Optional<AccessLocationTracker> preExecutionAccessLocationTracker =
           blockAccessListBuilder.map(
-              b -> BlockAccessListBuilder.createPreExecutionAccessLocationTracker());
+              BlockAccessListBuilder::createPreExecutionAccessLocationTracker);
       final BlockProcessingContext blockProcessingContext =
           new BlockProcessingContext(
               blockHeader,
@@ -282,8 +301,7 @@ public abstract class AbstractBlockProcessor implements BlockProcessor {
               protocolSpec,
               blockHashLookup,
               !blockTracer.isEnabled() ? OperationTracer.NO_TRACING : blockTracer,
-              blockAccessListBuilder,
-              witnessCodeTracker.map(t -> t));
+              blockAccessListBuilder);
       protocolSpec
           .getPreExecutionProcessor()
           .process(blockProcessingContext, preExecutionAccessLocationTracker);
@@ -432,9 +450,7 @@ public abstract class AbstractBlockProcessor implements BlockProcessor {
 
       final Optional<AccessLocationTracker> postExecutionAccessLocationTracker =
           blockAccessListBuilder.map(
-              b ->
-                  BlockAccessListBuilder.createPostExecutionAccessLocationTracker(
-                      transactions.size()));
+              b -> b.createPostExecutionAccessLocationTracker(transactions.size()));
 
       final Optional<WithdrawalsProcessor> maybeWithdrawalsProcessor =
           protocolSpec.getWithdrawalsProcessor();
@@ -582,13 +598,18 @@ public abstract class AbstractBlockProcessor implements BlockProcessor {
       // EIP-8037: gas_metered = max(cumulative_regular, cumulative_state)
       final long gasMetered = Math.max(cumulativeRegularGasUsed, cumulativeStateGasUsed);
 
+      // EIP-8025 witness: the code reads rode the same observer as the block access list, so they
+      // arrive already merged per transaction — including from the parallel executors, which thread
+      // that observer but knew nothing about a separate witness tracker.
       final Optional<WitnessCodeReads> maybeWitnessCodeReads =
-          witnessCodeTracker.map(
-              t ->
-                  new WitnessCodeReads(
-                      t.getCodeReads(),
-                      t.getAuthorizationCodeReads(),
-                      blockHashLookup.getAccessedAncestors()));
+          collectCodeReads
+              ? blockAccessListBuilder.map(
+                  b ->
+                      new WitnessCodeReads(
+                          b.getCodeReads(),
+                          b.getAuthorizationCodeReads(),
+                          blockHashLookup.getAccessedAncestors()))
+              : Optional.empty();
 
       return new BlockProcessingResult(
           Optional.of(
@@ -634,8 +655,7 @@ public abstract class AbstractBlockProcessor implements BlockProcessor {
         blockHashLookup,
         TransactionValidationParams.processingBlock(),
         blobGasPrice,
-        accessLocationTracker,
-        blockProcessingContext.getCodeReadTracker());
+        accessLocationTracker);
   }
 
   @SuppressWarnings(
@@ -673,7 +693,7 @@ public abstract class AbstractBlockProcessor implements BlockProcessor {
       final Optional<BlockAccessListBuilder> blockAccessListBuilder,
       final int transactionLocation) {
     return blockAccessListBuilder.map(
-        b -> BlockAccessListBuilder.createTransactionAccessLocationTracker(transactionLocation));
+        b -> b.createTransactionAccessLocationTracker(transactionLocation));
   }
 
   private void applyAccessLocationTracker(

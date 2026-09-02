@@ -20,14 +20,12 @@ import org.hyperledger.besu.ethereum.core.Block;
 import org.hyperledger.besu.ethereum.core.BlockHeader;
 import org.hyperledger.besu.ethereum.core.Request;
 import org.hyperledger.besu.ethereum.core.TransactionReceipt;
-import org.hyperledger.besu.ethereum.mainnet.AbstractBlockProcessor;
 import org.hyperledger.besu.ethereum.mainnet.BlockAccessListValidator;
 import org.hyperledger.besu.ethereum.mainnet.BlockBodyValidator;
 import org.hyperledger.besu.ethereum.mainnet.BlockHeaderValidator;
 import org.hyperledger.besu.ethereum.mainnet.BlockProcessor;
 import org.hyperledger.besu.ethereum.mainnet.BodyValidationMode;
 import org.hyperledger.besu.ethereum.mainnet.HeaderValidationMode;
-import org.hyperledger.besu.ethereum.mainnet.WitnessCodeTracker;
 import org.hyperledger.besu.ethereum.mainnet.block.access.list.BlockAccessList;
 import org.hyperledger.besu.ethereum.trie.MerkleTrieException;
 import org.hyperledger.besu.ethereum.trie.pathbased.common.provider.WorldStateQueryParams;
@@ -145,7 +143,7 @@ public class MainnetBlockValidator implements BlockValidator {
         blockAccessList,
         shouldUpdateHead,
         shouldRecordBadBlock,
-        Optional.empty());
+        false);
   }
 
   @Override
@@ -157,7 +155,7 @@ public class MainnetBlockValidator implements BlockValidator {
       final Optional<BlockAccessList> blockAccessList,
       final boolean shouldUpdateHead,
       final boolean shouldRecordBadBlock,
-      final Optional<WitnessCodeTracker> witnessCodeTracker) {
+      final boolean collectCodeReads) {
 
     final int blockSize = block.getSize();
     if (blockSize > maxRlpBlockSize) {
@@ -231,7 +229,7 @@ public class MainnetBlockValidator implements BlockValidator {
 
       context.getWorldStateArchive().prepareWorldStateForBlock(block.getHeader(), worldState);
 
-      var result = processBlock(context, worldState, block, blockAccessList, witnessCodeTracker);
+      var result = processBlock(context, worldState, block, blockAccessList, collectCodeReads);
       if (result.isFailed()) {
         handleFailedBlockProcessing(block, blockAccessList, result, shouldRecordBadBlock, context);
         return result;
@@ -353,7 +351,7 @@ public class MainnetBlockValidator implements BlockValidator {
       final MutableWorldState worldState,
       final Block block,
       final Optional<BlockAccessList> blockAccessList) {
-    return processBlock(context, worldState, block, blockAccessList, Optional.empty());
+    return processBlock(context, worldState, block, blockAccessList, false);
   }
 
   /**
@@ -363,7 +361,7 @@ public class MainnetBlockValidator implements BlockValidator {
    * @param worldState the world state for the parent block state root hash
    * @param block the block to be processed
    * @param blockAccessList optional block access list
-   * @param witnessCodeTracker optional tracker that collects code reads for EIP-8025 witness
+   * @param collectCodeReads whether to collect EIP-8025 witness code reads
    * @return the result of processing the block
    */
   protected BlockProcessingResult processBlock(
@@ -371,15 +369,11 @@ public class MainnetBlockValidator implements BlockValidator {
       final MutableWorldState worldState,
       final Block block,
       final Optional<BlockAccessList> blockAccessList,
-      final Optional<WitnessCodeTracker> witnessCodeTracker) {
+      final boolean collectCodeReads) {
+    // Must not name a PreprocessingFunction here: MainnetParallelBlockProcessor selects parallel
+    // execution by overriding the overloads that omit it.
     return blockProcessor.processBlock(
-        context,
-        context.getBlockchain(),
-        worldState,
-        block,
-        blockAccessList,
-        new AbstractBlockProcessor.PreprocessingFunction.NoPreprocessing(),
-        witnessCodeTracker);
+        context, context.getBlockchain(), worldState, block, blockAccessList, collectCodeReads);
   }
 
   @Override

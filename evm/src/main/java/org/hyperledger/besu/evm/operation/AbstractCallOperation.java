@@ -236,14 +236,9 @@ public abstract class AbstractCallOperation extends AbstractOperation {
     // EIP-8025 witness: delegation-resolution gas is charged above, meaning the caller's designator
     // code is read at this point. Record it before the subsequent gas check so the witness captures
     // the caller's code even when the call OOGs after delegation resolution.
-    frame
-        .getCodeReadTracker()
-        .ifPresent(
-            t -> {
-              if (contract != null && hasCodeDelegation(contract.getCode())) {
-                t.addCodeRead(to);
-              }
-            });
+    if (contract != null && hasCodeDelegation(contract.getCode())) {
+      frame.getEip7928AccessList().ifPresent(t -> t.addCodeRead(to));
+    }
 
     if (frame.getRemainingGas() < cost) {
       return new OperationResult(cost, ExceptionalHaltReason.INSUFFICIENT_GAS);
@@ -265,11 +260,11 @@ public abstract class AbstractCallOperation extends AbstractOperation {
       final Bytes contractCode = contract.getCode();
       if (hasCodeDelegation(contractCode)) {
         final Address target = getTargetAddress(contractCode);
-        frame.getEip7928AccessList().ifPresent(t -> t.addTouchedAccount(target));
         frame
-            .getCodeReadTracker()
+            .getEip7928AccessList()
             .ifPresent(
                 t -> {
+                  t.addTouchedAccount(target);
                   // EIP-8025 witness: the EVM reads the delegation target's code here — exactly
                   // where EELS calls get_code(target) after the call's gas checks pass but before
                   // the value/depth soft-failure check (system.py). Recording it here means the
@@ -285,14 +280,9 @@ public abstract class AbstractCallOperation extends AbstractOperation {
     // passes. This covers soft-fail cases (insufficient balance, max depth) where no child frame
     // is created and AbstractMessageProcessor.process() never fires, mirroring EELS get_code(to)
     // which is called before the balance/depth checks but after the gas check.
-    frame
-        .getCodeReadTracker()
-        .ifPresent(
-            t -> {
-              if (contract == null || !hasCodeDelegation(contract.getCode())) {
-                t.addCodeRead(to);
-              }
-            });
+    if (contract == null || !hasCodeDelegation(contract.getCode())) {
+      frame.getEip7928AccessList().ifPresent(t -> t.addCodeRead(to));
+    }
 
     frame.clearReturnData();
 
@@ -342,10 +332,6 @@ public abstract class AbstractCallOperation extends AbstractOperation {
     if (frame.getEip7928AccessList().isPresent()) {
       builder.eip7928AccessList(frame.getEip7928AccessList().get());
     }
-    if (frame.getCodeReadTracker().isPresent()) {
-      builder.codeReadTracker(frame.getCodeReadTracker().get());
-    }
-
     builder.build();
     // see note in stack depth check about incrementing cost
     frame.incrementRemainingGas(cost);

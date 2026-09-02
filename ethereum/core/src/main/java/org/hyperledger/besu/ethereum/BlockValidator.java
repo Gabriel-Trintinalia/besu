@@ -18,7 +18,6 @@ import org.hyperledger.besu.ethereum.core.Block;
 import org.hyperledger.besu.ethereum.core.TransactionReceipt;
 import org.hyperledger.besu.ethereum.mainnet.BodyValidationMode;
 import org.hyperledger.besu.ethereum.mainnet.HeaderValidationMode;
-import org.hyperledger.besu.ethereum.mainnet.WitnessCodeTracker;
 import org.hyperledger.besu.ethereum.mainnet.block.access.list.BlockAccessList;
 
 import java.util.List;
@@ -98,7 +97,7 @@ public interface BlockValidator {
    * @param blockAccessList optional block access list for validation and processing
    * @param shouldPersist flag indicating whether the block should be persisted
    * @param shouldRecordBadBlock flag indicating whether bad blocks should be recorded
-   * @param witnessCodeTracker optional tracker that collects code reads for EIP-8025 witness
+   * @param collectCodeReads whether to collect EIP-8025 witness code reads
    * @return the result of the block processing
    */
   BlockProcessingResult validateAndProcessBlock(
@@ -109,7 +108,7 @@ public interface BlockValidator {
       final Optional<BlockAccessList> blockAccessList,
       final boolean shouldPersist,
       final boolean shouldRecordBadBlock,
-      final Optional<WitnessCodeTracker> witnessCodeTracker);
+      final boolean collectCodeReads);
 
   /**
    * Performs fast block validation appropriate for use during syncing skipping transaction receipt

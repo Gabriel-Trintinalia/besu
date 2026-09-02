@@ -34,6 +34,7 @@ import java.util.Map;
 import java.util.Objects;
 import java.util.Optional;
 import java.util.Set;
+import java.util.concurrent.ConcurrentHashMap;
 
 import com.fasterxml.jackson.annotation.JsonCreator;
 import com.fasterxml.jackson.annotation.JsonValue;
@@ -187,18 +188,52 @@ public record BlockAccessList(List<AccountChanges> accountChanges, Optional<Byte
   public static class BlockAccessListBuilder {
     final Map<Address, AccountBuilder> accountChangesBuilders = new HashMap<>();
 
-    public static AccessLocationTracker createPreExecutionAccessLocationTracker() {
-      return new AccessLocationTracker(0);
+    /**
+     * EIP-8025 witness collection. Off for ordinary block import; when on, every tracker this
+     * builder mints also records code reads, and they are merged here as each one is applied. None
+     * of it reaches the block access list itself.
+     */
+    private boolean collectCodeReads = false;
+
+    private final Set<Address> codeReads = ConcurrentHashMap.newKeySet();
+    private final Set<Address> authorizationCodeReads = ConcurrentHashMap.newKeySet();
+
+    public BlockAccessListBuilder collectingCodeReads(final boolean collect) {
+      this.collectCodeReads = collect;
+      return this;
     }
 
-    public static AccessLocationTracker createPostExecutionAccessLocationTracker(
+    public Set<Address> getCodeReads() {
+      return codeReads;
+    }
+
+    public Set<Address> getAuthorizationCodeReads() {
+      return authorizationCodeReads;
+    }
+
+    /**
+     * Merges one transaction's code reads. Applied from the partial view, which is the single point
+     * both the sequential and the parallel executors funnel through.
+     */
+    private void mergeCodeReads(final PartialBlockAccessView view) {
+      if (collectCodeReads) {
+        codeReads.addAll(view.codeReads());
+        authorizationCodeReads.addAll(view.authorizationCodeReads());
+      }
+    }
+
+    public AccessLocationTracker createPreExecutionAccessLocationTracker() {
+      return new AccessLocationTracker(0, collectCodeReads);
+    }
+
+    public AccessLocationTracker createPostExecutionAccessLocationTracker(
         final int numberOfTransactions) {
-      return new AccessLocationTracker((long) numberOfTransactions + 1L);
+      return new AccessLocationTracker((long) numberOfTransactions + 1L, collectCodeReads);
     }
 
-    public static AccessLocationTracker createTransactionAccessLocationTracker(
+    public AccessLocationTracker createTransactionAccessLocationTracker(
         final int transactionLocation) {
-      return new AccessLocationTracker((long) transactionLocation + 1L);
+      return new AccessLocationTracker((long) transactionLocation + 1L, collectCodeReads);
     }
 
     public AccountBuilder getOrCreateAccountBuilder(final Address address) {
@@ -211,6 +246,7 @@ public record BlockAccessList(List<AccountChanges> accountChanges, Optional<Byte
     }
 
     public void apply(final PartialBlockAccessView partialBlockAccessView) {
+      mergeCodeReads(partialBlockAccessView);
       partialBlockAccessView
           .accountChanges()
           .forEach(

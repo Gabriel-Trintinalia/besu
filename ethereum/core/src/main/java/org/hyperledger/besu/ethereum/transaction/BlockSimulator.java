@@ -289,8 +289,7 @@ public class BlockSimulator {
             .map(BlockAccessListFactory::newBlockAccessListBuilder);
 
     Optional<AccessLocationTracker> preExecutionAccessLocationTracker =
-        blockAccessListBuilder.map(
-            b -> BlockAccessListBuilder.createPreExecutionAccessLocationTracker());
+        blockAccessListBuilder.map(b -> b.createPreExecutionAccessLocationTracker());
 
     final BlockProcessingContext blockProcessingContext =
         new BlockProcessingContext(
@@ -336,7 +335,7 @@ public class BlockSimulator {
     Optional<AccessLocationTracker> postExecutionAccessLocationTracker =
         blockAccessListBuilder.map(
             b ->
-                BlockAccessListBuilder.createPostExecutionAccessLocationTracker(
+                b.createPostExecutionAccessLocationTracker(
                     blockStateCallSimulationResult.getTransactions().size()));
 
     // EIP-7685: process EL requests
@@ -545,7 +544,7 @@ public class BlockSimulator {
       final Optional<BlockAccessListBuilder> blockAccessListBuilder,
       final int transactionLocation) {
     return blockAccessListBuilder.map(
-        b -> BlockAccessListBuilder.createTransactionAccessLocationTracker(transactionLocation));
+        b -> b.createTransactionAccessLocationTracker(transactionLocation));
   }
 
   private BlockSimulationResult createFinalBlock(

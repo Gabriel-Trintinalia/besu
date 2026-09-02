@@ -19,8 +19,17 @@ import org.hyperledger.besu.datatypes.Address;
 import org.apache.tuweni.units.bigints.UInt256;
 
 /**
- * Interface for tracking accessed accounts and storage slots during transaction execution for the
- * purpose of generating EIP-7928 Block Access Lists.
+ * Observes state accesses made during execution.
+ *
+ * <p>Two consumers share this channel and apply different rules to it. The EIP-7928 block access
+ * list uses the account and slot events; the EIP-8025 execution witness uses the code-read events.
+ * They are recorded together because the observation points largely coincide, and because a single
+ * channel is threaded through the frame stack and the parallel transaction executors exactly once —
+ * a second, parallel channel is what allowed witness collection to silently miss speculatively
+ * executed transactions.
+ *
+ * <p>The code-read methods default to no-ops so implementations that only build a block access list
+ * need not know about them.
  */
 public interface Eip7928AccessList {
 
@@ -44,6 +53,28 @@ public interface Eip7928AccessList {
    * @param slotKey the {@link UInt256} key of the storage slot accessed
    */
   void addSlotAccessForAccount(final Address address, final UInt256 slotKey);
+
+  /**
+   * Records that the bytecode at {@code address} was read during execution — a call frame entered
+   * there, an {@code EXTCODESIZE}/{@code EXTCODECOPY}, or a 7702 designator resolved.
+   *
+   * <p>Ignored unless the observer was created with code-read collection enabled, so the normal
+   * block-import path pays only a branch. Not part of the block access list.
+   *
+   * @param address the account whose code was read
+   */
+  default void addCodeRead(final Address address) {}
+
+  /**
+   * Records that the bytecode at {@code address} was read while validating an EIP-7702
+   * authorization, before EVM execution begins.
+   *
+   * <p>Tracked separately from {@link #addCodeRead} because the witness must include an authority's
+   * pre-state code even when that same transaction overwrites it.
+   *
+   * @param address the authority whose code was read
+   */
+  default void addAuthorizationCodeRead(final Address address) {}
 
   /** Clears all tracked access list entries. */
   void clear();
