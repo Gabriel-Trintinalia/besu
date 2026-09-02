@@ -545,7 +545,7 @@ public class BlockSimulator {
       final Optional<BlockAccessListBuilder> blockAccessListBuilder,
       final int transactionLocation) {
     return blockAccessListBuilder.map(
-        b -> b.createTransactionAccessLocationTracker(transactionLocation));
+        b -> BlockAccessListBuilder.createTransactionAccessLocationTracker(transactionLocation));
   }
 
   private BlockSimulationResult createFinalBlock(

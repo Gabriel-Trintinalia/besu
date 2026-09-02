@@ -176,7 +176,9 @@ public class BalConcurrentTransactionProcessor extends ParallelBlockTransactionP
       final WorldUpdater txUpdater = blockUpdater.updater();
       final Optional<AccessLocationTracker> txTracker =
           blockAccessListBuilder.map(
-              b -> b.createTransactionAccessLocationTracker(transactionLocation));
+              b ->
+                  BlockAccessListBuilder.createTransactionAccessLocationTracker(
+                      transactionLocation));
 
       final TransactionProcessingResult result =
           transactionProcessor.processTransaction(

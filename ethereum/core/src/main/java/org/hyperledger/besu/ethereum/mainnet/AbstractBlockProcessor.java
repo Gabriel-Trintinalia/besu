@@ -561,10 +561,6 @@ public abstract class AbstractBlockProcessor implements BlockProcessor {
       // EIP-8037: gas_metered = max(cumulative_regular, cumulative_state)
       final long gasMetered = Math.max(cumulativeRegularGasUsed, cumulativeStateGasUsed);
 
-      // EIP-8025 witness: codes come from the block access list, so the only extra thing the
-      // witness needs from here is the set of ancestors BLOCKHASH resolved, for its headers list.
-      // The lookup accumulates these anyway to serve the opcode, so reading them costs nothing.
-
       return new BlockProcessingResult(
           Optional.of(
               new BlockProcessingOutputs(
@@ -647,7 +643,7 @@ public abstract class AbstractBlockProcessor implements BlockProcessor {
       final Optional<BlockAccessListBuilder> blockAccessListBuilder,
       final int transactionLocation) {
     return blockAccessListBuilder.map(
-        b -> b.createTransactionAccessLocationTracker(transactionLocation));
+        b -> BlockAccessListBuilder.createTransactionAccessLocationTracker(transactionLocation));
   }
 
   private void applyAccessLocationTracker(
