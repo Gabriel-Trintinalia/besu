@@ -225,15 +225,7 @@ public class MainnetTransactionProcessor {
 
       final Address senderAddress = transaction.getSender();
       final MutableAccount sender = worldState.getOrCreateSenderAccount(senderAddress);
-      accessLocationTracker.ifPresent(
-          t -> {
-            t.addTouchedAccount(senderAddress);
-            // EIP-8025 witness: a sender with code (a 7702-delegated EOA or smart account) needs
-            // that bytecode in the witness to resolve its code pointer.
-            if (sender.hasCode()) {
-              t.addCodeRead(senderAddress);
-            }
-          });
+      accessLocationTracker.ifPresent(t -> t.addTouchedAccount(senderAddress));
 
       validationResult =
           transactionValidator.validateForSender(transaction, sender, transactionValidationParams);
@@ -856,21 +848,7 @@ public class MainnetTransactionProcessor {
         // EIP-7928: the load precedes the charge, so the recipient stays listed even when its own
         // entry charge runs out of gas — but an authorization out-of-gas, which comes first,
         // leaves it out.
-        initialFrame
-            .getEip7928AccessList()
-            .ifPresent(
-                t -> {
-                  t.addTouchedAccount(to);
-                  // EIP-8025 witness: the same load resolves a 7702 designator, so the code read is
-                  // recorded where the access list touches the account. An authorization
-                  // out-of-gas precedes this load, and the frame-entry hook cannot cover that case
-                  // because the frame never starts. The delegation target is not added here; its
-                  // code is only needed once execution reaches it.
-                  final Account toAccount = frameWorldState.get(to);
-                  if (toAccount != null && hasCodeDelegation(toAccount.getCode())) {
-                    t.addCodeRead(to);
-                  }
-                });
+        initialFrame.getEip7928AccessList().ifPresent(t -> t.addTouchedAccount(to));
         if (stateGasActive) {
           // Measured because the leaf it pays for rolls back with a failed transaction, unlike a
           // delegation, which survives one.
@@ -903,18 +881,7 @@ public class MainnetTransactionProcessor {
       final List<CodeDelegationResult.AuthorityAccess> delegationAccesses) {
     final long accountWriteCost = gasCalculator.getAccountWriteGasCost();
     for (final CodeDelegationResult.AuthorityAccess access : delegationAccesses) {
-      initialFrame
-          .getEip7928AccessList()
-          .ifPresent(
-              t -> {
-                t.addTouchedAccount(access.authority());
-                // EIP-8025 witness: EELS validate_authorization reads the authority's code here,
-                // before the per-authority charge, for every authority reached in transaction
-                // order. The read survives a later out-of-gas (only the delegation state rolls
-                // back), so a partial out-of-gas leaves exactly the authorities reached up to and
-                // including the one being charged. Empty codes are dropped later by buildCodes.
-                t.addAuthorizationCodeRead(access.authority());
-              });
+      initialFrame.getEip7928AccessList().ifPresent(t -> t.addTouchedAccount(access.authority()));
       if (access.newAccount()
           && !initialFrame.consumeStateGas(stateGasCalc.emptyAccountDelegationStateGas())) {
         return false;

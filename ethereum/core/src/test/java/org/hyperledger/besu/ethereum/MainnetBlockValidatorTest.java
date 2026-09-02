@@ -18,7 +18,6 @@ import static org.assertj.core.api.Assertions.assertThat;
 import static org.hyperledger.besu.ethereum.trie.pathbased.common.provider.WorldStateQueryParams.withBlockHeaderAndUpdateNodeHead;
 import static org.junit.jupiter.api.Assertions.assertThrows;
 import static org.mockito.ArgumentMatchers.any;
-import static org.mockito.ArgumentMatchers.anyBoolean;
 import static org.mockito.ArgumentMatchers.anyInt;
 import static org.mockito.ArgumentMatchers.eq;
 import static org.mockito.Mockito.doReturn;
@@ -119,7 +118,7 @@ public class MainnetBlockValidatorTest {
     when(blockBodyValidator.validateBodyLight(any(), any(), any(), any(), any())).thenReturn(true);
     when(blockAccessListValidator.validate(any(), any(), anyInt())).thenReturn(true);
     when(blockProcessor.processBlock(
-            eq(protocolContext), any(), any(), any(), eq(Optional.empty()), anyBoolean()))
+            eq(protocolContext), any(), any(), any(), eq(Optional.empty())))
         .thenReturn(successfulProcessingResult);
 
     assertNoBadBlocks();
@@ -206,8 +205,7 @@ public class MainnetBlockValidatorTest {
                     List.of())));
     final Optional<BlockAccessList> optionalBal = Optional.of(bal);
     when(blockAccessListValidator.validate(eq(optionalBal), any(), anyInt())).thenReturn(true);
-    when(blockProcessor.processBlock(
-            eq(protocolContext), any(), any(), any(), eq(optionalBal), anyBoolean()))
+    when(blockProcessor.processBlock(eq(protocolContext), any(), any(), any(), eq(optionalBal)))
         .thenReturn(new BlockProcessingResult(Optional.empty(), false));
 
     BlockProcessingResult result =
@@ -314,8 +312,7 @@ public class MainnetBlockValidatorTest {
             eq(blockchain),
             any(MutableWorldState.class),
             eq(block),
-            eq(Optional.empty()),
-            anyBoolean()))
+            eq(Optional.empty())))
         .thenReturn(BlockProcessingResult.FAILED);
 
     BlockProcessingResult result =
@@ -358,8 +355,7 @@ public class MainnetBlockValidatorTest {
             eq(blockchain),
             any(MutableWorldState.class),
             eq(block),
-            eq(Optional.empty()),
-            anyBoolean());
+            eq(Optional.empty()));
 
     BlockProcessingResult result =
         mainnetFrontierBlockValidator.validateAndProcessBlock(
@@ -403,8 +399,7 @@ public class MainnetBlockValidatorTest {
             eq(blockchain),
             any(MutableWorldState.class),
             eq(block),
-            eq(Optional.empty()),
-            anyBoolean()))
+            eq(Optional.empty())))
         .thenReturn(exceptionalResult);
 
     BlockProcessingResult result =
@@ -425,8 +420,7 @@ public class MainnetBlockValidatorTest {
             eq(blockchain),
             any(MutableWorldState.class),
             eq(block),
-            eq(Optional.empty()),
-            anyBoolean()))
+            eq(Optional.empty())))
         .thenReturn(BlockProcessingResult.FAILED);
 
     BlockProcessingResult result =
@@ -450,8 +444,7 @@ public class MainnetBlockValidatorTest {
             eq(blockchain),
             any(MutableWorldState.class),
             eq(block),
-            eq(Optional.empty()),
-            anyBoolean()))
+            eq(Optional.empty())))
         .thenReturn(BlockProcessingResult.FAILED);
 
     BlockProcessingResult result =
@@ -475,8 +468,7 @@ public class MainnetBlockValidatorTest {
             eq(blockchain),
             any(MutableWorldState.class),
             eq(block),
-            eq(Optional.empty()),
-            anyBoolean()))
+            eq(Optional.empty())))
         .thenReturn(BlockProcessingResult.FAILED);
 
     BlockProcessingResult result =
@@ -628,7 +620,7 @@ public class MainnetBlockValidatorTest {
     when(blockHeaderValidator.validateHeader(any(), any(), any())).thenReturn(true);
     when(blockHeaderValidator.validateHeader(any(), any(), any(), any())).thenReturn(true);
     when(blockProcessor.processBlock(
-            eq(protocolContext), any(), any(), any(), eq(Optional.empty()), anyBoolean()))
+            eq(protocolContext), any(), any(), any(), eq(Optional.empty())))
         .thenReturn(successfulProcessingResult);
     when(blockBodyValidator.validateBody(any(), any(), any(), any(), any(), any(), any()))
         .thenReturn(true);

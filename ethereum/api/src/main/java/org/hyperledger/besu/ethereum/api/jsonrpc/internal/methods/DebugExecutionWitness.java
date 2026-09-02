@@ -18,7 +18,6 @@ import org.hyperledger.besu.datatypes.Hash;
 import org.hyperledger.besu.ethereum.BlockProcessingOutputs;
 import org.hyperledger.besu.ethereum.BlockProcessingResult;
 import org.hyperledger.besu.ethereum.ProtocolContext;
-import org.hyperledger.besu.ethereum.WitnessCodeReads;
 import org.hyperledger.besu.ethereum.api.jsonrpc.RpcMethod;
 import org.hyperledger.besu.ethereum.api.jsonrpc.internal.JsonRpcRequestContext;
 import org.hyperledger.besu.ethereum.api.jsonrpc.internal.exception.InvalidJsonRpcParameters;
@@ -36,6 +35,7 @@ import org.hyperledger.besu.ethereum.mainnet.ProtocolSchedule;
 import org.hyperledger.besu.ethereum.mainnet.block.access.list.BlockAccessList;
 import org.hyperledger.besu.ethereum.trie.pathbased.bonsai.storage.BonsaiExecutionWitnessBuilder;
 
+import java.util.Map;
 import java.util.Optional;
 
 import org.slf4j.Logger;
@@ -50,7 +50,7 @@ import org.slf4j.LoggerFactory;
  * and are not persisted separately. Code reads are recorded by EVM operation hooks that write into
  * the frame's EIP-7928 access observer, merged per transaction by the block access list builder;
  * BLOCKHASH ancestors come from {@code BlockHashLookup#getAccessedAncestors()}. Both are collected
- * into the {@code WitnessCodeReads} carried in {@link BlockProcessingOutputs}.
+ * into the accessed-ancestor map carried in {@link BlockProcessingOutputs}.
  *
  * <p>Error responses:
  *
@@ -136,8 +136,7 @@ public class DebugExecutionWitness extends AbstractBlockParameterOrBlockHashMeth
                 HeaderValidationMode.NONE,
                 Optional.empty(),
                 false,
-                false,
-                true);
+                false);
 
     if (!result.isSuccessful()) {
       return new JsonRpcErrorResponse(reqId, RpcErrorType.INTERNAL_ERROR);
@@ -158,26 +157,23 @@ public class DebugExecutionWitness extends AbstractBlockParameterOrBlockHashMeth
                           "block access list is required for witness generation but was absent for block "
                               + blockHeader.getHash()));
 
-      // The witness data is required for witness generation; if it is absent, the block was not
-      // processed with witness collection enabled, and we cannot generate a witness.
-      final WitnessCodeReads witnessCodeReads =
+      final Map<Long, Hash> accessedAncestors =
           result
               .getYield()
-              .flatMap(BlockProcessingOutputs::getWitnessCodeReads)
+              .map(BlockProcessingOutputs::getAccessedAncestors)
               .orElseThrow(
                   () ->
                       new IllegalStateException(
-                          "witness data is required for witness generation but was absent for block "
-                              + blockHeader.getHash()));
+                          "block processing produced no yield for block " + blockHeader.getHash()));
 
-      // Pass the BAL (state trie nodes) and WitnessCodeReads (code reads, ancestor headers)
+      // Pass the BAL (state trie nodes and codes) and the accessed ancestors (headers)
       // collected during re-execution to the witness builder. The builder is created here rather
       // than at construction time so that non-Bonsai nodes surface a per-request error instead of
       // crashing at startup.
       final BonsaiExecutionWitnessBuilder witnessBuilder =
           new BonsaiExecutionWitnessBuilder(
               getBlockchainQueries().getWorldStateArchive(), blockchain);
-      witness = witnessBuilder.buildWitness(blockHeader, blockAccessList, witnessCodeReads);
+      witness = witnessBuilder.buildWitness(blockHeader, blockAccessList, accessedAncestors);
     } catch (final IllegalStateException e) {
       LOG.error("Failed to build execution witness for block {}", blockHeader.getHash(), e);
       return new JsonRpcErrorResponse(reqId, RpcErrorType.INTERNAL_ERROR);

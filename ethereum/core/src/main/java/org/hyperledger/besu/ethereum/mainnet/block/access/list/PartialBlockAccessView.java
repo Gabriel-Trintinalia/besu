@@ -25,7 +25,6 @@ import java.util.List;
 import java.util.Map;
 import java.util.Objects;
 import java.util.Optional;
-import java.util.Set;
 
 import org.apache.tuweni.bytes.Bytes;
 import org.apache.tuweni.units.bigints.UInt256;
@@ -52,37 +51,9 @@ public final class PartialBlockAccessView {
   private final long txIndex;
   private final List<AccountChanges> accountChanges;
 
-  /**
-   * EIP-8025 code reads observed for this transaction. Carried here, rather than read back off the
-   * tracker, because the parallel executors hand their result to the block builder as a view and
-   * discard the tracker — so anything not on the view is lost for speculatively executed
-   * transactions. Empty unless witness collection was requested.
-   */
-  private final Set<Address> codeReads;
-
-  private final Set<Address> authorizationCodeReads;
-
   public PartialBlockAccessView(final List<AccountChanges> accountChanges, final long txIndex) {
-    this(accountChanges, txIndex, Set.of(), Set.of());
-  }
-
-  public PartialBlockAccessView(
-      final List<AccountChanges> accountChanges,
-      final long txIndex,
-      final Set<Address> codeReads,
-      final Set<Address> authorizationCodeReads) {
     this.accountChanges = accountChanges;
     this.txIndex = txIndex;
-    this.codeReads = codeReads;
-    this.authorizationCodeReads = authorizationCodeReads;
-  }
-
-  public Set<Address> codeReads() {
-    return codeReads;
-  }
-
-  public Set<Address> authorizationCodeReads() {
-    return authorizationCodeReads;
   }
 
   @Override
@@ -196,16 +167,7 @@ public final class PartialBlockAccessView {
   /** Builder for PartialBlockAccessView. */
   public static class PartialBlockAccessViewBuilder {
     private long txIndex;
-    private Set<Address> codeReads = Set.of();
-    private Set<Address> authorizationCodeReads = Set.of();
     private final Map<Address, AccountChangesBuilder> accountBuilders = new HashMap<>();
-
-    public PartialBlockAccessViewBuilder withCodeReads(
-        final Set<Address> reads, final Set<Address> authorityReads) {
-      this.codeReads = reads;
-      this.authorizationCodeReads = authorityReads;
-      return this;
-    }
 
     public PartialBlockAccessViewBuilder withTxIndex(final long txIndex) {
       this.txIndex = txIndex;
@@ -226,7 +188,7 @@ public final class PartialBlockAccessView {
               Arrays.compareUnsigned(
                   left.getAddress().getBytes().toArrayUnsafe(),
                   right.getAddress().getBytes().toArrayUnsafe()));
-      return new PartialBlockAccessView(accountChanges, txIndex, codeReads, authorizationCodeReads);
+      return new PartialBlockAccessView(accountChanges, txIndex);
     }
   }
 

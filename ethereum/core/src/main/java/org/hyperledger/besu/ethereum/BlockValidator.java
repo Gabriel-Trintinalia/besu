@@ -88,29 +88,6 @@ public interface BlockValidator {
       final boolean shouldRecordBadBlock);
 
   /**
-   * Validates and processes a block with an optional witness code tracker for EIP-8025.
-   *
-   * @param context the protocol context
-   * @param block the block to validate and process
-   * @param headerValidationMode the header validation mode
-   * @param ommerValidationMode the ommer validation mode
-   * @param blockAccessList optional block access list for validation and processing
-   * @param shouldPersist flag indicating whether the block should be persisted
-   * @param shouldRecordBadBlock flag indicating whether bad blocks should be recorded
-   * @param collectCodeReads whether to collect EIP-8025 witness code reads
-   * @return the result of the block processing
-   */
-  BlockProcessingResult validateAndProcessBlock(
-      final ProtocolContext context,
-      final Block block,
-      final HeaderValidationMode headerValidationMode,
-      final HeaderValidationMode ommerValidationMode,
-      final Optional<BlockAccessList> blockAccessList,
-      final boolean shouldPersist,
-      final boolean shouldRecordBadBlock,
-      final boolean collectCodeReads);
-
-  /**
    * Performs fast block validation appropriate for use during syncing skipping transaction receipt
    * roots and receipts roots as these are done during the download of the blocks.
    *

@@ -23,7 +23,6 @@ import org.hyperledger.besu.datatypes.Wei;
 import org.hyperledger.besu.ethereum.BlockProcessingOutputs;
 import org.hyperledger.besu.ethereum.BlockProcessingResult;
 import org.hyperledger.besu.ethereum.ProtocolContext;
-import org.hyperledger.besu.ethereum.WitnessCodeReads;
 import org.hyperledger.besu.ethereum.chain.Blockchain;
 import org.hyperledger.besu.ethereum.core.Block;
 import org.hyperledger.besu.ethereum.core.BlockHeader;
@@ -211,43 +210,6 @@ public abstract class AbstractBlockProcessor implements BlockProcessor {
       final Block block,
       final Optional<BlockAccessList> blockAccessList,
       final PreprocessingFunction preprocessingBlockFunction) {
-    return processBlock(
-        protocolContext,
-        blockchain,
-        worldState,
-        block,
-        blockAccessList,
-        preprocessingBlockFunction,
-        false);
-  }
-
-  @Override
-  public BlockProcessingResult processBlock(
-      final ProtocolContext protocolContext,
-      final Blockchain blockchain,
-      final MutableWorldState worldState,
-      final Block block,
-      final Optional<BlockAccessList> blockAccessList,
-      final boolean collectCodeReads) {
-    return processBlock(
-        protocolContext,
-        blockchain,
-        worldState,
-        block,
-        blockAccessList,
-        new NoPreprocessing(),
-        collectCodeReads);
-  }
-
-  @Override
-  public BlockProcessingResult processBlock(
-      final ProtocolContext protocolContext,
-      final Blockchain blockchain,
-      final MutableWorldState worldState,
-      final Block block,
-      final Optional<BlockAccessList> blockAccessList,
-      final PreprocessingFunction preprocessingBlockFunction,
-      final boolean collectCodeReads) {
     final List<TransactionReceipt> receipts = new ArrayList<>();
     // EIP-7778: Track two separate cumulative gas values
     // cumulativeRegularGasUsed: For block gas limit enforcement (uses protocol-specific strategy)
@@ -286,8 +248,7 @@ public abstract class AbstractBlockProcessor implements BlockProcessor {
     final Optional<BlockAccessListBuilder> blockAccessListBuilder =
         protocolSpec
             .getBlockAccessListFactory()
-            .map(BlockAccessListFactory::newBlockAccessListBuilder)
-            .map(b -> b.collectingCodeReads(collectCodeReads));
+            .map(BlockAccessListFactory::newBlockAccessListBuilder);
 
     Optional<PreprocessingContext> preProcessingContext = Optional.empty();
     try {
@@ -598,18 +559,9 @@ public abstract class AbstractBlockProcessor implements BlockProcessor {
       // EIP-8037: gas_metered = max(cumulative_regular, cumulative_state)
       final long gasMetered = Math.max(cumulativeRegularGasUsed, cumulativeStateGasUsed);
 
-      // EIP-8025 witness: the code reads rode the same observer as the block access list, so they
-      // arrive already merged per transaction — including from the parallel executors, which thread
-      // that observer but knew nothing about a separate witness tracker.
-      final Optional<WitnessCodeReads> maybeWitnessCodeReads =
-          collectCodeReads
-              ? blockAccessListBuilder.map(
-                  b ->
-                      new WitnessCodeReads(
-                          b.getCodeReads(),
-                          b.getAuthorizationCodeReads(),
-                          blockHashLookup.getAccessedAncestors()))
-              : Optional.empty();
+      // EIP-8025 witness: codes come from the block access list, so the only extra thing the
+      // witness needs from here is the set of ancestors BLOCKHASH resolved, for its headers list.
+      // The lookup accumulates these anyway to serve the opcode, so reading them costs nothing.
 
       return new BlockProcessingResult(
           Optional.of(
@@ -619,7 +571,7 @@ public abstract class AbstractBlockProcessor implements BlockProcessor {
                   maybeRequests,
                   maybeBlockAccessList,
                   gasMetered,
-                  maybeWitnessCodeReads)),
+                  blockHashLookup.getAccessedAncestors())),
           parallelizedTxFound ? Optional.of(nbParallelTx) : Optional.empty());
     } finally {
       stateRootCommitter.cancel();

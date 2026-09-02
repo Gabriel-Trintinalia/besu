@@ -21,7 +21,6 @@ import org.hyperledger.besu.datatypes.Hash;
 import org.hyperledger.besu.ethereum.BlockProcessingOutputs;
 import org.hyperledger.besu.ethereum.BlockProcessingResult;
 import org.hyperledger.besu.ethereum.ProtocolContext;
-import org.hyperledger.besu.ethereum.WitnessCodeReads;
 import org.hyperledger.besu.ethereum.chain.BadBlockManager;
 import org.hyperledger.besu.ethereum.chain.Blockchain;
 import org.hyperledger.besu.ethereum.chain.MutableBlockchain;
@@ -50,6 +49,7 @@ import java.math.BigInteger;
 import java.util.ArrayList;
 import java.util.Collection;
 import java.util.List;
+import java.util.Map;
 import java.util.Optional;
 import java.util.function.Function;
 
@@ -118,8 +118,6 @@ public class ZkevmWitnessReferenceTestTools {
                 ? HeaderValidationMode.LIGHT
                 : HeaderValidationMode.FULL;
 
-        // Witness collection has to be requested up front: WitnessCodeReads is only produced when
-        // block processing is told to collect it.
         final BlockProcessingResult processingResult =
             protocolSpec
                 .getBlockValidator()
@@ -130,8 +128,7 @@ public class ZkevmWitnessReferenceTestTools {
                     validationMode,
                     candidateBlock.getBlockAccessList(),
                     false,
-                    false,
-                    true);
+                    false);
 
         final boolean imported = processingResult.isSuccessful();
         assertThat(imported)
@@ -223,16 +220,19 @@ public class ZkevmWitnessReferenceTestTools {
         .as("block access list for block %s, needed to build its expected witness", block.getHash())
         .isNotNull();
 
-    final WitnessCodeReads witnessCodeReads =
-        processingResult.getYield().flatMap(BlockProcessingOutputs::getWitnessCodeReads).orElse(null);
-    assertThat(witnessCodeReads)
-        .as("witness code reads for block %s, needed to build its expected witness", block.getHash())
+    final Map<Long, Hash> accessedAncestors =
+        processingResult
+            .getYield()
+            .map(BlockProcessingOutputs::getAccessedAncestors)
+            .orElse(null);
+    assertThat(accessedAncestors)
+        .as("accessed ancestors for block %s, needed to build its expected witness", block.getHash())
         .isNotNull();
 
     final FixtureExecutionWitness expected = expectedWitnessOpt.get();
     final BonsaiExecutionWitnessBuilder.Witness got =
         new BonsaiExecutionWitnessBuilder(ctx.getWorldStateArchive(), ctx.getBlockchain())
-            .buildWitness(block.getHeader(), blockAccessList, witnessCodeReads);
+            .buildWitness(block.getHeader(), blockAccessList, accessedAncestors);
 
     logWitnessDiff("state", got.state(), expected.state(), block.getHash());
     logWitnessDiff("codes", got.codes(), expected.codes(), block.getHash());

@@ -134,16 +134,6 @@ public class MainnetParallelBlockProcessor extends MainnetBlockProcessor {
     return processBlock(protocolContext, blockchain, worldState, block, Optional.empty());
   }
 
-  @Override
-  public BlockProcessingResult processBlock(
-      final ProtocolContext protocolContext,
-      final Blockchain blockchain,
-      final MutableWorldState worldState,
-      final Block block,
-      final Optional<BlockAccessList> blockAccessList) {
-    return processBlock(protocolContext, blockchain, worldState, block, blockAccessList, false);
-  }
-
   /**
    * Every {@code processBlock} overload that does not take an explicit {@code
    * PreprocessingFunction} must be overridden here, because that is how this class selects parallel
@@ -155,8 +145,7 @@ public class MainnetParallelBlockProcessor extends MainnetBlockProcessor {
       final Blockchain blockchain,
       final MutableWorldState worldState,
       final Block block,
-      final Optional<BlockAccessList> blockAccessList,
-      final boolean collectCodeReads) {
+      final Optional<BlockAccessList> blockAccessList) {
     final BlockProcessingResult blockProcessingResult =
         super.processBlock(
             protocolContext,
@@ -164,8 +153,7 @@ public class MainnetParallelBlockProcessor extends MainnetBlockProcessor {
             worldState,
             block,
             blockAccessList,
-            new ParallelTransactionPreprocessing(transactionProcessor, executor, balConfiguration),
-            collectCodeReads);
+            new ParallelTransactionPreprocessing(transactionProcessor, executor, balConfiguration));
     if (blockProcessingResult.isFailed()) {
       // Fallback to non-parallel processing if there is a block processing exception .
       LOG.info(
@@ -175,8 +163,7 @@ public class MainnetParallelBlockProcessor extends MainnetBlockProcessor {
       if (worldState instanceof BonsaiWorldState) {
         ((BonsaiWorldStateUpdateAccumulator) worldState.updater()).reset();
       }
-      return super.processBlock(
-          protocolContext, blockchain, worldState, block, blockAccessList, collectCodeReads);
+      return super.processBlock(protocolContext, blockchain, worldState, block, blockAccessList);
     }
     return blockProcessingResult;
   }

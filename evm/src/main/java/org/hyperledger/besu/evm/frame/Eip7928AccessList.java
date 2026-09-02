@@ -54,28 +54,6 @@ public interface Eip7928AccessList {
    */
   void addSlotAccessForAccount(final Address address, final UInt256 slotKey);
 
-  /**
-   * Records that the bytecode at {@code address} was read during execution — a call frame entered
-   * there, an {@code EXTCODESIZE}/{@code EXTCODECOPY}, or a 7702 designator resolved.
-   *
-   * <p>Ignored unless the observer was created with code-read collection enabled, so the normal
-   * block-import path pays only a branch. Not part of the block access list.
-   *
-   * @param address the account whose code was read
-   */
-  default void addCodeRead(final Address address) {}
-
-  /**
-   * Records that the bytecode at {@code address} was read while validating an EIP-7702
-   * authorization, before EVM execution begins.
-   *
-   * <p>Tracked separately from {@link #addCodeRead} because the witness must include an authority's
-   * pre-state code even when that same transaction overwrites it.
-   *
-   * @param address the authority whose code was read
-   */
-  default void addAuthorizationCodeRead(final Address address) {}
-
   /** Clears all tracked access list entries. */
   void clear();
 }

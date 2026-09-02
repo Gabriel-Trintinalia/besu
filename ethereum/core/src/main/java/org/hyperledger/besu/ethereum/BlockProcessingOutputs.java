@@ -14,12 +14,14 @@
  */
 package org.hyperledger.besu.ethereum;
 
+import org.hyperledger.besu.datatypes.Hash;
 import org.hyperledger.besu.ethereum.core.Request;
 import org.hyperledger.besu.ethereum.core.TransactionReceipt;
 import org.hyperledger.besu.ethereum.mainnet.block.access.list.BlockAccessList;
 import org.hyperledger.besu.plugin.services.worldstate.MutableWorldState;
 
 import java.util.List;
+import java.util.Map;
 import java.util.Optional;
 
 /** Contains the outputs of processing a block. */
@@ -30,7 +32,7 @@ public class BlockProcessingOutputs {
   private final Optional<List<Request>> maybeRequests;
   private final Optional<BlockAccessList> maybeBlockAccessList;
   private final long cumulativeBlockGasUsed;
-  private final Optional<WitnessCodeReads> witnessCodeReads;
+  private final Map<Long, Hash> accessedAncestors;
 
   /**
    * Creates a new instance.
@@ -88,13 +90,7 @@ public class BlockProcessingOutputs {
       final Optional<List<Request>> maybeRequests,
       final Optional<BlockAccessList> blockAccessList,
       final long cumulativeBlockGasUsed) {
-    this(
-        worldState,
-        receipts,
-        maybeRequests,
-        blockAccessList,
-        cumulativeBlockGasUsed,
-        Optional.empty());
+    this(worldState, receipts, maybeRequests, blockAccessList, cumulativeBlockGasUsed, Map.of());
   }
 
   /**
@@ -105,8 +101,8 @@ public class BlockProcessingOutputs {
    * @param maybeRequests the requests produced by processing the block
    * @param blockAccessList the block-level access list produced by processing the block
    * @param cumulativeBlockGasUsed the cumulative block gas used (pre-refund for EIP-7778)
-   * @param witnessCodeReads the EIP-8025 witness data collected during block processing, or empty
-   *     if witness collection was not enabled for this block
+   * @param accessedAncestors the ancestor blocks resolved via BLOCKHASH during processing, keyed by
+   *     block number; always at least the parent
    */
   public BlockProcessingOutputs(
       final MutableWorldState worldState,
@@ -114,13 +110,13 @@ public class BlockProcessingOutputs {
       final Optional<List<Request>> maybeRequests,
       final Optional<BlockAccessList> blockAccessList,
       final long cumulativeBlockGasUsed,
-      final Optional<WitnessCodeReads> witnessCodeReads) {
+      final Map<Long, Hash> accessedAncestors) {
     this.worldState = worldState;
     this.receipts = receipts;
     this.maybeRequests = maybeRequests;
     this.maybeBlockAccessList = blockAccessList;
     this.cumulativeBlockGasUsed = cumulativeBlockGasUsed;
-    this.witnessCodeReads = witnessCodeReads;
+    this.accessedAncestors = accessedAncestors;
   }
 
   /**
@@ -171,12 +167,12 @@ public class BlockProcessingOutputs {
   }
 
   /**
-   * Returns the EIP-8025 witness data collected during block processing, or empty if witness
-   * collection was not enabled for this block.
+   * Returns the ancestor blocks resolved via BLOCKHASH during processing, keyed by block number.
+   * Always contains at least the parent, which the lookup pre-seeds at construction.
    *
-   * @return the witness code reads, or empty if not collected
+   * @return the accessed ancestors
    */
-  public Optional<WitnessCodeReads> getWitnessCodeReads() {
-    return witnessCodeReads;
+  public Map<Long, Hash> getAccessedAncestors() {
+    return accessedAncestors;
   }
 }

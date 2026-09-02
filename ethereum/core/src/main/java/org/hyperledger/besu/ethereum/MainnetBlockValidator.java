@@ -14,6 +14,7 @@
  */
 package org.hyperledger.besu.ethereum;
 
+import org.hyperledger.besu.datatypes.Hash;
 import org.hyperledger.besu.ethereum.chain.BadBlockCause;
 import org.hyperledger.besu.ethereum.chain.MutableBlockchain;
 import org.hyperledger.besu.ethereum.core.Block;
@@ -34,6 +35,7 @@ import org.hyperledger.besu.plugin.services.worldstate.MutableWorldState;
 
 import java.util.ArrayList;
 import java.util.List;
+import java.util.Map;
 import java.util.Optional;
 import java.util.OptionalLong;
 
@@ -135,27 +137,6 @@ public class MainnetBlockValidator implements BlockValidator {
       final Optional<BlockAccessList> blockAccessList,
       final boolean shouldUpdateHead,
       final boolean shouldRecordBadBlock) {
-    return validateAndProcessBlock(
-        context,
-        block,
-        headerValidationMode,
-        ommerValidationMode,
-        blockAccessList,
-        shouldUpdateHead,
-        shouldRecordBadBlock,
-        false);
-  }
-
-  @Override
-  public BlockProcessingResult validateAndProcessBlock(
-      final ProtocolContext context,
-      final Block block,
-      final HeaderValidationMode headerValidationMode,
-      final HeaderValidationMode ommerValidationMode,
-      final Optional<BlockAccessList> blockAccessList,
-      final boolean shouldUpdateHead,
-      final boolean shouldRecordBadBlock,
-      final boolean collectCodeReads) {
 
     final int blockSize = block.getSize();
     if (blockSize > maxRlpBlockSize) {
@@ -229,7 +210,7 @@ public class MainnetBlockValidator implements BlockValidator {
 
       context.getWorldStateArchive().prepareWorldStateForBlock(block.getHeader(), worldState);
 
-      var result = processBlock(context, worldState, block, blockAccessList, collectCodeReads);
+      var result = processBlock(context, worldState, block, blockAccessList);
       if (result.isFailed()) {
         handleFailedBlockProcessing(block, blockAccessList, result, shouldRecordBadBlock, context);
         return result;
@@ -240,8 +221,8 @@ public class MainnetBlockValidator implements BlockValidator {
             result.getYield().flatMap(BlockProcessingOutputs::getRequests);
         Optional<BlockAccessList> processedBlockAccessList =
             result.getYield().flatMap(BlockProcessingOutputs::getBlockAccessList);
-        Optional<WitnessCodeReads> maybeWitnessCodeReads =
-            result.getYield().flatMap(BlockProcessingOutputs::getWitnessCodeReads);
+        Map<Long, Hash> accessedAncestors =
+            result.getYield().map(BlockProcessingOutputs::getAccessedAncestors).orElse(Map.of());
         long cumulativeBlockGasUsed =
             result.getYield().map(BlockProcessingOutputs::getCumulativeBlockGasUsed).orElse(0L);
         if (!blockBodyValidator.validateBody(
@@ -266,7 +247,7 @@ public class MainnetBlockValidator implements BlockValidator {
                     maybeRequests,
                     processedBlockAccessList,
                     cumulativeBlockGasUsed,
-                    maybeWitnessCodeReads)),
+                    accessedAncestors)),
             result.getNbParallelizedTransactions());
       }
     } catch (MerkleTrieException ex) {
@@ -338,7 +319,7 @@ public class MainnetBlockValidator implements BlockValidator {
   }
 
   /**
-   * Processes a block, returning the result of the processing
+   * Processes a block, returning the result of the processing.
    *
    * @param context the ProtocolContext
    * @param worldState the world state for the parent block state root hash
@@ -351,29 +332,10 @@ public class MainnetBlockValidator implements BlockValidator {
       final MutableWorldState worldState,
       final Block block,
       final Optional<BlockAccessList> blockAccessList) {
-    return processBlock(context, worldState, block, blockAccessList, false);
-  }
-
-  /**
-   * Processes a block, returning the result of the processing.
-   *
-   * @param context the ProtocolContext
-   * @param worldState the world state for the parent block state root hash
-   * @param block the block to be processed
-   * @param blockAccessList optional block access list
-   * @param collectCodeReads whether to collect EIP-8025 witness code reads
-   * @return the result of processing the block
-   */
-  protected BlockProcessingResult processBlock(
-      final ProtocolContext context,
-      final MutableWorldState worldState,
-      final Block block,
-      final Optional<BlockAccessList> blockAccessList,
-      final boolean collectCodeReads) {
     // Must not name a PreprocessingFunction here: MainnetParallelBlockProcessor selects parallel
     // execution by overriding the overloads that omit it.
     return blockProcessor.processBlock(
-        context, context.getBlockchain(), worldState, block, blockAccessList, collectCodeReads);
+        context, context.getBlockchain(), worldState, block, blockAccessList);
   }
 
   @Override
