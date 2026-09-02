@@ -274,10 +274,7 @@ public class BlockchainReferenceTestCaseSpec {
     "expectExceptionHomestead",
     "hasBigInt",
     "rlp_decoded",
-    "receipts",
-    // zkevm (EIP-8025) fixtures: stateless-verifier payloads Besu does not consume
-    "statelessInputBytes",
-    "statelessOutputBytes"
+    "receipts"
   })
   public static class CandidateBlock {
 
@@ -288,7 +285,6 @@ public class BlockchainReferenceTestCaseSpec {
     private final BlockAccessList blockAccessList;
     private final String expectException;
     private final String expectExceptionALL;
-    private final FixtureExecutionWitness executionWitness;
 
     @JsonCreator
     public CandidateBlock(
@@ -306,8 +302,7 @@ public class BlockchainReferenceTestCaseSpec {
             @JsonAlias("rlp_decoded")
             final BlockAccessList blockAccessList,
         @JsonProperty("expectException") final String expectException,
-        @JsonProperty("expectExceptionALL") final String expectExceptionALL,
-        @JsonProperty("executionWitness") final FixtureExecutionWitness executionWitness) {
+        @JsonProperty("expectExceptionALL") final String expectExceptionALL) {
       boolean blockValid = true;
       Bytes rlpAttempt = null;
       try {
@@ -333,7 +328,6 @@ public class BlockchainReferenceTestCaseSpec {
       this.blockAccessList = blockAccessList;
       this.expectException = expectException;
       this.expectExceptionALL = expectExceptionALL;
-      this.executionWitness = executionWitness;
     }
 
     public boolean isValid() {
@@ -378,11 +372,6 @@ public class BlockchainReferenceTestCaseSpec {
 
     public Optional<BlockAccessList> getBlockAccessList() {
       return Optional.ofNullable(blockAccessList);
-    }
-
-    /** EIP-8025 execution witness from zkevm fixtures; empty for all other fixture flavours. */
-    public Optional<FixtureExecutionWitness> getExpectedWitness() {
-      return Optional.ofNullable(executionWitness);
     }
   }
 
