@@ -19,17 +19,8 @@ import org.hyperledger.besu.datatypes.Address;
 import org.apache.tuweni.units.bigints.UInt256;
 
 /**
- * Observes state accesses made during execution.
- *
- * <p>Two consumers share this channel and apply different rules to it. The EIP-7928 block access
- * list uses the account and slot events; the EIP-8025 execution witness uses the code-read events.
- * They are recorded together because the observation points largely coincide, and because a single
- * channel is threaded through the frame stack and the parallel transaction executors exactly once —
- * a second, parallel channel is what allowed witness collection to silently miss speculatively
- * executed transactions.
- *
- * <p>The code-read methods default to no-ops so implementations that only build a block access list
- * need not know about them.
+ * Interface for tracking accessed accounts and storage slots during transaction execution for the
+ * purpose of generating EIP-7928 Block Access Lists.
  */
 public interface Eip7928AccessList {
 
