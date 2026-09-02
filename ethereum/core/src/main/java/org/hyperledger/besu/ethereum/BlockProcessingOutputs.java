@@ -168,7 +168,6 @@ public class BlockProcessingOutputs {
 
   /**
    * Returns the ancestor blocks resolved via BLOCKHASH during processing, keyed by block number.
-   * Always contains at least the parent, which the lookup pre-seeds at construction.
    *
    * @return the accessed ancestors
    */
