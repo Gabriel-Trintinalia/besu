@@ -44,22 +44,6 @@ import org.slf4j.LoggerFactory;
 /**
  * Implements {@code debug_executionWitness}: reconstructs the EIP-8025 execution witness for a
  * previously-imported block by re-executing it against the persisted parent world state.
- *
- * <p>Re-execution is required (rather than reading a stored witness) because state-access patterns
- * (SLOAD/SSTORE, BALANCE, CALL targets, BLOCKHASH ancestors) are only observable at execution time
- * and are not persisted separately. Code reads are recorded by EVM operation hooks that write into
- * the frame's EIP-7928 access observer, merged per transaction by the block access list builder;
- * BLOCKHASH ancestors come from {@code BlockHashLookup#getAccessedAncestors()}. Both are collected
- * into the accessed-ancestor map carried in {@link BlockProcessingOutputs}.
- *
- * <p>Error responses:
- *
- * <ul>
- *   <li>{@link RpcErrorType#BLOCK_NOT_FOUND} — the requested block or its parent header is not in
- *       the local chain (e.g. genesis, which has no on-chain parent).
- *   <li>{@link RpcErrorType#INTERNAL_ERROR} — block re-execution failed, or the world-state archive
- *       is not path-based (Bonsai), or the resulting witness has an empty {@code state} list.
- * </ul>
  */
 public class DebugExecutionWitness extends AbstractBlockParameterOrBlockHashMethod {
 
@@ -144,9 +128,7 @@ public class DebugExecutionWitness extends AbstractBlockParameterOrBlockHashMeth
 
     final BonsaiExecutionWitnessBuilder.Witness witness;
     try {
-      // The block access list is required for witness generation; if it is absent, the block was
-      // not
-      // processed with the BAL feature enabled, and we cannot generate a witness.
+      // The block access list is required for witness generation
       final BlockAccessList blockAccessList =
           result
               .getYield()
@@ -166,10 +148,6 @@ public class DebugExecutionWitness extends AbstractBlockParameterOrBlockHashMeth
                       new IllegalStateException(
                           "block processing produced no yield for block " + blockHeader.getHash()));
 
-      // Pass the BAL (state trie nodes and codes) and the accessed ancestors (headers)
-      // collected during re-execution to the witness builder. The builder is created here rather
-      // than at construction time so that non-Bonsai nodes surface a per-request error instead of
-      // crashing at startup.
       final BonsaiExecutionWitnessBuilder witnessBuilder =
           new BonsaiExecutionWitnessBuilder(
               getBlockchainQueries().getWorldStateArchive(), blockchain);
@@ -179,8 +157,6 @@ public class DebugExecutionWitness extends AbstractBlockParameterOrBlockHashMeth
       return new JsonRpcErrorResponse(reqId, RpcErrorType.INTERNAL_ERROR);
     }
 
-    // Verifying a block needs at least the state root node, so an empty state list means collection
-    // silently produced nothing rather than a witness a stateless verifier could use.
     if (witness.state().isEmpty()) {
       LOG.error("Empty witness state for block {}", blockHeader.getHash());
       return new JsonRpcErrorResponse(reqId, RpcErrorType.INTERNAL_ERROR);

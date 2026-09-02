@@ -52,10 +52,8 @@ public interface BlockHashLookup extends BiFunction<MessageFrame, Long, Hash> {
   }
 
   /**
-   * Block numbers (and their hashes) resolved during this block's execution — at minimum the parent
-   * header (pre-populated at construction), plus any ancestor reached while serving a BLOCKHASH
-   * opcode. Used by EIP-8025 witness assembly to populate the {@code headers} list. Implementations
-   * that do not track accesses should leave this default and return an empty map.
+   * Block numbers and hashes resolved during this block's execution while serving a {@code
+   * BLOCKHASH} opcode. Used by EIP-8025 witness assembly to populate the {@code headers} list.
    *
    * @return unmodifiable view of accessed ancestors keyed by block number
    */

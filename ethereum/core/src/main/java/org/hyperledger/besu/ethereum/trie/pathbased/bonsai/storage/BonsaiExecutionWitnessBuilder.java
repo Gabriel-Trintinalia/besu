@@ -48,8 +48,7 @@ import org.apache.tuweni.bytes.Bytes;
 
 /**
  * Builds the EIP-8025 execution witness (state trie nodes, contract codes, and ancestor headers)
- * for a single block from a Bonsai world state and trie log. Used by both {@code
- * debug_executionWitness} and reference-test tooling so that both paths emit identical output.
+ * for a single block from a Bonsai world state and trie log.
  */
 public class BonsaiExecutionWitnessBuilder {
 
