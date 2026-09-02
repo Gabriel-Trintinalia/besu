@@ -236,6 +236,7 @@ public abstract class AbstractCreateOperation extends AbstractOperation {
     if (parent.getEip7928AccessList().isPresent()) {
       builder.eip7928AccessList(parent.getEip7928AccessList().get());
     }
+
     builder.build();
 
     parent.setState(MessageFrame.State.CODE_SUSPENDED);

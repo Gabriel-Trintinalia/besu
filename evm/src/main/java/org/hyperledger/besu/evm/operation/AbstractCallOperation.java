@@ -252,8 +252,9 @@ public abstract class AbstractCallOperation extends AbstractOperation {
     if (contract != null) {
       final Bytes contractCode = contract.getCode();
       if (hasCodeDelegation(contractCode)) {
-        final Address target = getTargetAddress(contractCode);
-        frame.getEip7928AccessList().ifPresent(t -> t.addTouchedAccount(target));
+        frame
+            .getEip7928AccessList()
+            .ifPresent(t -> t.addTouchedAccount(getTargetAddress(contractCode)));
       }
     }
 
@@ -305,6 +306,7 @@ public abstract class AbstractCallOperation extends AbstractOperation {
     if (frame.getEip7928AccessList().isPresent()) {
       builder.eip7928AccessList(frame.getEip7928AccessList().get());
     }
+
     builder.build();
     // see note in stack depth check about incrementing cost
     frame.incrementRemainingGas(cost);
