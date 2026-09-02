@@ -237,7 +237,8 @@ public abstract class AbstractBlockCreator implements AsyncBlockCreator {
               .getBlockAccessListFactory()
               .map(BlockAccessListFactory::newBlockAccessListBuilder);
       final Optional<AccessLocationTracker> preExecutionAccessLocationTracker =
-          blockAccessListBuilder.map(b -> b.createPreExecutionAccessLocationTracker());
+          blockAccessListBuilder.map(
+              b -> BlockAccessListBuilder.createPreExecutionAccessLocationTracker());
 
       BlockProcessingContext blockProcessingContext =
           new BlockProcessingContext(

@@ -319,7 +319,7 @@ public class MainnetBlockValidator implements BlockValidator {
   }
 
   /**
-   * Processes a block, returning the result of the processing.
+   * Processes a block, returning the result of the processing
    *
    * @param context the ProtocolContext
    * @param worldState the world state for the parent block state root hash
@@ -332,8 +332,7 @@ public class MainnetBlockValidator implements BlockValidator {
       final MutableWorldState worldState,
       final Block block,
       final Optional<BlockAccessList> blockAccessList) {
-    // Must not name a PreprocessingFunction here: MainnetParallelBlockProcessor selects parallel
-    // execution by overriding the overloads that omit it.
+
     return blockProcessor.processBlock(
         context, context.getBlockchain(), worldState, block, blockAccessList);
   }

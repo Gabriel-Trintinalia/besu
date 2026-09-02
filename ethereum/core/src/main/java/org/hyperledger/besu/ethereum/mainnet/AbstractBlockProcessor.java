@@ -254,7 +254,7 @@ public abstract class AbstractBlockProcessor implements BlockProcessor {
     try {
       final Optional<AccessLocationTracker> preExecutionAccessLocationTracker =
           blockAccessListBuilder.map(
-              BlockAccessListBuilder::createPreExecutionAccessLocationTracker);
+              b -> BlockAccessListBuilder.createPreExecutionAccessLocationTracker());
       final BlockProcessingContext blockProcessingContext =
           new BlockProcessingContext(
               blockHeader,
@@ -411,7 +411,9 @@ public abstract class AbstractBlockProcessor implements BlockProcessor {
 
       final Optional<AccessLocationTracker> postExecutionAccessLocationTracker =
           blockAccessListBuilder.map(
-              b -> b.createPostExecutionAccessLocationTracker(transactions.size()));
+              b ->
+                  BlockAccessListBuilder.createPostExecutionAccessLocationTracker(
+                      transactions.size()));
 
       final Optional<WithdrawalsProcessor> maybeWithdrawalsProcessor =
           protocolSpec.getWithdrawalsProcessor();

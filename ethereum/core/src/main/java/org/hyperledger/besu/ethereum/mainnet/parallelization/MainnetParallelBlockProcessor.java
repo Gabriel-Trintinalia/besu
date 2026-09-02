@@ -134,11 +134,6 @@ public class MainnetParallelBlockProcessor extends MainnetBlockProcessor {
     return processBlock(protocolContext, blockchain, worldState, block, Optional.empty());
   }
 
-  /**
-   * Every {@code processBlock} overload that does not take an explicit {@code
-   * PreprocessingFunction} must be overridden here, because that is how this class selects parallel
-   * execution. An overload left to the superclass silently runs transactions sequentially.
-   */
   @Override
   public BlockProcessingResult processBlock(
       final ProtocolContext protocolContext,

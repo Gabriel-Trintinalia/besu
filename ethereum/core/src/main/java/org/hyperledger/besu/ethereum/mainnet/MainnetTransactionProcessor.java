@@ -848,7 +848,7 @@ public class MainnetTransactionProcessor {
         // EIP-7928: the load precedes the charge, so the recipient stays listed even when its own
         // entry charge runs out of gas — but an authorization out-of-gas, which comes first,
         // leaves it out.
-        initialFrame.getEip7928AccessList().ifPresent(t -> t.addTouchedAccount(to));
+        initialFrame.getEip7928AccessList().ifPresent(bal -> bal.addTouchedAccount(to));
         if (stateGasActive) {
           // Measured because the leaf it pays for rolls back with a failed transaction, unlike a
           // delegation, which survives one.
@@ -881,7 +881,9 @@ public class MainnetTransactionProcessor {
       final List<CodeDelegationResult.AuthorityAccess> delegationAccesses) {
     final long accountWriteCost = gasCalculator.getAccountWriteGasCost();
     for (final CodeDelegationResult.AuthorityAccess access : delegationAccesses) {
-      initialFrame.getEip7928AccessList().ifPresent(t -> t.addTouchedAccount(access.authority()));
+      initialFrame
+          .getEip7928AccessList()
+          .ifPresent(bal -> bal.addTouchedAccount(access.authority()));
       if (access.newAccount()
           && !initialFrame.consumeStateGas(stateGasCalc.emptyAccountDelegationStateGas())) {
         return false;

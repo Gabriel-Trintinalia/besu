@@ -187,16 +187,16 @@ public record BlockAccessList(List<AccountChanges> accountChanges, Optional<Byte
   public static class BlockAccessListBuilder {
     final Map<Address, AccountBuilder> accountChangesBuilders = new HashMap<>();
 
-    public AccessLocationTracker createPreExecutionAccessLocationTracker() {
+    public static AccessLocationTracker createPreExecutionAccessLocationTracker() {
       return new AccessLocationTracker(0);
     }
 
-    public AccessLocationTracker createPostExecutionAccessLocationTracker(
+    public static AccessLocationTracker createPostExecutionAccessLocationTracker(
         final int numberOfTransactions) {
       return new AccessLocationTracker((long) numberOfTransactions + 1L);
     }
 
-    public AccessLocationTracker createTransactionAccessLocationTracker(
+    public static AccessLocationTracker createTransactionAccessLocationTracker(
         final int transactionLocation) {
       return new AccessLocationTracker((long) transactionLocation + 1L);
     }
