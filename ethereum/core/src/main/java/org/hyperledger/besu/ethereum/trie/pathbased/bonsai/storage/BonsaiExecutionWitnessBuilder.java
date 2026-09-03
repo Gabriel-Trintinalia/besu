@@ -177,8 +177,8 @@ public class BonsaiExecutionWitnessBuilder {
    * pre-state designator in the witness at the cost of carrying some code the verifier could
    * rebuild from the block body.
    */
-  private List<String> buildCodes(
-      final BonsaiWorldState worldView, final BlockAccessList blockAccessList) {
+  @VisibleForTesting
+  List<String> buildCodes(final BonsaiWorldState worldView, final BlockAccessList blockAccessList) {
     final Set<String> resultSet = new HashSet<>();
     for (final var accountChanges : blockAccessList.accountChanges()) {
       final Address address = accountChanges.address();

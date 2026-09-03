@@ -105,8 +105,9 @@ public class DebugExecutionWitness extends AbstractBlockParameterOrBlockHashMeth
     }
 
     // Re-execute the block against its parent state. Validation is skipped (NONE/NONE) because the
-    // block is already imported. The WitnessCodeTracker accumulates every code read across all
-    // transactions; the BAL and ancestor accesses come from BlockProcessingOutputs.
+    // block is already imported. Re-execution is what yields the two things the witness needs and
+    // the database does not hold: the block access list, from which the codes are derived, and the
+    // ancestors the BLOCKHASH lookup resolved. Both arrive on BlockProcessingOutputs.
     // shouldPersist=false keeps the world state unchanged; shouldRecordBadBlock=false suppresses
     // bad-block storage for what is known to be a valid, imported block.
     final BlockProcessingResult result =

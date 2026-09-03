@@ -61,7 +61,9 @@ public class BlockchainBasedBlockHashLookup implements BlockHashLookup {
     this.searchStartHeader = currentBlock;
     this.blockchain = blockchain;
     this.hashByNumber = hashByNumber;
-    hashByNumber.putIfAbsent(currentBlock.getNumber() - 1, currentBlock.getParentHash());
+    if (currentBlock.getNumber() > 0) {
+      hashByNumber.putIfAbsent(currentBlock.getNumber() - 1, currentBlock.getParentHash());
+    }
   }
 
   @Override
