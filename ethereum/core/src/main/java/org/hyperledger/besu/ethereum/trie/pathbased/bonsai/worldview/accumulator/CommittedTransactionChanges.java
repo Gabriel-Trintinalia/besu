@@ -1,5 +1,5 @@
 /*
- * Copyright contributors to Besu.
+ * Copyright contributors to Hyperledger Besu.
  *
  * Licensed under the Apache License, Version 2.0 (the "License"); you may not use this file except in compliance with
  * the License. You may obtain a copy of the License at
@@ -12,19 +12,15 @@
  *
  * SPDX-License-Identifier: Apache-2.0
  */
-package org.hyperledger.besu.plugin.services;
+package org.hyperledger.besu.ethereum.trie.pathbased.bonsai.worldview.accumulator;
 
-import org.hyperledger.besu.plugin.Unstable;
-import org.hyperledger.besu.plugin.services.txvalidator.TransactionValidationRule;
+import org.hyperledger.besu.datatypes.Address;
 
-/** Service to add additional transaction validation rules */
-@Unstable
-public interface TransactionValidatorService extends BesuService {
+import java.util.Set;
 
-  /**
-   * Registers a callback for extending the transaction validation with custom rules.
-   *
-   * @param rule The rule to register
-   */
-  void registerTransactionValidatorRule(final TransactionValidationRule rule);
+/** Immutable snapshot of addresses whose state was modified by a single committed transaction. */
+public record CommittedTransactionChanges(Set<Address> changedAddresses) {
+  public CommittedTransactionChanges(final Set<Address> changedAddresses) {
+    this.changedAddresses = Set.copyOf(changedAddresses);
+  }
 }
