@@ -29,7 +29,6 @@ import org.hyperledger.besu.ethereum.trie.pathbased.bonsai.worldview.cache.NoOpB
 import org.hyperledger.besu.ethereum.trie.pathbased.common.code.PathBasedCodeCache;
 import org.hyperledger.besu.ethereum.trie.pathbased.common.provider.PathBasedWorldStateProvider;
 import org.hyperledger.besu.ethereum.trie.pathbased.common.trielog.NoOpTrieLogManager;
-import org.hyperledger.besu.ethereum.trie.pathbased.common.worldview.WorldStateConfig;
 import org.hyperledger.besu.ethereum.worldstate.WorldStateArchive;
 import org.hyperledger.besu.evm.internal.EvmConfiguration;
 import org.hyperledger.besu.metrics.noop.NoOpMetricsSystem;
@@ -134,7 +133,7 @@ public class BonsaiExecutionWitnessBuilder {
         new BonsaiWorldStateWitnessStorage(
             new NoOpMetricsSystem(), worldView.getWorldStateStorage());
     final PathBasedCodeCache codeCache = new PathBasedCodeCache();
-    final BonsaiWorldState witnessWorldState =
+    try (final BonsaiWorldState witnessWorldState =
         new BonsaiWorldState(
             witnessStorage,
             new NoOpBonsaiCachedMerkleTrieLoader(),
@@ -142,28 +141,31 @@ public class BonsaiExecutionWitnessBuilder {
                 witnessStorage, EvmConfiguration.DEFAULT, codeCache),
             new NoOpTrieLogManager(),
             EvmConfiguration.DEFAULT,
-            WorldStateConfig.newBuilder().build(),
-            codeCache);
+            worldStateProvider.getWorldStateSharedSpec(),
+            codeCache)) {
 
-    final BonsaiWorldStateUpdateAccumulator updater =
-        (BonsaiWorldStateUpdateAccumulator) witnessWorldState.updater();
+      final BonsaiWorldStateUpdateAccumulator updater =
+          (BonsaiWorldStateUpdateAccumulator) witnessWorldState.updater();
 
-    blockAccessList
-        .accountChanges()
-        .forEach(
-            ac -> {
-              updater.getAccount(ac.address());
-              ac.storageReads()
-                  .forEach(sr -> updater.getStorageValueByStorageSlotKey(ac.address(), sr.slot()));
-              ac.storageChanges()
-                  .forEach(sc -> updater.getStorageValueByStorageSlotKey(ac.address(), sc.slot()));
-            });
+      blockAccessList
+          .accountChanges()
+          .forEach(
+              ac -> {
+                updater.getAccount(ac.address());
+                ac.storageReads()
+                    .forEach(
+                        sr -> updater.getStorageValueByStorageSlotKey(ac.address(), sr.slot()));
+                ac.storageChanges()
+                    .forEach(
+                        sc -> updater.getStorageValueByStorageSlotKey(ac.address(), sc.slot()));
+              });
 
-    updater.rollForward(trieLog);
-    updater.commit();
-    witnessWorldState.persist(blockHeader);
+      updater.rollForward(trieLog);
+      updater.commit();
+      witnessWorldState.persist(blockHeader);
 
-    return witnessStorage.getTrieNodes().stream().map(Bytes::toHexString).sorted().toList();
+      return witnessStorage.getTrieNodes().stream().map(Bytes::toHexString).sorted().toList();
+    }
   }
 
   /**
@@ -204,7 +206,8 @@ public class BonsaiExecutionWitnessBuilder {
     // canonical-by-height, the wrong ancestry for a block on a fork.
     final Deque<String> result = new ArrayDeque<>();
     Hash hash = blockHeader.getParentHash();
-    for (long number = blockHeader.getNumber() - 1; number >= oldestAncestor; number--) {
+    final long lowerBound = Math.max(0L, oldestAncestor);
+    for (long number = blockHeader.getNumber() - 1; number >= lowerBound; number--) {
       final BlockHeader ancestor = headerByHash(hash);
       result.addFirst(RLP.encode(ancestor::writeTo).toHexString()); // addFirst: EIP-8025 ascending
       hash = ancestor.getParentHash();

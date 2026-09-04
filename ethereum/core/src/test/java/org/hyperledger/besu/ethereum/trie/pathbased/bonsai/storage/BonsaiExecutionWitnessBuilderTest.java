@@ -280,8 +280,8 @@ class BonsaiExecutionWitnessBuilderTest {
     final List<BlockHeader> headers = chain(3, 0);
     registerByHash(headers);
 
-    // oldestAncestor below genesis must terminate rather than walk past block 0.
-    final List<String> result = builder.buildHeaders(0L, headers.get(2));
+    // Genuinely below genesis: -1 would otherwise resolve the zero parent hash and throw.
+    final List<String> result = builder.buildHeaders(-1L, headers.get(2));
 
     assertThat(result).containsExactly(rlp(headers.get(0)), rlp(headers.get(1)));
   }
