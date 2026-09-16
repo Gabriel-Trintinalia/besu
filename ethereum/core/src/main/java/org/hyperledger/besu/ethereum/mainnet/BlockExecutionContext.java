@@ -103,6 +103,20 @@ public class BlockExecutionContext {
     return new Builder();
   }
 
+  /**
+   * Returns a new {@link Builder} pre-populated with this context's values.
+   *
+   * @return a builder seeded from this context
+   */
+  public Builder toBuilder() {
+    return new Builder()
+        .protocolContext(protocolContext)
+        .worldState(worldState)
+        .block(block)
+        .blockAccessList(blockAccessList)
+        .preprocessingFunction(preprocessingFunction);
+  }
+
   /** Builder for {@link BlockExecutionContext}. */
   public static class Builder {
 

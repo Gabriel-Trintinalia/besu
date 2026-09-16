@@ -124,11 +124,7 @@ public class MainnetParallelBlockProcessor extends MainnetBlockProcessor {
   @Override
   public BlockProcessingResult processBlock(final BlockExecutionContext context) {
     final BlockExecutionContext parallelContext =
-        BlockExecutionContext.builder()
-            .protocolContext(context.getProtocolContext())
-            .worldState(context.getWorldState())
-            .block(context.getBlock())
-            .blockAccessList(context.getBlockAccessList())
+        context.toBuilder()
             .preprocessingFunction(
                 new ParallelTransactionPreprocessing(
                     transactionProcessor, executor, balConfiguration))
