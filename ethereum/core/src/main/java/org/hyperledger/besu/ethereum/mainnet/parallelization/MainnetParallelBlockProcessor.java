@@ -134,6 +134,7 @@ public class MainnetParallelBlockProcessor extends MainnetBlockProcessor {
             .worldState(context.getWorldState())
             .block(context.getBlock())
             .blockAccessList(context.getBlockAccessList())
+            // Add the parallel preprocessing function to the context
             .preprocessingFunction(createParallelPreprocessing())
             .build();
     final BlockProcessingResult blockProcessingResult = super.processBlock(parallelContext);
@@ -146,6 +147,7 @@ public class MainnetParallelBlockProcessor extends MainnetBlockProcessor {
       if (context.getWorldState() instanceof BonsaiWorldState) {
         ((BonsaiWorldStateUpdateAccumulator) context.getWorldState().updater()).reset();
       }
+      // Create a new BlockExecutionContext without the parallel preprocessing function
       final BlockExecutionContext sequentialContext =
           BlockExecutionContext.builder()
               .protocolContext(context.getProtocolContext())
