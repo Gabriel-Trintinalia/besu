@@ -50,7 +50,7 @@ public class MainnetParallelBlockProcessor extends MainnetBlockProcessor {
   private final Optional<Counter> confirmedParallelizedTransactionCounter;
   private final Optional<Counter> conflictingButCachedTransactionCounter;
 
-  private static final Executor executor = BlockProcessingExecutors.cpuExecutor();
+  static final Executor DEFAULT_EXECUTOR = BlockProcessingExecutors.cpuExecutor();
 
   public MainnetParallelBlockProcessor(
       final MainnetTransactionProcessor transactionProcessor,
@@ -121,13 +121,20 @@ public class MainnetParallelBlockProcessor extends MainnetBlockProcessor {
                     accessLocationTracker));
   }
 
+  protected PreprocessingFunction createParallelPreprocessing() {
+    return new ParallelTransactionPreprocessing(
+        transactionProcessor, DEFAULT_EXECUTOR, balConfiguration);
+  }
+
   @Override
   public BlockProcessingResult processBlock(final BlockExecutionContext context) {
     final BlockExecutionContext parallelContext =
-        context.toBuilder()
-            .preprocessingFunction(
-                new ParallelTransactionPreprocessing(
-                    transactionProcessor, executor, balConfiguration))
+        BlockExecutionContext.builder()
+            .protocolContext(context.getProtocolContext())
+            .worldState(context.getWorldState())
+            .block(context.getBlock())
+            .blockAccessList(context.getBlockAccessList())
+            .preprocessingFunction(createParallelPreprocessing())
             .build();
     final BlockProcessingResult blockProcessingResult = super.processBlock(parallelContext);
     if (blockProcessingResult.isFailed()) {
@@ -139,7 +146,14 @@ public class MainnetParallelBlockProcessor extends MainnetBlockProcessor {
       if (context.getWorldState() instanceof BonsaiWorldState) {
         ((BonsaiWorldStateUpdateAccumulator) context.getWorldState().updater()).reset();
       }
-      return super.processBlock(context);
+      final BlockExecutionContext sequentialContext =
+          BlockExecutionContext.builder()
+              .protocolContext(context.getProtocolContext())
+              .worldState(context.getWorldState())
+              .block(context.getBlock())
+              .blockAccessList(context.getBlockAccessList())
+              .build();
+      return super.processBlock(sequentialContext);
     }
     return blockProcessingResult;
   }

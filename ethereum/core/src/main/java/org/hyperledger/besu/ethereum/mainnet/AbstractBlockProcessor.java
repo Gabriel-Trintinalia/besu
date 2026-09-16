@@ -158,7 +158,7 @@ public abstract class AbstractBlockProcessor implements BlockProcessor {
   @Override
   public BlockProcessingResult processBlock(final BlockExecutionContext context) {
     final ProtocolContext protocolContext = context.getProtocolContext();
-    final Blockchain blockchain = context.getProtocolContext().getBlockchain();
+    final Blockchain blockchain = protocolContext.getBlockchain();
     final MutableWorldState worldState = context.getWorldState();
     final Block block = context.getBlock();
     final Optional<BlockAccessList> blockAccessList = context.getBlockAccessList();

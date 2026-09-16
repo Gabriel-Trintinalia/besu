@@ -147,13 +147,9 @@ public abstract class AbstractParallelBlockProcessorIntegrationTest {
     }
 
     @Override
-    public BlockProcessingResult processBlock(final BlockExecutionContext context) {
-      return super.processBlock(
-          context.toBuilder()
-              .preprocessingFunction(
-                  new ParallelTransactionPreprocessing(
-                      transactionProcessor, Runnable::run, balConfiguration))
-              .build());
+    protected PreprocessingFunction createParallelPreprocessing() {
+      return new ParallelTransactionPreprocessing(
+          transactionProcessor, Runnable::run, balConfiguration);
     }
   }
 

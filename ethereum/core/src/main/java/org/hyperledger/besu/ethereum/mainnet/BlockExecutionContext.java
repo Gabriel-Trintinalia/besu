@@ -21,7 +21,10 @@ import org.hyperledger.besu.ethereum.mainnet.AbstractBlockProcessor.Preprocessin
 import org.hyperledger.besu.ethereum.mainnet.block.access.list.BlockAccessList;
 import org.hyperledger.besu.plugin.services.worldstate.MutableWorldState;
 
+import java.util.Objects;
 import java.util.Optional;
+
+import org.jspecify.annotations.Nullable;
 
 /**
  * Encapsulates all inputs required to execute a block via {@link BlockProcessor#processBlock}.
@@ -37,7 +40,7 @@ public class BlockExecutionContext {
   private final ProtocolContext protocolContext;
   private final MutableWorldState worldState;
   private final Block block;
-  private final Optional<BlockAccessList> blockAccessList;
+  @Nullable private final BlockAccessList blockAccessList;
   private final PreprocessingFunction preprocessingFunction;
 
   private BlockExecutionContext(final Builder builder) {
@@ -82,7 +85,7 @@ public class BlockExecutionContext {
    *     one during execution
    */
   public Optional<BlockAccessList> getBlockAccessList() {
-    return blockAccessList;
+    return Optional.ofNullable(blockAccessList);
   }
 
   /**
@@ -103,27 +106,13 @@ public class BlockExecutionContext {
     return new Builder();
   }
 
-  /**
-   * Returns a new {@link Builder} pre-populated with this context's values.
-   *
-   * @return a builder seeded from this context
-   */
-  public Builder toBuilder() {
-    return new Builder()
-        .protocolContext(protocolContext)
-        .worldState(worldState)
-        .block(block)
-        .blockAccessList(blockAccessList)
-        .preprocessingFunction(preprocessingFunction);
-  }
-
   /** Builder for {@link BlockExecutionContext}. */
   public static class Builder {
 
     private ProtocolContext protocolContext;
     private MutableWorldState worldState;
     private Block block;
-    private Optional<BlockAccessList> blockAccessList = Optional.empty();
+    @Nullable private BlockAccessList blockAccessList = null;
     private PreprocessingFunction preprocessingFunction = new NoPreprocessing();
 
     /**
@@ -166,7 +155,8 @@ public class BlockExecutionContext {
      * @return this builder
      */
     public Builder blockAccessList(final Optional<BlockAccessList> blockAccessList) {
-      this.blockAccessList = blockAccessList;
+      this.blockAccessList =
+          Objects.requireNonNull(blockAccessList, "blockAccessList").orElse(null);
       return this;
     }
 
@@ -177,7 +167,8 @@ public class BlockExecutionContext {
      * @return this builder
      */
     public Builder preprocessingFunction(final PreprocessingFunction preprocessingFunction) {
-      this.preprocessingFunction = preprocessingFunction;
+      this.preprocessingFunction =
+          Objects.requireNonNull(preprocessingFunction, "preprocessingFunction");
       return this;
     }
 
