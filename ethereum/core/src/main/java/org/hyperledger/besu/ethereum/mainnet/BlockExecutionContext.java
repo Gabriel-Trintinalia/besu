@@ -19,10 +19,12 @@ import org.hyperledger.besu.ethereum.core.Block;
 import org.hyperledger.besu.ethereum.mainnet.AbstractBlockProcessor.PreprocessingFunction;
 import org.hyperledger.besu.ethereum.mainnet.AbstractBlockProcessor.PreprocessingFunction.NoPreprocessing;
 import org.hyperledger.besu.ethereum.mainnet.block.access.list.BlockAccessList;
+import org.hyperledger.besu.ethereum.mainnet.block.access.list.BlockAccessListFactory;
 import org.hyperledger.besu.plugin.services.worldstate.MutableWorldState;
 
 import java.util.Objects;
 import java.util.Optional;
+import java.util.function.Function;
 
 import org.jspecify.annotations.Nullable;
 
@@ -42,6 +44,7 @@ public class BlockExecutionContext {
   private final Block block;
   @Nullable private final BlockAccessList blockAccessList;
   private final PreprocessingFunction preprocessingFunction;
+  private final Function<ProtocolSpec, Optional<BlockAccessListFactory>> blockAccessListFactory;
 
   private BlockExecutionContext(final Builder builder) {
     this.protocolContext = builder.protocolContext;
@@ -49,6 +52,7 @@ public class BlockExecutionContext {
     this.block = builder.block;
     this.blockAccessList = builder.blockAccessList;
     this.preprocessingFunction = builder.preprocessingFunction;
+    this.blockAccessListFactory = builder.blockAccessListFactory;
   }
 
   /**
@@ -97,6 +101,10 @@ public class BlockExecutionContext {
     return preprocessingFunction;
   }
 
+  public Function<ProtocolSpec, Optional<BlockAccessListFactory>> getBlockAccessListFactory() {
+    return blockAccessListFactory;
+  }
+
   /**
    * Returns a new {@link Builder}.
    *
@@ -114,6 +122,8 @@ public class BlockExecutionContext {
     private Block block;
     @Nullable private BlockAccessList blockAccessList = null;
     private PreprocessingFunction preprocessingFunction = new NoPreprocessing();
+    private Function<ProtocolSpec, Optional<BlockAccessListFactory>> blockAccessListFactory =
+        ProtocolSpec::getBlockAccessListFactory;
 
     /**
      * Sets the protocol context (required).
@@ -169,6 +179,19 @@ public class BlockExecutionContext {
     public Builder preprocessingFunction(final PreprocessingFunction preprocessingFunction) {
       this.preprocessingFunction =
           Objects.requireNonNull(preprocessingFunction, "preprocessingFunction");
+      return this;
+    }
+
+    /**
+     * Sets the optional block access list factory.
+     *
+     * @param blockAccessListFactory a function to obtain a block access list factory from the
+     *     protocol spec (optional)
+     * @return this builder
+     */
+    public Builder blockAccessListFactory(
+        final Function<ProtocolSpec, Optional<BlockAccessListFactory>> blockAccessListFactory) {
+      this.blockAccessListFactory = blockAccessListFactory;
       return this;
     }
 

@@ -198,10 +198,10 @@ public abstract class AbstractBlockProcessor implements BlockProcessor {
             .forBlock(protocolContext, blockHeader, blockAccessList, worldState.isStorageFrozen())
             .timed(blockProcessingMetrics.stateRootCalculationTimer());
 
+    final Optional<BlockAccessListFactory> blockAccessListFactory =
+        context.getBlockAccessListFactory().apply(protocolSpec);
     final Optional<BlockAccessListBuilder> blockAccessListBuilder =
-        protocolSpec
-            .getBlockAccessListFactory()
-            .map(BlockAccessListFactory::newBlockAccessListBuilder);
+        blockAccessListFactory.map(BlockAccessListFactory::newBlockAccessListBuilder);
 
     Optional<PreprocessingContext> preProcessingContext = Optional.empty();
     try {

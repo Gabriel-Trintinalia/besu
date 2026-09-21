@@ -18,6 +18,8 @@ import org.hyperledger.besu.datatypes.Address;
 import org.hyperledger.besu.datatypes.Wei;
 import org.hyperledger.besu.ethereum.BlockProcessingResult;
 import org.hyperledger.besu.ethereum.core.Transaction;
+import org.hyperledger.besu.ethereum.mainnet.AbstractBlockProcessor.PreprocessingFunction;
+import org.hyperledger.besu.ethereum.mainnet.AbstractBlockProcessor.PreprocessingFunction.NoPreprocessing;
 import org.hyperledger.besu.ethereum.mainnet.BalConfiguration;
 import org.hyperledger.besu.ethereum.mainnet.BlockExecutionContext;
 import org.hyperledger.besu.ethereum.mainnet.BlockProcessor;
@@ -128,14 +130,17 @@ public class MainnetParallelBlockProcessor extends MainnetBlockProcessor {
 
   @Override
   public BlockProcessingResult processBlock(final BlockExecutionContext context) {
+    final PreprocessingFunction preprocessing =
+        context.getPreprocessingFunction() instanceof NoPreprocessing
+            ? createParallelPreprocessing()
+            : context.getPreprocessingFunction();
     final BlockExecutionContext parallelContext =
         BlockExecutionContext.builder()
             .protocolContext(context.getProtocolContext())
             .worldState(context.getWorldState())
             .block(context.getBlock())
             .blockAccessList(context.getBlockAccessList())
-            // Add the parallel preprocessing function to the context
-            .preprocessingFunction(createParallelPreprocessing())
+            .preprocessingFunction(preprocessing)
             .build();
     final BlockProcessingResult blockProcessingResult = super.processBlock(parallelContext);
     if (blockProcessingResult.isFailed()) {
