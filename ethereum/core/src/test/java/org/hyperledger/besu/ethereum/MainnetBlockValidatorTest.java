@@ -123,9 +123,6 @@ public class MainnetBlockValidatorTest {
     when(blockProcessor.processBlock(
             eq(protocolContext), any(), any(), any(), eq(Optional.empty())))
         .thenReturn(successfulProcessingResult);
-    when(blockProcessor.processBlock(
-            eq(protocolContext), any(), any(), any(), eq(Optional.empty())))
-        .thenReturn(successfulProcessingResult);
 
     assertNoBadBlocks();
   }

@@ -21,6 +21,7 @@ import org.hyperledger.besu.datatypes.Hash;
 import org.hyperledger.besu.ethereum.BlockProcessingOutputs;
 import org.hyperledger.besu.ethereum.BlockProcessingResult;
 import org.hyperledger.besu.ethereum.ProtocolContext;
+import org.hyperledger.besu.ethereum.WitnessCodeReads;
 import org.hyperledger.besu.ethereum.chain.BadBlockManager;
 import org.hyperledger.besu.ethereum.chain.Blockchain;
 import org.hyperledger.besu.ethereum.chain.MutableBlockchain;
@@ -225,10 +226,16 @@ public class ZkevmWitnessReferenceTestTools {
         .as("accessed ancestors for block %s, needed to build its expected witness", block.getHash())
         .isNotNull();
 
+    final WitnessCodeReads witnessCodeReads =
+        processingResult.getYield().flatMap(BlockProcessingOutputs::getWitnessCodeReads).orElse(null);
+    assertThat(witnessCodeReads)
+        .as("witness code reads for block %s, needed to build its expected witness", block.getHash())
+        .isNotNull();
+
     final FixtureExecutionWitness expected = expectedWitnessOpt.get();
     final BonsaiExecutionWitnessBuilder.Witness got =
         new BonsaiExecutionWitnessBuilder(ctx.getWorldStateArchive(), ctx.getBlockchain())
-            .buildWitness(block.getHeader(), blockAccessList, accessedAncestors);
+            .buildWitness(block.getHeader(), blockAccessList, accessedAncestors, witnessCodeReads);
 
     logWitnessDiff("state", got.state(), expected.state(), block.getHash());
     logWitnessDiff("codes", got.codes(), expected.codes(), block.getHash());

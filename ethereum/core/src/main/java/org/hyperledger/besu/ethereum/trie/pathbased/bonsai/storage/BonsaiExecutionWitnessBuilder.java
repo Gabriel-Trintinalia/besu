@@ -18,6 +18,7 @@ import static org.hyperledger.besu.ethereum.worldstate.WorldStateQueryParams.wit
 
 import org.hyperledger.besu.datatypes.Address;
 import org.hyperledger.besu.datatypes.Hash;
+import org.hyperledger.besu.ethereum.WitnessCodeReads;
 import org.hyperledger.besu.ethereum.chain.Blockchain;
 import org.hyperledger.besu.ethereum.core.BlockHeader;
 import org.hyperledger.besu.ethereum.mainnet.block.access.list.BlockAccessList;
@@ -41,6 +42,7 @@ import java.util.HashSet;
 import java.util.List;
 import java.util.Map;
 import java.util.Set;
+import java.util.stream.Stream;
 
 import com.google.common.annotations.VisibleForTesting;
 import org.apache.tuweni.bytes.Bytes;
@@ -67,17 +69,15 @@ public class BonsaiExecutionWitnessBuilder {
 
   /**
    * Builds the EIP-8025 execution witness (state trie nodes, codes, headers) for a block. Uses the
-   * TrieLog + BAL for {@code state}, the BAL's touched accounts for {@code codes}, and the oldest
-   * accessed ancestor in {@code accessedAncestors} for {@code headers}.
-   *
-   * <p>Codes are derived from the EIP-7928 block access list rather than from instrumented
-   * code-read tracking. Touched accounts are a superset of the accounts whose code the EVM actually
-   * read, so the resulting witness is expected to over-approximate {@code codes}.
+   * TrieLog + BAL for {@code state}, the {@link WitnessCodeReads}'s accumulated code-read sets for
+   * {@code codes}, and the oldest accessed ancestor in {@code accessedAncestors} for {@code
+   * headers}.
    */
   public Witness buildWitness(
       final BlockHeader blockHeader,
       final BlockAccessList blockAccessList,
-      final Map<Long, Hash> accessedAncestors) {
+      final Map<Long, Hash> accessedAncestors,
+      final WitnessCodeReads witnessCodeReads) {
 
     final TrieLog trieLog =
         worldStateProvider
@@ -102,7 +102,17 @@ public class BonsaiExecutionWitnessBuilder {
         throw new IllegalStateException("parent world state is not a BonsaiWorldState");
       }
       final List<String> state = buildTrieNodes(blockHeader, trieLog, ws, blockAccessList);
-      final List<String> codes = buildCodes(ws, blockAccessList);
+      // Addresses whose code was written during the block (CREATE, or a 7702 delegation designator
+      // set this block). A stateless verifier already reconstructs this code from the block itself,
+      // so an execution read that observed the in-block code must not pull the account's pre-state
+      // code into the witness — mirroring EELS get_code, which skips reads served from code_writes.
+      final Set<Address> inBlockCodeChanged = buildCodeDeployments(blockAccessList);
+      final List<String> codes =
+          buildCodes(
+              ws,
+              witnessCodeReads.codeReads(),
+              witnessCodeReads.authorizationCodeReads(),
+              inBlockCodeChanged);
       final long oldestAncestor =
           accessedAncestors.keySet().stream()
               .min(Long::compare)
@@ -169,29 +179,54 @@ public class BonsaiExecutionWitnessBuilder {
   }
 
   /**
-   * Returns the pre-state contract bytecodes for every account the block access list reports as
-   * touched, deduplicated and sorted. Empty code is never included.
+   * Returns the pre-state contract bytecodes required by a stateless verifier, deduplicated and
+   * sorted, implementing the EIP-8025 {@code get_witness_codes} rule.
    *
-   * <p>The block access list is the substitute for instrumented code-read tracking: any account
-   * whose code the EVM read must have been touched, so this over-approximates the EIP-8025 {@code
-   * get_witness_codes} rule — it also picks up accounts the EVM only read or wrote balance/nonce
-   * for. It is likewise unfiltered by in-block code writes, which keeps an EIP-7702 authority's
-   * pre-state designator in the witness at the cost of carrying some code the verifier could
-   * rebuild from the block body.
+   * <p>{@code preStateAddresses} (EIP-7702 authority reads) are always included — the same
+   * transaction that reads the authority's pre-state code also writes new code to it, so the
+   * verifier needs the old version even though the address appears in {@code inBlockCodeChanged}.
+   * {@code executionAddresses} are filtered: if the code was written in-block the verifier already
+   * has it from the block's code writes. Empty code is never included.
    */
   @VisibleForTesting
-  List<String> buildCodes(final BonsaiWorldState worldView, final BlockAccessList blockAccessList) {
+  List<String> buildCodes(
+      final BonsaiWorldState worldView,
+      final Set<Address> executionAddresses,
+      final Set<Address> preStateAddresses,
+      final Set<Address> inBlockCodeChanged) {
     final Set<String> resultSet = new HashSet<>();
+    Stream.concat(
+            preStateAddresses.stream(),
+            executionAddresses.stream().filter(a -> !inBlockCodeChanged.contains(a)))
+        .distinct()
+        .forEach(
+            address -> {
+              final var account = worldView.get(address);
+              if (account != null && !account.getCodeHash().equals(Hash.EMPTY)) {
+                worldView
+                    .getCode(address, account.getCodeHash())
+                    .ifPresent(bytes -> resultSet.add(bytes.toHexString()));
+              }
+            });
+    return resultSet.stream().sorted().toList();
+  }
+
+  /**
+   * Returns the set of addresses where code was newly deployed during the block (CREATE outputs or
+   * EIP-7702 designation changes). A stateless verifier reconstructs these from the block body
+   * itself, so they are excluded from the {@code codes} witness to avoid redundancy.
+   */
+  private Set<Address> buildCodeDeployments(final BlockAccessList blockAccessList) {
+    if (blockAccessList.isEmpty()) {
+      return Set.of();
+    }
+    final Set<Address> changed = new HashSet<>();
     for (final var accountChanges : blockAccessList.accountChanges()) {
-      final Address address = accountChanges.address();
-      final var account = worldView.get(address);
-      if (account != null && !account.getCodeHash().equals(Hash.EMPTY)) {
-        worldView
-            .getCode(address, account.getCodeHash())
-            .ifPresent(bytes -> resultSet.add(bytes.toHexString()));
+      if (!accountChanges.codeChanges().isEmpty()) {
+        changed.add(accountChanges.address());
       }
     }
-    return resultSet.stream().sorted().toList();
+    return changed;
   }
 
   /**

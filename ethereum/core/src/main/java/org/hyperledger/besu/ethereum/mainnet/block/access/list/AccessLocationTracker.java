@@ -40,6 +40,11 @@ public class AccessLocationTracker implements Eip7928AccessList {
   private final long blockAccessIndex;
   private final Map<Address, AccountAccessList> touchedAccounts = new ConcurrentHashMap<>();
 
+  // EIP-8025 witness: code reads share this tracker's plumbing rather than a separate one, since
+  // both are collected at the same call sites and over the same per-transaction scope.
+  private final Set<Address> codeReads = ConcurrentHashMap.newKeySet();
+  private final Set<Address> authorizationCodeReads = ConcurrentHashMap.newKeySet();
+
   public AccessLocationTracker(final long blockAccessIndex) {
     this.blockAccessIndex = blockAccessIndex;
   }
@@ -47,6 +52,8 @@ public class AccessLocationTracker implements Eip7928AccessList {
   @Override
   public void clear() {
     touchedAccounts.clear();
+    codeReads.clear();
+    authorizationCodeReads.clear();
   }
 
   @Override
@@ -57,6 +64,35 @@ public class AccessLocationTracker implements Eip7928AccessList {
   @Override
   public void addSlotAccessForAccount(final Address address, final UInt256 slotKey) {
     touchedAccounts.computeIfAbsent(address, AccountAccessList::new).addSlotAccess(slotKey);
+  }
+
+  @Override
+  public void addCodeRead(final Address address) {
+    codeReads.add(address);
+  }
+
+  @Override
+  public void addAuthorizationCodeRead(final Address address) {
+    authorizationCodeReads.add(address);
+  }
+
+  /**
+   * Returns the addresses whose code was read during execution, for EIP-8025 witness generation.
+   *
+   * @return the set of addresses with code reads
+   */
+  public Set<Address> getCodeReads() {
+    return Collections.unmodifiableSet(codeReads);
+  }
+
+  /**
+   * Returns the authority addresses whose code was read during EIP-7702 authorization processing,
+   * for EIP-8025 witness generation.
+   *
+   * @return the set of authority addresses with authorization code reads
+   */
+  public Set<Address> getAuthorizationCodeReads() {
+    return Collections.unmodifiableSet(authorizationCodeReads);
   }
 
   public static final class AccountAccessList {
@@ -89,6 +125,7 @@ public class AccessLocationTracker implements Eip7928AccessList {
     final StackedUpdater<?, ?> stackedUpdater = (StackedUpdater<?, ?>) updater;
     final PartialBlockAccessViewBuilder builder = new PartialBlockAccessViewBuilder();
     builder.withTxIndex(this.blockAccessIndex);
+    builder.withCodeReads(getCodeReads(), getAuthorizationCodeReads());
 
     final Collection<Address> deletedAddressesCol = stackedUpdater.getDeletedAccountAddresses();
     final Set<Address> deletedAddresses =

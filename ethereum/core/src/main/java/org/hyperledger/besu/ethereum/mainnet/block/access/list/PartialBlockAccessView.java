@@ -25,6 +25,7 @@ import java.util.List;
 import java.util.Map;
 import java.util.Objects;
 import java.util.Optional;
+import java.util.Set;
 
 import org.apache.tuweni.bytes.Bytes;
 import org.apache.tuweni.units.bigints.UInt256;
@@ -51,9 +52,24 @@ public final class PartialBlockAccessView {
   private final long txIndex;
   private final List<AccountChanges> accountChanges;
 
+  // EIP-8025 witness: carried alongside the BAL-shaped account changes so a single per-transaction
+  // tracker (see AccessLocationTracker) can feed both, rather than threading a second tracker.
+  private final Set<Address> codeReads;
+  private final Set<Address> authorizationCodeReads;
+
   public PartialBlockAccessView(final List<AccountChanges> accountChanges, final long txIndex) {
+    this(accountChanges, txIndex, Set.of(), Set.of());
+  }
+
+  public PartialBlockAccessView(
+      final List<AccountChanges> accountChanges,
+      final long txIndex,
+      final Set<Address> codeReads,
+      final Set<Address> authorizationCodeReads) {
     this.accountChanges = accountChanges;
     this.txIndex = txIndex;
+    this.codeReads = codeReads;
+    this.authorizationCodeReads = authorizationCodeReads;
   }
 
   @Override
@@ -63,6 +79,10 @@ public final class PartialBlockAccessView {
         + txIndex
         + ", accountChanges="
         + accountChanges
+        + ", codeReads="
+        + codeReads
+        + ", authorizationCodeReads="
+        + authorizationCodeReads
         + '}';
   }
 
@@ -74,17 +94,39 @@ public final class PartialBlockAccessView {
     return accountChanges;
   }
 
+  /**
+   * Returns the addresses whose code was read during this transaction's execution, for EIP-8025
+   * witness generation.
+   *
+   * @return the set of addresses with code reads
+   */
+  public Set<Address> codeReads() {
+    return codeReads;
+  }
+
+  /**
+   * Returns the authority addresses whose code was read during this transaction's EIP-7702
+   * authorization processing, for EIP-8025 witness generation.
+   *
+   * @return the set of authority addresses with authorization code reads
+   */
+  public Set<Address> authorizationCodeReads() {
+    return authorizationCodeReads;
+  }
+
   @Override
   public boolean equals(final Object obj) {
     if (obj == this) return true;
     if (obj == null || obj.getClass() != this.getClass()) return false;
     var that = (PartialBlockAccessView) obj;
-    return Objects.equals(this.accountChanges, that.accountChanges);
+    return Objects.equals(this.accountChanges, that.accountChanges)
+        && Objects.equals(this.codeReads, that.codeReads)
+        && Objects.equals(this.authorizationCodeReads, that.authorizationCodeReads);
   }
 
   @Override
   public int hashCode() {
-    return Objects.hash(accountChanges);
+    return Objects.hash(accountChanges, codeReads, authorizationCodeReads);
   }
 
   public record SlotChange(StorageSlotKey slot, UInt256 previousValue, UInt256 newValue) {
@@ -168,9 +210,18 @@ public final class PartialBlockAccessView {
   public static class PartialBlockAccessViewBuilder {
     private long txIndex;
     private final Map<Address, AccountChangesBuilder> accountBuilders = new HashMap<>();
+    private Set<Address> codeReads = Set.of();
+    private Set<Address> authorizationCodeReads = Set.of();
 
     public PartialBlockAccessViewBuilder withTxIndex(final long txIndex) {
       this.txIndex = txIndex;
+      return this;
+    }
+
+    public PartialBlockAccessViewBuilder withCodeReads(
+        final Set<Address> codeReads, final Set<Address> authorizationCodeReads) {
+      this.codeReads = codeReads;
+      this.authorizationCodeReads = authorizationCodeReads;
       return this;
     }
 
@@ -188,7 +239,8 @@ public final class PartialBlockAccessView {
               Arrays.compareUnsigned(
                   left.getAddress().getBytes().toArrayUnsafe(),
                   right.getAddress().getBytes().toArrayUnsafe()));
-      return new PartialBlockAccessView(accountChanges, txIndex);
+      return new PartialBlockAccessView(
+          accountChanges, txIndex, codeReads, authorizationCodeReads);
     }
   }
 

@@ -45,6 +45,23 @@ public interface Eip7928AccessList {
    */
   void addSlotAccessForAccount(final Address address, final UInt256 slotKey);
 
+  /**
+   * Records that the given account's contract code was read during execution, for EIP-8025
+   * execution witness generation. Shares the same accessed-locations plumbing as the EIP-7928 block
+   * access list rather than a separate tracker.
+   *
+   * @param address the address whose code was read
+   */
+  void addCodeRead(final Address address);
+
+  /**
+   * Records that the given account's contract code was read during EIP-7702 SET_CODE authorization
+   * processing, before EVM execution begins, for EIP-8025 execution witness generation.
+   *
+   * @param address the address whose code was read during authorization
+   */
+  void addAuthorizationCodeRead(final Address address);
+
   /** Clears all tracked access list entries. */
   void clear();
 }

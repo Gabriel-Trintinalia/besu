@@ -26,6 +26,7 @@ import org.hyperledger.besu.evm.worldstate.WorldUpdater;
 
 import java.util.ArrayList;
 import java.util.Arrays;
+import java.util.Collections;
 import java.util.Comparator;
 import java.util.HashMap;
 import java.util.HashSet;
@@ -187,6 +188,11 @@ public record BlockAccessList(List<AccountChanges> accountChanges, Optional<Byte
   public static class BlockAccessListBuilder {
     final Map<Address, AccountBuilder> accountChangesBuilders = new HashMap<>();
 
+    // EIP-8025 witness: accumulated across every transaction's PartialBlockAccessView, piggybacking
+    // on the same per-transaction AccessLocationTracker rather than a separate block-scoped tracker.
+    private final Set<Address> codeReads = new HashSet<>();
+    private final Set<Address> authorizationCodeReads = new HashSet<>();
+
     public static AccessLocationTracker createPreExecutionAccessLocationTracker() {
       return new AccessLocationTracker(0);
     }
@@ -248,6 +254,28 @@ public record BlockAccessList(List<AccountChanges> accountChanges, Optional<Byte
                           builder.addCodeChange(partialBlockAccessView.getTxIndex(), change);
                         });
               });
+      codeReads.addAll(partialBlockAccessView.codeReads());
+      authorizationCodeReads.addAll(partialBlockAccessView.authorizationCodeReads());
+    }
+
+    /**
+     * Returns the addresses whose code was read across every transaction applied so far, for
+     * EIP-8025 witness generation.
+     *
+     * @return the set of addresses with code reads
+     */
+    public Set<Address> getCodeReads() {
+      return Collections.unmodifiableSet(codeReads);
+    }
+
+    /**
+     * Returns the authority addresses whose code was read across every transaction's EIP-7702
+     * authorization processing applied so far, for EIP-8025 witness generation.
+     *
+     * @return the set of authority addresses with authorization code reads
+     */
+    public Set<Address> getAuthorizationCodeReads() {
+      return Collections.unmodifiableSet(authorizationCodeReads);
     }
 
     /**
