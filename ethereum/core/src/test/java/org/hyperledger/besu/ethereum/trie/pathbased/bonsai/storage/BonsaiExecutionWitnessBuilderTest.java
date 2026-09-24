@@ -52,7 +52,7 @@ import org.junit.jupiter.api.Test;
  * <ul>
  *   <li>the ancestry walk in {@code buildHeaders} — fixture chains are linear, so
  *       canonical-by-height and true ancestry agree and a regression would pass unnoticed;
- *   <li>{@code buildCodes} filtering, which decides what the block access list contributes;
+ *   <li>{@code buildCodes}, which turns the recorded code reads into pre-state bytecodes;
  *   <li>the failure paths, which fixtures never exercise because they always supply a trie log, a
  *       parent world state and a block access list.
  * </ul>
@@ -126,7 +126,7 @@ class BonsaiExecutionWitnessBuilderTest {
     stubAccount(worldView, ADDR_A, Bytes.fromHexString("0x6001"));
     stubAccount(worldView, ADDR_B, Bytes.fromHexString("0x6002"));
 
-    assertThat(builder.buildCodes(worldView, Set.of(ADDR_A, ADDR_B), Set.of(), Set.of()))
+    assertThat(builder.buildCodes(worldView, Set.of(ADDR_A, ADDR_B)))
         .containsExactly("0x6001", "0x6002");
   }
 
@@ -137,8 +137,7 @@ class BonsaiExecutionWitnessBuilderTest {
     stubAccount(worldView, ADDR_A, Bytes.EMPTY);
     stubAccount(worldView, ADDR_B, Bytes.fromHexString("0x6002"));
 
-    assertThat(builder.buildCodes(worldView, Set.of(ADDR_A, ADDR_B), Set.of(), Set.of()))
-        .containsExactly("0x6002");
+    assertThat(builder.buildCodes(worldView, Set.of(ADDR_A, ADDR_B))).containsExactly("0x6002");
   }
 
   @Test
@@ -148,8 +147,7 @@ class BonsaiExecutionWitnessBuilderTest {
     stubAccount(worldView, ADDR_A, null);
     stubAccount(worldView, ADDR_B, Bytes.fromHexString("0x6002"));
 
-    assertThat(builder.buildCodes(worldView, Set.of(ADDR_A, ADDR_B), Set.of(), Set.of()))
-        .containsExactly("0x6002");
+    assertThat(builder.buildCodes(worldView, Set.of(ADDR_A, ADDR_B))).containsExactly("0x6002");
   }
 
   @Test
@@ -160,7 +158,7 @@ class BonsaiExecutionWitnessBuilderTest {
     stubAccount(worldView, ADDR_A, shared);
     stubAccount(worldView, ADDR_B, shared);
 
-    assertThat(builder.buildCodes(worldView, Set.of(ADDR_A, ADDR_B), Set.of(), Set.of()))
+    assertThat(builder.buildCodes(worldView, Set.of(ADDR_A, ADDR_B)))
         .containsExactly(shared.toHexString());
   }
 
@@ -171,44 +169,18 @@ class BonsaiExecutionWitnessBuilderTest {
     stubAccount(worldView, ADDR_B, Bytes.fromHexString("0x6001"));
     stubAccount(worldView, ADDR_C, Bytes.fromHexString("0x6080"));
 
-    assertThat(builder.buildCodes(worldView, Set.of(ADDR_C, ADDR_A, ADDR_B), Set.of(), Set.of()))
+    assertThat(builder.buildCodes(worldView, Set.of(ADDR_C, ADDR_A, ADDR_B)))
         .containsExactly("0x6001", "0x6080", "0x60ff");
   }
 
   @Test
   void shouldReturnNoCodesWhenNoAddressesWereRead() {
-    // No code reads and no authorization reads: there is nothing to derive codes from. The RPC
+    // No code reads: there is nothing to derive codes from. The RPC
     // rejects such a block before reaching the builder; this pins the builder's own behaviour so it
     // degrades to empty rather than throwing.
     final BonsaiWorldState worldView = mock(BonsaiWorldState.class);
 
-    assertThat(builder.buildCodes(worldView, Set.of(), Set.of(), Set.of())).isEmpty();
-  }
-
-  @Test
-  void shouldExcludeExecutionReadsOfInBlockCodeChanges() {
-    // A stateless verifier already reconstructs in-block code changes from the block itself, so an
-    // execution read of an address whose code changed this block must not pull its pre-state code
-    // into the witness.
-    final BonsaiWorldState worldView = mock(BonsaiWorldState.class);
-    stubAccount(worldView, ADDR_A, Bytes.fromHexString("0x6001"));
-    stubAccount(worldView, ADDR_B, Bytes.fromHexString("0x6002"));
-
-    assertThat(
-            builder.buildCodes(
-                worldView, Set.of(ADDR_A, ADDR_B), Set.of(), Set.of(ADDR_A)))
-        .containsExactly("0x6002");
-  }
-
-  @Test
-  void shouldIncludeAuthorizationReadsEvenWhenCodeChangedInBlock() {
-    // The same transaction that reads an authority's pre-state designator also writes new code to
-    // it, so the verifier needs the old version even though the address's code changed this block.
-    final BonsaiWorldState worldView = mock(BonsaiWorldState.class);
-    stubAccount(worldView, ADDR_A, Bytes.fromHexString("0x6001"));
-
-    assertThat(builder.buildCodes(worldView, Set.of(), Set.of(ADDR_A), Set.of(ADDR_A)))
-        .containsExactly("0x6001");
+    assertThat(builder.buildCodes(worldView, Set.of())).isEmpty();
   }
 
   @Test
@@ -224,7 +196,7 @@ class BonsaiExecutionWitnessBuilderTest {
     assertThatThrownBy(
             () ->
                 builder.buildWitness(
-                    block, balTouching(), Map.of(), new WitnessCodeReads(Set.of(), Set.of())))
+                    block, balTouching(), Map.of(), new WitnessCodeReads(Set.of())))
         .isInstanceOf(IllegalStateException.class)
         .hasMessageContaining("trie log missing")
         .hasMessageContaining(block.getHash().toString());
@@ -246,7 +218,7 @@ class BonsaiExecutionWitnessBuilderTest {
     assertThatThrownBy(
             () ->
                 builder.buildWitness(
-                    block, balTouching(), Map.of(), new WitnessCodeReads(Set.of(), Set.of())))
+                    block, balTouching(), Map.of(), new WitnessCodeReads(Set.of())))
         .isInstanceOf(IllegalStateException.class)
         .hasMessageContaining("parent world state unavailable")
         .hasMessageContaining(parent.getHash().toString());

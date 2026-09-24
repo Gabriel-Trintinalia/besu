@@ -20,14 +20,13 @@ import java.util.Set;
 
 /**
  * Immutable snapshot of the EIP-8025 code reads collected during block processing: the addresses
- * whose code was read during EVM execution, and the authority addresses whose code was read during
- * EIP-7702 authorization processing.
+ * whose code was read, during EVM execution or EIP-7702 authorization processing.
  *
- * <p>The ancestor block headers accessed via BLOCKHASH are tracked separately, on {@link
- * BlockProcessingOutputs#getAccessedAncestors()}.
+ * <p>Only reads the witness needs are included: as in EELS {@code get_code}, a read satisfied by
+ * code written earlier in the block is dropped, as is a read of empty code (see {@code
+ * AccessLocationTracker}). The ancestor block headers accessed via BLOCKHASH are tracked
+ * separately, on {@link BlockProcessingOutputs#getAccessedAncestors()}.
  *
- * @param codeReads addresses whose bytecode was read during EVM execution
- * @param authorizationCodeReads addresses whose bytecode was read during EIP-7702 authorization
- *     processing
+ * @param codeReads addresses whose bytecode the witness has to supply
  */
-public record WitnessCodeReads(Set<Address> codeReads, Set<Address> authorizationCodeReads) {}
+public record WitnessCodeReads(Set<Address> codeReads) {}

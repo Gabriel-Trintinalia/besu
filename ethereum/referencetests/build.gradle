@@ -154,7 +154,9 @@ tasks.register("cleanReferenceTestCache") {
     def keptVersionDirs = [
       configurations.tarConfig.files.find(stableFixtureTarball),
       configurations.devnetTarConfig.files.find(devnetFixtureTarball),
-      configurations.zkevmTarConfig.files.find { it.name.startsWith('execution-spec') }
+      configurations.zkevmTarConfig.files.find {
+        it.name.startsWith('execution-spec')
+      }
       // Cache layout: <module>/<version>/<hash>/<file>.tar.gz
     ].findAll { it != null }.collect { it.parentFile.parentFile }
 

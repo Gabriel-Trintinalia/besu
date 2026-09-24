@@ -28,6 +28,7 @@ import org.hyperledger.besu.ethereum.core.feemarket.CoinbaseFeePriceCalculator;
 import org.hyperledger.besu.ethereum.mainnet.block.access.list.AccessLocationTracker;
 import org.hyperledger.besu.ethereum.mainnet.block.access.list.PartialBlockAccessView;
 import org.hyperledger.besu.ethereum.mainnet.feemarket.FeeMarket;
+import org.hyperledger.besu.ethereum.mainnet.witness.WitnessCodeTracker;
 import org.hyperledger.besu.ethereum.processing.TransactionProcessingResult;
 import org.hyperledger.besu.ethereum.transaction.TransactionInvalidReason;
 import org.hyperledger.besu.ethereum.trie.MerkleTrieException;
@@ -232,7 +233,7 @@ public class MainnetTransactionProcessor {
             // EIP-8025 witness: if the sender has code (e.g. a 7702-delegated EOA or a smart
             // account) the executor needs that bytecode to resolve the sender's code pointer.
             if (sender.hasCode()) {
-              t.addCodeRead(senderAddress);
+              t.addCodeRead(senderAddress, sender.getCodeHash());
             }
           });
 
@@ -845,6 +846,13 @@ public class MainnetTransactionProcessor {
       final Optional<AccessLocationTracker> accessLocationTracker) {
     // Pre-Amsterdam forks pay none of these charges, but still record the recipient load below.
     final boolean stateGasActive = stateGasCalc.isActive();
+    // EIP-8025 witness: a preparation failure rolls back the delegations it applied (EELS restores
+    // the pre-preparation snapshot), so the code they wrote must stop satisfying later reads.
+    final long codeWriteMark =
+        accessLocationTracker
+            .flatMap(AccessLocationTracker::getWitnessCodeTracker)
+            .map(WitnessCodeTracker::codeWriteMark)
+            .orElse(0L);
     boolean outOfGas = false;
     StateCharge create = StateCharge.NONE;
     StateCharge authorizations = StateCharge.NONE;
@@ -886,7 +894,7 @@ public class MainnetTransactionProcessor {
               t.addTouchedAccount(to);
               final Account toAccount = frameWorldState.get(to);
               if (toAccount != null && hasCodeDelegation(toAccount.getCode())) {
-                t.addCodeRead(to);
+                t.addCodeRead(to, toAccount.getCodeHash());
               }
             });
         if (stateGasActive) {
@@ -902,6 +910,7 @@ public class MainnetTransactionProcessor {
     if (outOfGas) {
       initialFrame.setExceptionalHaltReason(Optional.of(ExceptionalHaltReason.INSUFFICIENT_GAS));
       initialFrame.setState(MessageFrame.State.EXCEPTIONAL_HALT);
+      accessLocationTracker.ifPresent(t -> t.rollbackCodeWrites(codeWriteMark));
     }
     return new PrepCharges(create, authorizations, recipient, outOfGas);
   }
@@ -927,11 +936,10 @@ public class MainnetTransactionProcessor {
       // survives a later out-of-gas (only the delegation state is rolled back), so record it at
       // this exact point: a partial out-of-gas that stops the replay leaves the witness with
       // exactly the authorities reached up to and including the one being charged — matching EELS.
-      // Empty authority codes are dropped later by buildCodes.
       accessLocationTracker.ifPresent(
           t -> {
             t.addTouchedAccount(access.authority());
-            t.addAuthorizationCodeRead(access.authority());
+            t.addCodeRead(access.authority(), access.codeHashBefore());
           });
       if (access.newAccount()
           && !initialFrame.consumeStateGas(stateGasCalc.emptyAccountDelegationStateGas())) {
@@ -945,6 +953,11 @@ public class MainnetTransactionProcessor {
       }
       if (access.authBase() && !initialFrame.consumeStateGas(stateGasCalc.authBaseStateGas())) {
         return false;
+      }
+      // EIP-8025 witness: EELS set_code, so later reads of the designator are satisfied without a
+      // witness entry. Rewriting the code already read changes nothing, since that read is kept.
+      if (!access.codeHashAfter().equals(access.codeHashBefore())) {
+        accessLocationTracker.ifPresent(t -> t.addCodeWrite(access.codeHashAfter()));
       }
     }
     return true;

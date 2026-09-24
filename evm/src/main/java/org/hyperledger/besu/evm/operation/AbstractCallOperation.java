@@ -241,7 +241,7 @@ public abstract class AbstractCallOperation extends AbstractOperation {
         .ifPresent(
             t -> {
               if (contract != null && hasCodeDelegation(contract.getCode())) {
-                t.addCodeRead(to);
+                t.addCodeRead(to, contract.getCodeHash());
               }
             });
 
@@ -276,7 +276,10 @@ public abstract class AbstractCallOperation extends AbstractOperation {
                   // witness includes the target's bytecode even when the call later soft-fails
                   // (insufficient balance / max depth) and no child frame is created, so the
                   // witness needs no gas-cost inference to know the code was accessed.
-                  t.addCodeRead(target);
+                  final Account targetAccount = frame.getWorldUpdater().get(target);
+                  if (targetAccount != null) {
+                    t.addCodeRead(target, targetAccount.getCodeHash());
+                  }
                 });
       }
     }
@@ -289,8 +292,8 @@ public abstract class AbstractCallOperation extends AbstractOperation {
         .getEip7928AccessList()
         .ifPresent(
             t -> {
-              if (contract == null || !hasCodeDelegation(contract.getCode())) {
-                t.addCodeRead(to);
+              if (contract != null && !hasCodeDelegation(contract.getCode())) {
+                t.addCodeRead(to, contract.getCodeHash());
               }
             });
 

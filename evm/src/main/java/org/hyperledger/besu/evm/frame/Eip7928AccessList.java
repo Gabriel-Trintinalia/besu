@@ -15,6 +15,7 @@
 package org.hyperledger.besu.evm.frame;
 
 import org.hyperledger.besu.datatypes.Address;
+import org.hyperledger.besu.datatypes.Hash;
 
 import org.apache.tuweni.units.bigints.UInt256;
 
@@ -47,20 +48,40 @@ public interface Eip7928AccessList {
 
   /**
    * Records that the given account's contract code was read during execution, for EIP-8025
-   * execution witness generation. Shares the same accessed-locations plumbing as the EIP-7928 block
-   * access list rather than a separate tracker.
+   * execution witness generation. Not part of the EIP-7928 block access list: the code-read hooks
+   * only share its per-frame plumbing, and are no-ops unless the block is processed for a witness.
+   *
+   * <p>Mirrors EELS {@code get_code}: a read whose code hash has already been written earlier in
+   * the transaction (see {@link #addCodeWrite}) is satisfied from those writes and not recorded, as
+   * is a read of empty code. Reads satisfied by writes of earlier transactions in the block are
+   * dropped when the transaction's view is applied to the block.
    *
    * @param address the address whose code was read
+   * @param codeHash the hash of the code read, as it was at the time of the read
    */
-  void addCodeRead(final Address address);
+  void addCodeRead(final Address address, final Hash codeHash);
 
   /**
-   * Records that the given account's contract code was read during EIP-7702 SET_CODE authorization
-   * processing, before EVM execution begins, for EIP-8025 execution witness generation.
+   * Records that code with the given hash was written during this transaction — a successful
+   * CREATE/CREATE2 code deposit, or an EIP-7702 delegation designator — for EIP-8025 execution
+   * witness generation, mirroring EELS {@code code_writes}. Keyed by hash, not address: a later
+   * read of any account holding the same code is satisfied from the write, since a stateless
+   * verifier already has those bytes from the block body. Writes of empty code are ignored.
    *
-   * @param address the address whose code was read during authorization
+   * <p>Writes are journaled and undone by {@link #rollbackCodeWrites} when the writing frame, or an
+   * enclosing one, reverts.
+   *
+   * @param codeHash the hash of the code written
    */
-  void addAuthorizationCodeRead(final Address address);
+  void addCodeWrite(final Hash codeHash);
+
+  /**
+   * Undoes the code writes recorded after the given undo mark, when a frame reverts. Code reads and
+   * account/slot accesses are deliberately not undone.
+   *
+   * @param mark the undo mark to roll back to
+   */
+  void rollbackCodeWrites(final long mark);
 
   /** Clears all tracked access list entries. */
   void clear();

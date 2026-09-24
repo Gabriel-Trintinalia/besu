@@ -84,12 +84,6 @@ public class ZkevmWitnessReferenceTestTools {
                     testName + "[" + eip + "]", fullPath, spec, NETWORKS_TO_RUN.contains(eip));
               });
 
-  static {
-    // Stateless-verifier format fixtures: they exercise optional-proof encoding rather than witness
-    // derivation from execution.
-    params.ignore("eip8025_optional_proofs");
-  }
-
   private ZkevmWitnessReferenceTestTools() {
     // utility class
   }

@@ -15,10 +15,12 @@
 package org.hyperledger.besu.ethereum.mainnet.block.access.list;
 
 import org.hyperledger.besu.datatypes.Address;
+import org.hyperledger.besu.datatypes.Hash;
 import org.hyperledger.besu.datatypes.StorageSlotKey;
 import org.hyperledger.besu.datatypes.Wei;
 import org.hyperledger.besu.ethereum.mainnet.block.access.list.PartialBlockAccessView.AccountChangesBuilder;
 import org.hyperledger.besu.ethereum.mainnet.block.access.list.PartialBlockAccessView.PartialBlockAccessViewBuilder;
+import org.hyperledger.besu.ethereum.mainnet.witness.WitnessCodeTracker;
 import org.hyperledger.besu.evm.account.Account;
 import org.hyperledger.besu.evm.frame.Eip7928AccessList;
 import org.hyperledger.besu.evm.worldstate.StackedUpdater;
@@ -29,6 +31,7 @@ import java.util.Collection;
 import java.util.Collections;
 import java.util.HashSet;
 import java.util.Map;
+import java.util.Optional;
 import java.util.Set;
 import java.util.concurrent.ConcurrentHashMap;
 
@@ -40,20 +43,25 @@ public class AccessLocationTracker implements Eip7928AccessList {
   private final long blockAccessIndex;
   private final Map<Address, AccountAccessList> touchedAccounts = new ConcurrentHashMap<>();
 
-  // EIP-8025 witness: code reads share this tracker's plumbing rather than a separate one, since
-  // both are collected at the same call sites and over the same per-transaction scope.
-  private final Set<Address> codeReads = ConcurrentHashMap.newKeySet();
-  private final Set<Address> authorizationCodeReads = ConcurrentHashMap.newKeySet();
+  // EIP-8025 witness: null unless the block is processed for a witness. Its code-read hooks share
+  // this tracker's EVM plumbing, but the witness semantics live in WitnessCodeTracker.
+  private final WitnessCodeTracker witnessCodeTracker;
 
   public AccessLocationTracker(final long blockAccessIndex) {
+    this(blockAccessIndex, null);
+  }
+
+  AccessLocationTracker(final long blockAccessIndex, final WitnessCodeTracker witnessCodeTracker) {
     this.blockAccessIndex = blockAccessIndex;
+    this.witnessCodeTracker = witnessCodeTracker;
   }
 
   @Override
   public void clear() {
     touchedAccounts.clear();
-    codeReads.clear();
-    authorizationCodeReads.clear();
+    if (witnessCodeTracker != null) {
+      witnessCodeTracker.clear();
+    }
   }
 
   @Override
@@ -67,32 +75,28 @@ public class AccessLocationTracker implements Eip7928AccessList {
   }
 
   @Override
-  public void addCodeRead(final Address address) {
-    codeReads.add(address);
+  public void addCodeRead(final Address address, final Hash codeHash) {
+    if (witnessCodeTracker != null) {
+      witnessCodeTracker.addCodeRead(address, codeHash);
+    }
   }
 
   @Override
-  public void addAuthorizationCodeRead(final Address address) {
-    authorizationCodeReads.add(address);
+  public void addCodeWrite(final Hash codeHash) {
+    if (witnessCodeTracker != null) {
+      witnessCodeTracker.addCodeWrite(codeHash);
+    }
   }
 
-  /**
-   * Returns the addresses whose code was read during execution, for EIP-8025 witness generation.
-   *
-   * @return the set of addresses with code reads
-   */
-  public Set<Address> getCodeReads() {
-    return Collections.unmodifiableSet(codeReads);
+  @Override
+  public void rollbackCodeWrites(final long mark) {
+    if (witnessCodeTracker != null) {
+      witnessCodeTracker.rollbackCodeWrites(mark);
+    }
   }
 
-  /**
-   * Returns the authority addresses whose code was read during EIP-7702 authorization processing,
-   * for EIP-8025 witness generation.
-   *
-   * @return the set of authority addresses with authorization code reads
-   */
-  public Set<Address> getAuthorizationCodeReads() {
-    return Collections.unmodifiableSet(authorizationCodeReads);
+  public Optional<WitnessCodeTracker> getWitnessCodeTracker() {
+    return Optional.ofNullable(witnessCodeTracker);
   }
 
   public static final class AccountAccessList {
@@ -125,7 +129,9 @@ public class AccessLocationTracker implements Eip7928AccessList {
     final StackedUpdater<?, ?> stackedUpdater = (StackedUpdater<?, ?>) updater;
     final PartialBlockAccessViewBuilder builder = new PartialBlockAccessViewBuilder();
     builder.withTxIndex(this.blockAccessIndex);
-    builder.withCodeReads(getCodeReads(), getAuthorizationCodeReads());
+    if (witnessCodeTracker != null) {
+      builder.withWitnessCodeAccesses(witnessCodeTracker.accesses());
+    }
 
     final Collection<Address> deletedAddressesCol = stackedUpdater.getDeletedAccountAddresses();
     final Set<Address> deletedAddresses =

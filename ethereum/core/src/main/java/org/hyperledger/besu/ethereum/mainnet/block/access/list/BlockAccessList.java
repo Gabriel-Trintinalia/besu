@@ -17,8 +17,11 @@ package org.hyperledger.besu.ethereum.mainnet.block.access.list;
 import org.hyperledger.besu.datatypes.Address;
 import org.hyperledger.besu.datatypes.StorageSlotKey;
 import org.hyperledger.besu.datatypes.Wei;
+import org.hyperledger.besu.ethereum.WitnessCodeReads;
 import org.hyperledger.besu.ethereum.core.encoding.BlockAccessListDecoder;
 import org.hyperledger.besu.ethereum.core.encoding.BlockAccessListEncoder;
+import org.hyperledger.besu.ethereum.mainnet.witness.WitnessCodeAccumulator;
+import org.hyperledger.besu.ethereum.mainnet.witness.WitnessCodeTracker;
 import org.hyperledger.besu.ethereum.rlp.BytesValueRLPInput;
 import org.hyperledger.besu.ethereum.rlp.BytesValueRLPOutput;
 import org.hyperledger.besu.ethereum.rlp.RLPOutput;
@@ -26,7 +29,6 @@ import org.hyperledger.besu.evm.worldstate.WorldUpdater;
 
 import java.util.ArrayList;
 import java.util.Arrays;
-import java.util.Collections;
 import java.util.Comparator;
 import java.util.HashMap;
 import java.util.HashSet;
@@ -97,7 +99,15 @@ public record BlockAccessList(List<AccountChanges> accountChanges, Optional<Byte
   }
 
   public static BlockAccessListBuilder builder() {
-    return new BlockAccessListBuilder();
+    return new BlockAccessListBuilder(null);
+  }
+
+  /**
+   * Returns a builder that also collects the block's EIP-8025 witness code reads, see {@link
+   * BlockAccessListBuilder#getWitnessCodeReads()}.
+   */
+  public static BlockAccessListBuilder builderWithWitnessCodeReads() {
+    return new BlockAccessListBuilder(new WitnessCodeAccumulator());
   }
 
   @Override
@@ -188,23 +198,31 @@ public record BlockAccessList(List<AccountChanges> accountChanges, Optional<Byte
   public static class BlockAccessListBuilder {
     final Map<Address, AccountBuilder> accountChangesBuilders = new HashMap<>();
 
-    // EIP-8025 witness: accumulated across every transaction's PartialBlockAccessView, piggybacking
-    // on the same per-transaction AccessLocationTracker rather than a separate block-scoped tracker.
-    private final Set<Address> codeReads = new HashSet<>();
-    private final Set<Address> authorizationCodeReads = new HashSet<>();
+    // EIP-8025 witness: null unless built with builderWithWitnessCodeReads(). Not part of the block
+    // access list; only fed from the per-transaction views this builder already receives in order.
+    private final WitnessCodeAccumulator witnessCodeAccumulator;
 
-    public static AccessLocationTracker createPreExecutionAccessLocationTracker() {
-      return new AccessLocationTracker(0);
+    private BlockAccessListBuilder(final WitnessCodeAccumulator witnessCodeAccumulator) {
+      this.witnessCodeAccumulator = witnessCodeAccumulator;
     }
 
-    public static AccessLocationTracker createPostExecutionAccessLocationTracker(
+    public AccessLocationTracker createPreExecutionAccessLocationTracker() {
+      return createAccessLocationTracker(0);
+    }
+
+    public AccessLocationTracker createPostExecutionAccessLocationTracker(
         final int numberOfTransactions) {
-      return new AccessLocationTracker((long) numberOfTransactions + 1L);
+      return createAccessLocationTracker((long) numberOfTransactions + 1L);
     }
 
-    public static AccessLocationTracker createTransactionAccessLocationTracker(
+    public AccessLocationTracker createTransactionAccessLocationTracker(
         final int transactionLocation) {
-      return new AccessLocationTracker((long) transactionLocation + 1L);
+      return createAccessLocationTracker((long) transactionLocation + 1L);
+    }
+
+    private AccessLocationTracker createAccessLocationTracker(final long blockAccessIndex) {
+      return new AccessLocationTracker(
+          blockAccessIndex, witnessCodeAccumulator != null ? new WitnessCodeTracker() : null);
     }
 
     public AccountBuilder getOrCreateAccountBuilder(final Address address) {
@@ -254,28 +272,20 @@ public record BlockAccessList(List<AccountChanges> accountChanges, Optional<Byte
                           builder.addCodeChange(partialBlockAccessView.getTxIndex(), change);
                         });
               });
-      codeReads.addAll(partialBlockAccessView.codeReads());
-      authorizationCodeReads.addAll(partialBlockAccessView.authorizationCodeReads());
+      if (witnessCodeAccumulator != null) {
+        partialBlockAccessView.witnessCodeAccesses().ifPresent(witnessCodeAccumulator::apply);
+      }
     }
 
     /**
-     * Returns the addresses whose code was read across every transaction applied so far, for
-     * EIP-8025 witness generation.
+     * Returns the EIP-8025 code reads of every transaction applied so far, or empty unless built
+     * with {@link BlockAccessList#builderWithWitnessCodeReads()}.
      *
-     * @return the set of addresses with code reads
+     * @return the witness code reads
      */
-    public Set<Address> getCodeReads() {
-      return Collections.unmodifiableSet(codeReads);
-    }
-
-    /**
-     * Returns the authority addresses whose code was read across every transaction's EIP-7702
-     * authorization processing applied so far, for EIP-8025 witness generation.
-     *
-     * @return the set of authority addresses with authorization code reads
-     */
-    public Set<Address> getAuthorizationCodeReads() {
-      return Collections.unmodifiableSet(authorizationCodeReads);
+    public Optional<WitnessCodeReads> getWitnessCodeReads() {
+      return Optional.ofNullable(witnessCodeAccumulator)
+          .map(WitnessCodeAccumulator::toWitnessCodeReads);
     }
 
     /**

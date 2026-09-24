@@ -89,7 +89,10 @@ public final class EngineNewPayloadWithWitnessV5<
       return new JsonRpcErrorResponse(requestId, RpcErrorType.INTERNAL_ERROR);
     }
     final Map<Long, Hash> accessedAncestors =
-        executionResult.getYield().map(BlockProcessingOutputs::getAccessedAncestors).orElse(Map.of());
+        executionResult
+            .getYield()
+            .map(BlockProcessingOutputs::getAccessedAncestors)
+            .orElse(Map.of());
 
     try {
       final BonsaiExecutionWitnessBuilder.Witness witness =

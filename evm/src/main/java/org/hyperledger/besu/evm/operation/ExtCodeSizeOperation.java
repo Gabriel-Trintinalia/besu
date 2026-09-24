@@ -62,7 +62,11 @@ public class ExtCodeSizeOperation extends AbstractOperation {
       } else {
         final Account account = getAccount(address, frame);
 
-        frame.getEip7928AccessList().ifPresent(t -> t.addCodeRead(address));
+        if (account != null) {
+          frame
+              .getEip7928AccessList()
+              .ifPresent(t -> t.addCodeRead(address, account.getCodeHash()));
+        }
         Bytes codeSize = (account == null) ? Bytes.EMPTY : Words.intBytes(account.getCode().size());
         frame.pushStackItem(codeSize);
 

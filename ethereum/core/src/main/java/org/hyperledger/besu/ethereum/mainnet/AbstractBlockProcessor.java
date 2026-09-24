@@ -249,13 +249,13 @@ public abstract class AbstractBlockProcessor implements BlockProcessor {
     final Optional<BlockAccessListBuilder> blockAccessListBuilder =
         protocolSpec
             .getBlockAccessListFactory()
-            .map(BlockAccessListFactory::newBlockAccessListBuilder);
+            .map(BlockAccessListFactory::newBlockAccessListBuilderWithWitnessCodeReads);
 
     Optional<PreprocessingContext> preProcessingContext = Optional.empty();
     try {
       final Optional<AccessLocationTracker> preExecutionAccessLocationTracker =
           blockAccessListBuilder.map(
-              b -> BlockAccessListBuilder.createPreExecutionAccessLocationTracker());
+              BlockAccessListBuilder::createPreExecutionAccessLocationTracker);
       final BlockProcessingContext blockProcessingContext =
           new BlockProcessingContext(
               blockHeader,
@@ -412,9 +412,7 @@ public abstract class AbstractBlockProcessor implements BlockProcessor {
 
       final Optional<AccessLocationTracker> postExecutionAccessLocationTracker =
           blockAccessListBuilder.map(
-              b ->
-                  BlockAccessListBuilder.createPostExecutionAccessLocationTracker(
-                      transactions.size()));
+              b -> b.createPostExecutionAccessLocationTracker(transactions.size()));
 
       final Optional<WithdrawalsProcessor> maybeWithdrawalsProcessor =
           protocolSpec.getWithdrawalsProcessor();
@@ -562,11 +560,9 @@ public abstract class AbstractBlockProcessor implements BlockProcessor {
       // EIP-8037: gas_metered = max(cumulative_execution, cumulative_state)
       final long gasMetered = Math.max(cumulativeExecutionGasUsed, cumulativeStateGasUsed);
 
-      // EIP-8025 witness: code reads piggyback on the EIP-7928 block access list plumbing (see
-      // AccessLocationTracker), so they are available whenever a BlockAccessListBuilder is.
+      // EIP-8025 witness: collected alongside the block access list, so present from BAL forks on.
       final Optional<WitnessCodeReads> maybeWitnessCodeReads =
-          blockAccessListBuilder.map(
-              b -> new WitnessCodeReads(b.getCodeReads(), b.getAuthorizationCodeReads()));
+          blockAccessListBuilder.flatMap(BlockAccessListBuilder::getWitnessCodeReads);
 
       return new BlockProcessingResult(
           Optional.of(
@@ -651,7 +647,7 @@ public abstract class AbstractBlockProcessor implements BlockProcessor {
       final Optional<BlockAccessListBuilder> blockAccessListBuilder,
       final int transactionLocation) {
     return blockAccessListBuilder.map(
-        b -> BlockAccessListBuilder.createTransactionAccessLocationTracker(transactionLocation));
+        b -> b.createTransactionAccessLocationTracker(transactionLocation));
   }
 
   private void applyAccessLocationTracker(

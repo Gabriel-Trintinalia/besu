@@ -140,10 +140,17 @@ public class MessageCallProcessor extends AbstractMessageProcessor {
         .ifPresent(
             t -> {
               final Address contract = frame.getContractAddress();
-              t.addCodeRead(contract);
               final var account = frame.getWorldUpdater().get(contract);
-              if (account != null && CodeDelegationHelper.hasCodeDelegation(account.getCode())) {
-                t.addCodeRead(CodeDelegationHelper.getTargetAddress(account.getCode()));
+              if (account == null) {
+                return;
+              }
+              t.addCodeRead(contract, account.getCodeHash());
+              if (CodeDelegationHelper.hasCodeDelegation(account.getCode())) {
+                final Address target = CodeDelegationHelper.getTargetAddress(account.getCode());
+                final var targetAccount = frame.getWorldUpdater().get(target);
+                if (targetAccount != null) {
+                  t.addCodeRead(target, targetAccount.getCodeHash());
+                }
               }
             });
 

@@ -42,7 +42,6 @@ import java.util.HashSet;
 import java.util.List;
 import java.util.Map;
 import java.util.Set;
-import java.util.stream.Stream;
 
 import com.google.common.annotations.VisibleForTesting;
 import org.apache.tuweni.bytes.Bytes;
@@ -102,17 +101,7 @@ public class BonsaiExecutionWitnessBuilder {
         throw new IllegalStateException("parent world state is not a BonsaiWorldState");
       }
       final List<String> state = buildTrieNodes(blockHeader, trieLog, ws, blockAccessList);
-      // Addresses whose code was written during the block (CREATE, or a 7702 delegation designator
-      // set this block). A stateless verifier already reconstructs this code from the block itself,
-      // so an execution read that observed the in-block code must not pull the account's pre-state
-      // code into the witness — mirroring EELS get_code, which skips reads served from code_writes.
-      final Set<Address> inBlockCodeChanged = buildCodeDeployments(blockAccessList);
-      final List<String> codes =
-          buildCodes(
-              ws,
-              witnessCodeReads.codeReads(),
-              witnessCodeReads.authorizationCodeReads(),
-              inBlockCodeChanged);
+      final List<String> codes = buildCodes(ws, witnessCodeReads.codeReads());
       final long oldestAncestor =
           accessedAncestors.keySet().stream()
               .min(Long::compare)
@@ -180,53 +169,25 @@ public class BonsaiExecutionWitnessBuilder {
 
   /**
    * Returns the pre-state contract bytecodes required by a stateless verifier, deduplicated and
-   * sorted, implementing the EIP-8025 {@code get_witness_codes} rule.
+   * sorted, implementing the EIP-8025 {@code get_witness_codes} rule. Empty code is never included.
    *
-   * <p>{@code preStateAddresses} (EIP-7702 authority reads) are always included — the same
-   * transaction that reads the authority's pre-state code also writes new code to it, so the
-   * verifier needs the old version even though the address appears in {@code inBlockCodeChanged}.
-   * {@code executionAddresses} are filtered: if the code was written in-block the verifier already
-   * has it from the block's code writes. Empty code is never included.
+   * <p>Needs no filtering of its own: as in EELS {@code get_code}, block processing only records a
+   * read that code written earlier in the block did not already satisfy (see {@code
+   * AccessLocationTracker}), and every recorded read is of code the account held before the block.
    */
   @VisibleForTesting
-  List<String> buildCodes(
-      final BonsaiWorldState worldView,
-      final Set<Address> executionAddresses,
-      final Set<Address> preStateAddresses,
-      final Set<Address> inBlockCodeChanged) {
+  List<String> buildCodes(final BonsaiWorldState worldView, final Set<Address> addresses) {
     final Set<String> resultSet = new HashSet<>();
-    Stream.concat(
-            preStateAddresses.stream(),
-            executionAddresses.stream().filter(a -> !inBlockCodeChanged.contains(a)))
-        .distinct()
-        .forEach(
-            address -> {
-              final var account = worldView.get(address);
-              if (account != null && !account.getCodeHash().equals(Hash.EMPTY)) {
-                worldView
-                    .getCode(address, account.getCodeHash())
-                    .ifPresent(bytes -> resultSet.add(bytes.toHexString()));
-              }
-            });
+    addresses.forEach(
+        address -> {
+          final var account = worldView.get(address);
+          if (account != null && !account.getCodeHash().equals(Hash.EMPTY)) {
+            worldView
+                .getCode(address, account.getCodeHash())
+                .ifPresent(bytes -> resultSet.add(bytes.toHexString()));
+          }
+        });
     return resultSet.stream().sorted().toList();
-  }
-
-  /**
-   * Returns the set of addresses where code was newly deployed during the block (CREATE outputs or
-   * EIP-7702 designation changes). A stateless verifier reconstructs these from the block body
-   * itself, so they are excluded from the {@code codes} witness to avoid redundancy.
-   */
-  private Set<Address> buildCodeDeployments(final BlockAccessList blockAccessList) {
-    if (blockAccessList.isEmpty()) {
-      return Set.of();
-    }
-    final Set<Address> changed = new HashSet<>();
-    for (final var accountChanges : blockAccessList.accountChanges()) {
-      if (!accountChanges.codeChanges().isEmpty()) {
-        changed.add(accountChanges.address());
-      }
-    }
-    return changed;
   }
 
   /**

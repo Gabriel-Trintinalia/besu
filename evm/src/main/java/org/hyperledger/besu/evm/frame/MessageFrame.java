@@ -1504,6 +1504,8 @@ public class MessageFrame {
   /** Undo all the changes done by this message frame, such as when a revert is called for. */
   public void rollback() {
     txValues.undoChanges(undoMark);
+    // EIP-8025 witness: code written by a reverted frame no longer satisfies later reads.
+    eip7928AccessList.ifPresent(t -> t.rollbackCodeWrites(undoMark));
   }
 
   /**
