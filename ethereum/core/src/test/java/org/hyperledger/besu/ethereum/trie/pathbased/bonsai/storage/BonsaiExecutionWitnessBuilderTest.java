@@ -25,7 +25,6 @@ import static org.mockito.Mockito.when;
 
 import org.hyperledger.besu.datatypes.Address;
 import org.hyperledger.besu.datatypes.Hash;
-import org.hyperledger.besu.ethereum.WitnessCodeReads;
 import org.hyperledger.besu.ethereum.chain.Blockchain;
 import org.hyperledger.besu.ethereum.core.BlockHeader;
 import org.hyperledger.besu.ethereum.core.BlockHeaderTestFixture;
@@ -193,10 +192,7 @@ class BonsaiExecutionWitnessBuilderTest {
     when(worldStateProvider.getTrieLogManager()).thenReturn(trieLogManager);
     when(trieLogManager.getTrieLogLayer(block.getHash())).thenReturn(Optional.empty());
 
-    assertThatThrownBy(
-            () ->
-                builder.buildWitness(
-                    block, balTouching(), Map.of(), new WitnessCodeReads(Set.of())))
+    assertThatThrownBy(() -> builder.buildWitness(block, balTouching(), Map.of(), Set.of()))
         .isInstanceOf(IllegalStateException.class)
         .hasMessageContaining("trie log missing")
         .hasMessageContaining(block.getHash().toString());
@@ -215,10 +211,7 @@ class BonsaiExecutionWitnessBuilderTest {
         .thenReturn(Optional.of(mock(org.hyperledger.besu.plugin.services.trielogs.TrieLog.class)));
     when(worldStateProvider.getWorldState(any())).thenReturn(Optional.empty());
 
-    assertThatThrownBy(
-            () ->
-                builder.buildWitness(
-                    block, balTouching(), Map.of(), new WitnessCodeReads(Set.of())))
+    assertThatThrownBy(() -> builder.buildWitness(block, balTouching(), Map.of(), Set.of()))
         .isInstanceOf(IllegalStateException.class)
         .hasMessageContaining("parent world state unavailable")
         .hasMessageContaining(parent.getHash().toString());

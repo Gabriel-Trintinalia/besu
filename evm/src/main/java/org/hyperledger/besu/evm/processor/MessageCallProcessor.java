@@ -18,6 +18,7 @@ import org.hyperledger.besu.datatypes.Address;
 import org.hyperledger.besu.datatypes.Wei;
 import org.hyperledger.besu.evm.EVM;
 import org.hyperledger.besu.evm.ModificationNotAllowedException;
+import org.hyperledger.besu.evm.account.Account;
 import org.hyperledger.besu.evm.account.MutableAccount;
 import org.hyperledger.besu.evm.frame.ExceptionalHaltReason;
 import org.hyperledger.besu.evm.frame.MessageFrame;
@@ -109,6 +110,27 @@ public class MessageCallProcessor extends AbstractMessageProcessor {
     }
   }
 
+  /**
+   * Reports the code this frame executes: the contract's own code and, for a delegated account, its
+   * delegation target's code.
+   */
+  private static void traceFrameCodeRead(
+      final MessageFrame frame, final OperationTracer operationTracer) {
+    final Address contract = frame.getContractAddress();
+    final Account account = frame.getWorldUpdater().get(contract);
+    if (account == null) {
+      return;
+    }
+    operationTracer.traceCodeRead(contract, account.getCodeHash());
+    if (CodeDelegationHelper.hasCodeDelegation(account.getCode())) {
+      final Address target = CodeDelegationHelper.getTargetAddress(account.getCode());
+      final Account targetAccount = frame.getWorldUpdater().get(target);
+      if (targetAccount != null) {
+        operationTracer.traceCodeRead(target, targetAccount.getCodeHash());
+      }
+    }
+  }
+
   @Override
   protected void codeSuccess(final MessageFrame frame, final OperationTracer operationTracer) {
     LOG.trace(
@@ -133,26 +155,10 @@ public class MessageCallProcessor extends AbstractMessageProcessor {
     final MutableAccount recipientAccount =
         frame.getWorldUpdater().getOrCreate(frame.getRecipientAddress());
 
-    // EIP-8025 witness: record code read at frame entry. Delegated accounts add both the
-    // designator address and the delegation target.
-    frame
-        .getEip7928AccessList()
-        .ifPresent(
-            t -> {
-              final Address contract = frame.getContractAddress();
-              final var account = frame.getWorldUpdater().get(contract);
-              if (account == null) {
-                return;
-              }
-              t.addCodeRead(contract, account.getCodeHash());
-              if (CodeDelegationHelper.hasCodeDelegation(account.getCode())) {
-                final Address target = CodeDelegationHelper.getTargetAddress(account.getCode());
-                final var targetAccount = frame.getWorldUpdater().get(target);
-                if (targetAccount != null) {
-                  t.addCodeRead(target, targetAccount.getCodeHash());
-                }
-              }
-            });
+    final OperationTracer operationTracer = frame.getOperationTracer();
+    if (operationTracer.isEnabled()) {
+      traceFrameCodeRead(frame, operationTracer);
+    }
 
     if (Objects.equals(frame.getValue(), Wei.ZERO)) {
       // This is only here for situations where you are calling a public address from a private

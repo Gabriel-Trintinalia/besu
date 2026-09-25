@@ -23,6 +23,7 @@ import org.hyperledger.besu.evm.gascalculator.GasCalculator;
 import org.hyperledger.besu.evm.internal.OverflowException;
 import org.hyperledger.besu.evm.internal.UnderflowException;
 import org.hyperledger.besu.evm.internal.Words;
+import org.hyperledger.besu.evm.tracing.OperationTracer;
 
 import org.apache.tuweni.bytes.Bytes;
 
@@ -62,10 +63,9 @@ public class ExtCodeSizeOperation extends AbstractOperation {
       } else {
         final Account account = getAccount(address, frame);
 
-        if (account != null) {
-          frame
-              .getEip7928AccessList()
-              .ifPresent(t -> t.addCodeRead(address, account.getCodeHash()));
+        final OperationTracer tracer = frame.getOperationTracer();
+        if (account != null && tracer.isEnabled()) {
+          tracer.traceCodeRead(address, account.getCodeHash());
         }
         Bytes codeSize = (account == null) ? Bytes.EMPTY : Words.intBytes(account.getCode().size());
         frame.pushStackItem(codeSize);

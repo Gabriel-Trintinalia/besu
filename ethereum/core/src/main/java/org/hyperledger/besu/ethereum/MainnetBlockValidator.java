@@ -32,6 +32,7 @@ import org.hyperledger.besu.ethereum.mainnet.block.access.list.BlockAccessList;
 import org.hyperledger.besu.ethereum.trie.MerkleTrieException;
 import org.hyperledger.besu.ethereum.worldstate.WorldStateQueryParams;
 import org.hyperledger.besu.plugin.services.exception.StorageException;
+import org.hyperledger.besu.plugin.services.tracer.BlockAwareOperationTracer;
 import org.hyperledger.besu.plugin.services.worldstate.MutableWorldState;
 
 import java.util.ArrayList;
@@ -138,6 +139,47 @@ public class MainnetBlockValidator implements BlockValidator {
       final Optional<BlockAccessList> blockAccessList,
       final boolean shouldUpdateHead,
       final boolean shouldRecordBadBlock) {
+    return validateAndProcessBlock(
+        context,
+        block,
+        headerValidationMode,
+        ommerValidationMode,
+        blockAccessList,
+        shouldUpdateHead,
+        shouldRecordBadBlock,
+        Optional.empty());
+  }
+
+  @Override
+  public BlockProcessingResult validateAndProcessBlock(
+      final ProtocolContext context,
+      final Block block,
+      final HeaderValidationMode headerValidationMode,
+      final HeaderValidationMode ommerValidationMode,
+      final Optional<BlockAccessList> blockAccessList,
+      final boolean shouldPersist,
+      final boolean shouldRecordBadBlock,
+      final BlockAwareOperationTracer tracer) {
+    return validateAndProcessBlock(
+        context,
+        block,
+        headerValidationMode,
+        ommerValidationMode,
+        blockAccessList,
+        shouldPersist,
+        shouldRecordBadBlock,
+        Optional.ofNullable(tracer));
+  }
+
+  private BlockProcessingResult validateAndProcessBlock(
+      final ProtocolContext context,
+      final Block block,
+      final HeaderValidationMode headerValidationMode,
+      final HeaderValidationMode ommerValidationMode,
+      final Optional<BlockAccessList> blockAccessList,
+      final boolean shouldUpdateHead,
+      final boolean shouldRecordBadBlock,
+      final Optional<BlockAwareOperationTracer> maybeTracer) {
 
     final int blockSize = block.getSize();
     if (blockSize > maxRlpBlockSize) {
@@ -219,7 +261,7 @@ public class MainnetBlockValidator implements BlockValidator {
 
       context.getWorldStateArchive().prepareWorldStateForBlock(block.getHeader(), worldState);
 
-      var result = processBlock(context, worldState, block, blockAccessList);
+      var result = processBlock(context, worldState, block, blockAccessList, maybeTracer);
       if (result.isFailed()) {
         handleFailedBlockProcessing(block, blockAccessList, result, shouldRecordBadBlock, context);
         return result;
@@ -232,8 +274,6 @@ public class MainnetBlockValidator implements BlockValidator {
             result.getYield().flatMap(BlockProcessingOutputs::getBlockAccessList);
         Map<Long, Hash> accessedAncestors =
             result.getYield().map(BlockProcessingOutputs::getAccessedAncestors).orElse(Map.of());
-        Optional<WitnessCodeReads> maybeWitnessCodeReads =
-            result.getYield().flatMap(BlockProcessingOutputs::getWitnessCodeReads);
         long cumulativeBlockGasUsed =
             result.getYield().map(BlockProcessingOutputs::getCumulativeBlockGasUsed).orElse(0L);
         if (!blockBodyValidator.validateBody(
@@ -258,8 +298,7 @@ public class MainnetBlockValidator implements BlockValidator {
                     maybeRequests,
                     processedBlockAccessList,
                     cumulativeBlockGasUsed,
-                    accessedAncestors,
-                    maybeWitnessCodeReads)),
+                    accessedAncestors)),
             result.getNbParallelizedTransactions());
       }
     } catch (MerkleTrieException ex) {
@@ -347,15 +386,19 @@ public class MainnetBlockValidator implements BlockValidator {
    * @param worldState the world state for the parent block state root hash
    * @param block the block to be processed
    * @param blockAccessList optional block access list
+   * @param maybeTracer the tracer to process the block with, in place of the plugin-based import
+   *     tracer; when empty the import tracer is used
    * @return the result of processing the block
    */
   protected BlockProcessingResult processBlock(
       final ProtocolContext context,
       final MutableWorldState worldState,
       final Block block,
-      final Optional<BlockAccessList> blockAccessList) {
+      final Optional<BlockAccessList> blockAccessList,
+      final Optional<BlockAwareOperationTracer> maybeTracer) {
+
     return blockProcessor.processBlock(
-        context, context.getBlockchain(), worldState, block, blockAccessList);
+        context, context.getBlockchain(), worldState, block, blockAccessList, maybeTracer);
   }
 
   @Override

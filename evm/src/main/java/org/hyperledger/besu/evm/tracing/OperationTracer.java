@@ -15,6 +15,7 @@
 package org.hyperledger.besu.evm.tracing;
 
 import org.hyperledger.besu.datatypes.Address;
+import org.hyperledger.besu.datatypes.Hash;
 import org.hyperledger.besu.datatypes.Log;
 import org.hyperledger.besu.datatypes.Transaction;
 import org.hyperledger.besu.datatypes.Wei;
@@ -144,6 +145,34 @@ public interface OperationTracer {
    * @param frame the frame
    */
   default void traceContextExit(final MessageFrame frame) {}
+
+  /**
+   * Trace a read of an account's code: the EVM needed the bytecode of {@code address} at this
+   * point, to execute it, resolve a delegation designator, or answer EXTCODESIZE/EXTCODECOPY.
+   * Emitted by the code that performs the read, not inferred, so a read is reported even when the
+   * operation then fails.
+   *
+   * @param address the account whose code was read
+   * @param codeHash the hash of the code read, as it was at the time of the read
+   */
+  default void traceCodeRead(final Address address, final Hash codeHash) {}
+
+  /**
+   * Trace a write of an account's code: a CREATE/CREATE2 code deposit or an EIP-7702 delegation
+   * designator. A write made by a frame that later reverts is undone with that frame, see {@link
+   * #traceContextExit}.
+   *
+   * @param address the account whose code was written
+   * @param codeHash the hash of the code written
+   */
+  default void traceCodeWrite(final Address address, final Hash codeHash) {}
+
+  /**
+   * Trace the failure of a transaction's top-frame preparation (e.g. an out-of-gas while charging
+   * its EIP-7702 authorizations): what the preparation wrote, such as delegation designators, is
+   * discarded, and the top frame never starts.
+   */
+  default void traceTransactionPreparationRolledBack() {}
 
   /**
    * Returns a boolean indicating whether extended tracing is enabled.

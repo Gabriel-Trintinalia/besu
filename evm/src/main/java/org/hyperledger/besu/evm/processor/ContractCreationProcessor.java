@@ -230,11 +230,10 @@ public class ContractCreationProcessor extends AbstractMessageProcessor {
 
     final MutableAccount contract = frame.getWorldUpdater().getOrCreate(frame.getContractAddress());
     contract.setCode(contractCode);
-    // EIP-8025 witness: EELS set_code adds the deposited code to code_writes, so later reads of any
-    // account holding the same code (by hash) are satisfied without a witness entry. Common to a
-    // top-level creation transaction and an internal CREATE/CREATE2, which both complete here; a
-    // later revert of this frame or an enclosing one undoes it via rollbackCodeWrites.
-    frame.getEip7928AccessList().ifPresent(t -> t.addCodeWrite(contract.getCodeHash()));
+    // Emitted before this frame's completion, so a later revert of an enclosing frame undoes it.
+    if (operationTracer.isEnabled()) {
+      operationTracer.traceCodeWrite(contract.getAddress(), contract.getCodeHash());
+    }
     LOG.atTrace()
         .setMessage("EIP-8037 REC_CODE_DEPOSIT depth={} addr={} len={}")
         .addArgument(frame.getDepth())

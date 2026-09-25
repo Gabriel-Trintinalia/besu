@@ -31,6 +31,7 @@ import org.hyperledger.besu.evm.internal.OperandStack;
 import org.hyperledger.besu.evm.internal.StorageEntry;
 import org.hyperledger.besu.evm.internal.UnderflowException;
 import org.hyperledger.besu.evm.operation.Operation;
+import org.hyperledger.besu.evm.tracing.OperationTracer;
 import org.hyperledger.besu.evm.worldstate.WorldUpdater;
 
 import java.util.ArrayList;
@@ -250,6 +251,10 @@ public class MessageFrame {
   private final TxValues txValues;
 
   private Optional<Eip7928AccessList> eip7928AccessList = Optional.empty();
+
+  // The tracer this frame is processed with, so operations can report events that only they
+  // observe, such as a code read. Set when the frame starts; NO_TRACING until then.
+  private OperationTracer operationTracer = OperationTracer.NO_TRACING;
 
   /** The mark of the undoable collections at the creation of this message frame */
   private long undoMark;
@@ -1504,8 +1509,6 @@ public class MessageFrame {
   /** Undo all the changes done by this message frame, such as when a revert is called for. */
   public void rollback() {
     txValues.undoChanges(undoMark);
-    // EIP-8025 witness: code written by a reverted frame no longer satisfies later reads.
-    eip7928AccessList.ifPresent(t -> t.rollbackCodeWrites(undoMark));
   }
 
   /**
@@ -1532,6 +1535,25 @@ public class MessageFrame {
    */
   public Optional<Eip7928AccessList> getEip7928AccessList() {
     return eip7928AccessList;
+  }
+
+  /**
+   * Returns the tracer this frame is processed with, for operations reporting events only they
+   * observe. {@link OperationTracer#NO_TRACING} until the frame starts.
+   *
+   * @return the operation tracer
+   */
+  public OperationTracer getOperationTracer() {
+    return operationTracer;
+  }
+
+  /**
+   * Sets the tracer this frame is processed with. Called once, when the frame starts.
+   *
+   * @param operationTracer the operation tracer
+   */
+  public void setOperationTracer(final OperationTracer operationTracer) {
+    this.operationTracer = operationTracer;
   }
 
   /** Reset. */

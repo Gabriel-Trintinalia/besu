@@ -20,16 +20,21 @@ import static org.hyperledger.besu.datatypes.HardforkId.MainnetHardforkId.AMSTER
 import static org.hyperledger.besu.datatypes.HardforkId.MainnetHardforkId.BOGOTA;
 import static org.hyperledger.besu.ethereum.api.jsonrpc.internal.methods.engine.EngineTestSupport.fromErrorResp;
 import static org.hyperledger.besu.ethereum.api.jsonrpc.internal.response.RpcErrorType.INTERNAL_ERROR;
+import static org.mockito.ArgumentMatchers.any;
+import static org.mockito.Mockito.lenient;
+import static org.mockito.Mockito.verify;
 
 import org.hyperledger.besu.ethereum.BlockProcessingResult;
 import org.hyperledger.besu.ethereum.api.jsonrpc.internal.methods.ConstructorArgumentsBuilder;
 import org.hyperledger.besu.ethereum.api.jsonrpc.internal.response.JsonRpcResponse;
 import org.hyperledger.besu.ethereum.core.BlockHeader;
 import org.hyperledger.besu.ethereum.mainnet.block.access.list.BlockAccessList;
+import org.hyperledger.besu.ethereum.mainnet.witness.WitnessCodeTracer;
 import org.hyperledger.besu.metrics.noop.NoOpMetricsSystem;
 
 import java.util.Optional;
 
+import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Disabled;
 import org.junit.jupiter.api.Test;
 
@@ -38,10 +43,9 @@ import org.junit.jupiter.api.Test;
  * request-validation, fork-gating and error-handling contract, and adds the behaviour specific to
  * this method: refusing to answer when the imported block's witness data is unavailable.
  *
- * <p>Block processing collects the witness data as a side effect of building the EIP-7928 block
- * access list, so this variant needs no special collector of its own — it just reads {@code
- * BlockProcessingOutputs.getWitnessCodeReads()} off the same yield {@code engine_newPayloadV5}
- * already produces.
+ * <p>This variant imports the block with a {@code WitnessCodeTracer} and reads the code reads off
+ * it. The inherited cases stub the two-argument {@code rememberBlock}, so the three-argument call
+ * is bridged to it.
  *
  * <p>The VALID-response cases are disabled here rather than reimplemented. Producing a witness
  * needs a real Bonsai world state — a trie log, the parent state, and a second trie pass — which
@@ -72,6 +76,18 @@ public class EngineNewPayloadWithWitnessV5Test extends EngineNewPayloadV5Test {
         BOGOTA);
   }
 
+  // The answer deliberately calls the inherited two-argument stub on the same mock.
+  @SuppressWarnings("DirectInvocationOnMock")
+  @BeforeEach
+  public void bridgeRememberBlockWithOptions() {
+    lenient()
+        .when(mergeCoordinator.rememberBlock(any(), any(), any()))
+        .thenAnswer(
+            invocation ->
+                mergeCoordinator.rememberBlock(
+                    invocation.getArgument(0), invocation.getArgument(1)));
+  }
+
   @Override
   @Test
   public void shouldReturnExpectedMethodName() {
@@ -93,6 +109,8 @@ public class EngineNewPayloadWithWitnessV5Test extends EngineNewPayloadV5Test {
         respV5(mockEnginePayloadParam(header, emptyList(), blockAccessList, 0L));
 
     assertThat(fromErrorResp(resp).getCode()).isEqualTo(INTERNAL_ERROR.getCode());
+    // The import itself is what collects the witness data, so it must have been asked for it.
+    verify(mergeCoordinator).rememberBlock(any(), any(), any(WitnessCodeTracer.class));
   }
 
   @Override

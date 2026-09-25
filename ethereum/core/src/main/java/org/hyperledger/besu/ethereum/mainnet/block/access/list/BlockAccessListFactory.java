@@ -29,12 +29,4 @@ public class BlockAccessListFactory {
   public BlockAccessListBuilder newBlockAccessListBuilder() {
     return BlockAccessList.builder();
   }
-
-  /**
-   * Returns a new builder that also collects the block's EIP-8025 witness code reads, for block
-   * import, where a witness can be requested for the imported block.
-   */
-  public BlockAccessListBuilder newBlockAccessListBuilderWithWitnessCodeReads() {
-    return BlockAccessList.builderWithWitnessCodeReads();
-  }
 }

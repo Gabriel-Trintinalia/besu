@@ -49,6 +49,7 @@ import org.hyperledger.besu.ethereum.mainnet.ProtocolSchedule;
 import org.hyperledger.besu.ethereum.mainnet.block.access.list.BlockAccessList;
 import org.hyperledger.besu.ethereum.trie.MerkleTrieException;
 import org.hyperledger.besu.plugin.services.exception.StorageException;
+import org.hyperledger.besu.plugin.services.tracer.BlockAwareOperationTracer;
 import org.hyperledger.besu.plugin.services.worldstate.MutableWorldState;
 
 import java.io.PrintWriter;
@@ -636,11 +637,14 @@ public class MergeCoordinator implements MergeMiningCoordinator, BadChainListene
 
   @Override
   public BlockProcessingResult validateBlock(final Block block) {
-    return validateBlock(block, Optional.empty());
+    return validateBlock(block, Optional.empty(), Optional.empty());
   }
 
   private BlockProcessingResult validateBlock(
-      final Block block, final Optional<BlockAccessList> blockAccessList) {
+      final Block block,
+      final Optional<BlockAccessList> blockAccessList,
+      final Optional<BlockAwareOperationTracer> maybeTracer) {
+    // A null tracer processes the block with the plugin-based import tracer.
     final var validationResult =
         protocolSchedule
             .getByBlockHeader(block.getHeader())
@@ -651,7 +655,9 @@ public class MergeCoordinator implements MergeMiningCoordinator, BadChainListene
                 HeaderValidationMode.FULL,
                 HeaderValidationMode.NONE,
                 blockAccessList,
-                false);
+                false,
+                true,
+                maybeTracer.orElse(null));
 
     return validationResult;
   }
@@ -682,9 +688,24 @@ public class MergeCoordinator implements MergeMiningCoordinator, BadChainListene
   @Override
   public BlockProcessingResult rememberBlock(
       final Block block, final Optional<BlockAccessList> blockAccessList) {
+    return rememberBlock(block, blockAccessList, Optional.empty());
+  }
+
+  @Override
+  public BlockProcessingResult rememberBlock(
+      final Block block,
+      final Optional<BlockAccessList> blockAccessList,
+      final BlockAwareOperationTracer tracer) {
+    return rememberBlock(block, blockAccessList, Optional.of(tracer));
+  }
+
+  private BlockProcessingResult rememberBlock(
+      final Block block,
+      final Optional<BlockAccessList> blockAccessList,
+      final Optional<BlockAwareOperationTracer> maybeTracer) {
     LOG.atDebug().setMessage("Remember block {}").addArgument(block::toLogString).log();
     final var chain = protocolContext.getBlockchain();
-    final var validationResult = validateBlock(block, blockAccessList);
+    final var validationResult = validateBlock(block, blockAccessList, maybeTracer);
     validationResult
         .getYield()
         .ifPresentOrElse(

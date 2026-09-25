@@ -21,6 +21,7 @@ import org.hyperledger.besu.ethereum.chain.Blockchain;
 import org.hyperledger.besu.ethereum.core.Block;
 import org.hyperledger.besu.ethereum.core.TransactionReceipt;
 import org.hyperledger.besu.ethereum.mainnet.block.access.list.BlockAccessList;
+import org.hyperledger.besu.plugin.services.tracer.BlockAwareOperationTracer;
 import org.hyperledger.besu.plugin.services.worldstate.MutableWorldState;
 
 import java.util.List;
@@ -119,6 +120,51 @@ public interface BlockProcessor {
       final Block block,
       final Optional<BlockAccessList> blockAccessList,
       final AbstractBlockProcessor.PreprocessingFunction preprocessingBlockFunction);
+
+  /**
+   * Processes the block with an explicit operation tracer, in place of the plugin-based block
+   * import tracer. Used by callers that observe the execution themselves, e.g. to collect an
+   * execution witness.
+   *
+   * @param protocolContext the current context of the protocol
+   * @param blockchain the blockchain to append the block to
+   * @param worldState the world state to apply changes to
+   * @param block the block to process
+   * @param blockAccessList the optional block access list
+   * @param maybeTracer the tracer for this execution, replacing the plugin-based import tracer;
+   *     when empty the import tracer is resolved as usual
+   * @return the block processing result
+   */
+  BlockProcessingResult processBlock(
+      final ProtocolContext protocolContext,
+      final Blockchain blockchain,
+      final MutableWorldState worldState,
+      final Block block,
+      final Optional<BlockAccessList> blockAccessList,
+      final Optional<BlockAwareOperationTracer> maybeTracer);
+
+  /**
+   * Processes the block with a preprocessing function and an optional explicit operation tracer.
+   * The canonical overload: all other {@code processBlock} variants delegate here.
+   *
+   * @param protocolContext the current context of the protocol
+   * @param blockchain the blockchain to append the block to
+   * @param worldState the world state to apply changes to
+   * @param block the block to process
+   * @param blockAccessList the optional block access list
+   * @param preprocessingBlockFunction a preprocessing function for block execution
+   * @param maybeTracer the tracer for this execution; when empty the plugin-based import tracer is
+   *     resolved as usual
+   * @return the block processing result
+   */
+  BlockProcessingResult processBlock(
+      final ProtocolContext protocolContext,
+      final Blockchain blockchain,
+      final MutableWorldState worldState,
+      final Block block,
+      final Optional<BlockAccessList> blockAccessList,
+      final AbstractBlockProcessor.PreprocessingFunction preprocessingBlockFunction,
+      final Optional<BlockAwareOperationTracer> maybeTracer);
 
   /**
    * Get ommer reward in ${@link Wei}

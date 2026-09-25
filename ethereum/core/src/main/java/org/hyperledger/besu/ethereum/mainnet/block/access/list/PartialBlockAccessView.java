@@ -17,7 +17,6 @@ package org.hyperledger.besu.ethereum.mainnet.block.access.list;
 import org.hyperledger.besu.datatypes.Address;
 import org.hyperledger.besu.datatypes.StorageSlotKey;
 import org.hyperledger.besu.datatypes.Wei;
-import org.hyperledger.besu.ethereum.mainnet.witness.WitnessCodeTracker.CodeAccesses;
 
 import java.util.ArrayList;
 import java.util.Arrays;
@@ -52,21 +51,9 @@ public final class PartialBlockAccessView {
   private final long txIndex;
   private final List<AccountChanges> accountChanges;
 
-  // EIP-8025 witness: rides the per-transaction view out to the block, in transaction order. Not
-  // part of the block access list; empty unless the block is processed for a witness.
-  private final Optional<CodeAccesses> witnessCodeAccesses;
-
   public PartialBlockAccessView(final List<AccountChanges> accountChanges, final long txIndex) {
-    this(accountChanges, txIndex, Optional.empty());
-  }
-
-  public PartialBlockAccessView(
-      final List<AccountChanges> accountChanges,
-      final long txIndex,
-      final Optional<CodeAccesses> witnessCodeAccesses) {
     this.accountChanges = accountChanges;
     this.txIndex = txIndex;
-    this.witnessCodeAccesses = witnessCodeAccesses;
   }
 
   @Override
@@ -76,8 +63,6 @@ public final class PartialBlockAccessView {
         + txIndex
         + ", accountChanges="
         + accountChanges
-        + ", witnessCodeAccesses="
-        + witnessCodeAccesses
         + '}';
   }
 
@@ -89,22 +74,17 @@ public final class PartialBlockAccessView {
     return accountChanges;
   }
 
-  public Optional<CodeAccesses> witnessCodeAccesses() {
-    return witnessCodeAccesses;
-  }
-
   @Override
   public boolean equals(final Object obj) {
     if (obj == this) return true;
     if (obj == null || obj.getClass() != this.getClass()) return false;
     var that = (PartialBlockAccessView) obj;
-    return Objects.equals(this.accountChanges, that.accountChanges)
-        && Objects.equals(this.witnessCodeAccesses, that.witnessCodeAccesses);
+    return Objects.equals(this.accountChanges, that.accountChanges);
   }
 
   @Override
   public int hashCode() {
-    return Objects.hash(accountChanges, witnessCodeAccesses);
+    return Objects.hash(accountChanges);
   }
 
   public record SlotChange(StorageSlotKey slot, UInt256 previousValue, UInt256 newValue) {
@@ -188,16 +168,9 @@ public final class PartialBlockAccessView {
   public static class PartialBlockAccessViewBuilder {
     private long txIndex;
     private final Map<Address, AccountChangesBuilder> accountBuilders = new HashMap<>();
-    private Optional<CodeAccesses> witnessCodeAccesses = Optional.empty();
 
     public PartialBlockAccessViewBuilder withTxIndex(final long txIndex) {
       this.txIndex = txIndex;
-      return this;
-    }
-
-    public PartialBlockAccessViewBuilder withWitnessCodeAccesses(
-        final CodeAccesses witnessCodeAccesses) {
-      this.witnessCodeAccesses = Optional.of(witnessCodeAccesses);
       return this;
     }
 
@@ -215,7 +188,7 @@ public final class PartialBlockAccessView {
               Arrays.compareUnsigned(
                   left.getAddress().getBytes().toArrayUnsafe(),
                   right.getAddress().getBytes().toArrayUnsafe()));
-      return new PartialBlockAccessView(accountChanges, txIndex, witnessCodeAccesses);
+      return new PartialBlockAccessView(accountChanges, txIndex);
     }
   }
 

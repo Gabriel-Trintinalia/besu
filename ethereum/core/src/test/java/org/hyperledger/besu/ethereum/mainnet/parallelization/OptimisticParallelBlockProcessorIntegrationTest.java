@@ -122,4 +122,24 @@ class OptimisticParallelBlockProcessorIntegrationTest {
       return createPreprocessing(transactionProcessor);
     }
   }
+
+  @Nested
+  @DisplayName("Explicit Tracer")
+  class ExplicitTracer extends AbstractExplicitTracerTest {
+    @Override
+    protected String getVariantName() {
+      return getVariant();
+    }
+
+    @Override
+    protected BalConfiguration getBalConfiguration() {
+      return OPTIMISTIC_CONFIG;
+    }
+
+    @Override
+    protected ParallelTransactionPreprocessing createParallelPreprocessing(
+        final MainnetTransactionProcessor transactionProcessor) {
+      return createPreprocessing(transactionProcessor);
+    }
+  }
 }

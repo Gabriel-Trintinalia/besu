@@ -39,6 +39,7 @@ import org.hyperledger.besu.evm.worldstate.WorldUpdater;
 import org.hyperledger.besu.metrics.BesuMetricCategory;
 import org.hyperledger.besu.plugin.services.MetricsSystem;
 import org.hyperledger.besu.plugin.services.metrics.Counter;
+import org.hyperledger.besu.plugin.services.tracer.BlockAwareOperationTracer;
 import org.hyperledger.besu.plugin.services.worldstate.MutableWorldState;
 
 import java.util.Optional;
@@ -161,6 +162,29 @@ public class MainnetParallelBlockProcessor extends MainnetBlockProcessor {
       return super.processBlock(protocolContext, blockchain, worldState, block, blockAccessList);
     }
     return blockProcessingResult;
+  }
+
+  @Override
+  public BlockProcessingResult processBlock(
+      final ProtocolContext protocolContext,
+      final Blockchain blockchain,
+      final MutableWorldState worldState,
+      final Block block,
+      final Optional<BlockAccessList> blockAccessList,
+      final Optional<BlockAwareOperationTracer> maybeTracer) {
+    if (maybeTracer.isEmpty()) {
+      return processBlock(protocolContext, blockchain, worldState, block, blockAccessList);
+    }
+    // Background transactions run untraced, so a caller's tracer, which has to observe every
+    // transaction, gets a sequential run.
+    return super.processBlock(
+        protocolContext,
+        blockchain,
+        worldState,
+        block,
+        blockAccessList,
+        new PreprocessingFunction.NoPreprocessing(),
+        maybeTracer);
   }
 
   public static class ParallelBlockProcessorBuilder

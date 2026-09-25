@@ -24,6 +24,7 @@ import org.hyperledger.besu.evm.frame.ExceptionalHaltReason;
 import org.hyperledger.besu.evm.frame.MessageFrame;
 import org.hyperledger.besu.evm.gascalculator.GasCalculator;
 import org.hyperledger.besu.evm.internal.Words;
+import org.hyperledger.besu.evm.tracing.OperationTracer;
 
 import org.apache.tuweni.bytes.Bytes;
 
@@ -78,8 +79,9 @@ public class ExtCodeCopyOperation extends AbstractOperation {
     final Account account = getAccount(address, frame);
     final Bytes code = account != null ? account.getCode() : Bytes.EMPTY;
 
-    if (account != null) {
-      frame.getEip7928AccessList().ifPresent(t -> t.addCodeRead(address, account.getCodeHash()));
+    final OperationTracer tracer = frame.getOperationTracer();
+    if (account != null && tracer.isEnabled()) {
+      tracer.traceCodeRead(address, account.getCodeHash());
     }
     frame.writeMemory(memOffset, sourceOffset, numBytes, code);
 

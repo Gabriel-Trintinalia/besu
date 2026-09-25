@@ -33,6 +33,7 @@ import org.hyperledger.besu.evm.frame.MessageFrame;
 import org.hyperledger.besu.evm.frame.MessageFrame.State;
 import org.hyperledger.besu.evm.frame.SoftFailureReason;
 import org.hyperledger.besu.evm.gascalculator.GasCalculator;
+import org.hyperledger.besu.evm.tracing.OperationTracer;
 import org.hyperledger.besu.evm.worldstate.CodeDelegationHelper;
 
 import org.apache.tuweni.bytes.Bytes;
@@ -233,17 +234,11 @@ public abstract class AbstractCallOperation extends AbstractOperation {
     final Account contract = getAccount(to, frame);
     cost = clampedAdd(cost, gasCalculator().calculateCodeDelegationResolutionGas(frame, contract));
 
-    // EIP-8025 witness: delegation-resolution gas is charged above, meaning the caller's designator
-    // code is read at this point. Record it before the subsequent gas check so the witness captures
-    // the caller's code even when the call OOGs after delegation resolution.
-    frame
-        .getEip7928AccessList()
-        .ifPresent(
-            t -> {
-              if (contract != null && hasCodeDelegation(contract.getCode())) {
-                t.addCodeRead(to, contract.getCodeHash());
-              }
-            });
+    // Resolving the delegation above read the designator, even if the call runs out of gas below.
+    final OperationTracer tracer = frame.getOperationTracer();
+    if (tracer.isEnabled() && contract != null && hasCodeDelegation(contract.getCode())) {
+      tracer.traceCodeRead(to, contract.getCodeHash());
+    }
 
     if (frame.getRemainingGas() < cost) {
       return new OperationResult(cost, ExceptionalHaltReason.INSUFFICIENT_GAS);
@@ -264,38 +259,26 @@ public abstract class AbstractCallOperation extends AbstractOperation {
     if (contract != null) {
       final Bytes contractCode = contract.getCode();
       if (hasCodeDelegation(contractCode)) {
-        final Address target = getTargetAddress(contractCode);
         frame
             .getEip7928AccessList()
-            .ifPresent(
-                t -> {
-                  t.addTouchedAccount(target);
-                  // EIP-8025 witness: the EVM reads the delegation target's code here — exactly
-                  // where EELS calls get_code(target) after the call's gas checks pass but before
-                  // the value/depth soft-failure check (system.py). Recording it here means the
-                  // witness includes the target's bytecode even when the call later soft-fails
-                  // (insufficient balance / max depth) and no child frame is created, so the
-                  // witness needs no gas-cost inference to know the code was accessed.
-                  final Account targetAccount = frame.getWorldUpdater().get(target);
-                  if (targetAccount != null) {
-                    t.addCodeRead(target, targetAccount.getCodeHash());
-                  }
-                });
+            .ifPresent(t -> t.addTouchedAccount(getTargetAddress(contractCode)));
       }
     }
 
-    // EIP-8025 witness: for non-delegated contracts, record the call target after the gas check
-    // passes. This covers soft-fail cases (insufficient balance, max depth) where no child frame
-    // is created and AbstractMessageProcessor.process() never fires, mirroring EELS get_code(to)
-    // which is called before the balance/depth checks but after the gas check.
-    frame
-        .getEip7928AccessList()
-        .ifPresent(
-            t -> {
-              if (contract != null && !hasCodeDelegation(contract.getCode())) {
-                t.addCodeRead(to, contract.getCodeHash());
-              }
-            });
+    // The code the call executes is read here, before the balance/depth soft-failure checks: the
+    // delegation target's for a delegated account, the account's own otherwise.
+    if (tracer.isEnabled() && contract != null) {
+      final Bytes contractCode = contract.getCode();
+      if (hasCodeDelegation(contractCode)) {
+        final Address target = getTargetAddress(contractCode);
+        final Account targetAccount = frame.getWorldUpdater().get(target);
+        if (targetAccount != null) {
+          tracer.traceCodeRead(target, targetAccount.getCodeHash());
+        }
+      } else {
+        tracer.traceCodeRead(to, contract.getCodeHash());
+      }
+    }
 
     frame.clearReturnData();
 

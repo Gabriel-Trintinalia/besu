@@ -15,12 +15,10 @@
 package org.hyperledger.besu.ethereum.mainnet.block.access.list;
 
 import org.hyperledger.besu.datatypes.Address;
-import org.hyperledger.besu.datatypes.Hash;
 import org.hyperledger.besu.datatypes.StorageSlotKey;
 import org.hyperledger.besu.datatypes.Wei;
 import org.hyperledger.besu.ethereum.mainnet.block.access.list.PartialBlockAccessView.AccountChangesBuilder;
 import org.hyperledger.besu.ethereum.mainnet.block.access.list.PartialBlockAccessView.PartialBlockAccessViewBuilder;
-import org.hyperledger.besu.ethereum.mainnet.witness.WitnessCodeTracker;
 import org.hyperledger.besu.evm.account.Account;
 import org.hyperledger.besu.evm.frame.Eip7928AccessList;
 import org.hyperledger.besu.evm.worldstate.StackedUpdater;
@@ -31,7 +29,6 @@ import java.util.Collection;
 import java.util.Collections;
 import java.util.HashSet;
 import java.util.Map;
-import java.util.Optional;
 import java.util.Set;
 import java.util.concurrent.ConcurrentHashMap;
 
@@ -43,25 +40,13 @@ public class AccessLocationTracker implements Eip7928AccessList {
   private final long blockAccessIndex;
   private final Map<Address, AccountAccessList> touchedAccounts = new ConcurrentHashMap<>();
 
-  // EIP-8025 witness: null unless the block is processed for a witness. Its code-read hooks share
-  // this tracker's EVM plumbing, but the witness semantics live in WitnessCodeTracker.
-  private final WitnessCodeTracker witnessCodeTracker;
-
   public AccessLocationTracker(final long blockAccessIndex) {
-    this(blockAccessIndex, null);
-  }
-
-  AccessLocationTracker(final long blockAccessIndex, final WitnessCodeTracker witnessCodeTracker) {
     this.blockAccessIndex = blockAccessIndex;
-    this.witnessCodeTracker = witnessCodeTracker;
   }
 
   @Override
   public void clear() {
     touchedAccounts.clear();
-    if (witnessCodeTracker != null) {
-      witnessCodeTracker.clear();
-    }
   }
 
   @Override
@@ -72,31 +57,6 @@ public class AccessLocationTracker implements Eip7928AccessList {
   @Override
   public void addSlotAccessForAccount(final Address address, final UInt256 slotKey) {
     touchedAccounts.computeIfAbsent(address, AccountAccessList::new).addSlotAccess(slotKey);
-  }
-
-  @Override
-  public void addCodeRead(final Address address, final Hash codeHash) {
-    if (witnessCodeTracker != null) {
-      witnessCodeTracker.addCodeRead(address, codeHash);
-    }
-  }
-
-  @Override
-  public void addCodeWrite(final Hash codeHash) {
-    if (witnessCodeTracker != null) {
-      witnessCodeTracker.addCodeWrite(codeHash);
-    }
-  }
-
-  @Override
-  public void rollbackCodeWrites(final long mark) {
-    if (witnessCodeTracker != null) {
-      witnessCodeTracker.rollbackCodeWrites(mark);
-    }
-  }
-
-  public Optional<WitnessCodeTracker> getWitnessCodeTracker() {
-    return Optional.ofNullable(witnessCodeTracker);
   }
 
   public static final class AccountAccessList {
@@ -129,9 +89,6 @@ public class AccessLocationTracker implements Eip7928AccessList {
     final StackedUpdater<?, ?> stackedUpdater = (StackedUpdater<?, ?>) updater;
     final PartialBlockAccessViewBuilder builder = new PartialBlockAccessViewBuilder();
     builder.withTxIndex(this.blockAccessIndex);
-    if (witnessCodeTracker != null) {
-      builder.withWitnessCodeAccesses(witnessCodeTracker.accesses());
-    }
 
     final Collection<Address> deletedAddressesCol = stackedUpdater.getDeletedAccountAddresses();
     final Set<Address> deletedAddresses =

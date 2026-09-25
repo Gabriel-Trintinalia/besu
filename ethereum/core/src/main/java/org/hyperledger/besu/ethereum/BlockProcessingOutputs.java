@@ -33,7 +33,6 @@ public class BlockProcessingOutputs {
   private final Optional<BlockAccessList> maybeBlockAccessList;
   private final long cumulativeBlockGasUsed;
   private final Map<Long, Hash> accessedAncestors;
-  private final Optional<WitnessCodeReads> witnessCodeReads;
 
   /**
    * Creates a new instance.
@@ -91,14 +90,7 @@ public class BlockProcessingOutputs {
       final Optional<List<Request>> maybeRequests,
       final Optional<BlockAccessList> blockAccessList,
       final long cumulativeBlockGasUsed) {
-    this(
-        worldState,
-        receipts,
-        maybeRequests,
-        blockAccessList,
-        cumulativeBlockGasUsed,
-        Map.of(),
-        Optional.empty());
+    this(worldState, receipts, maybeRequests, blockAccessList, cumulativeBlockGasUsed, Map.of());
   }
 
   /**
@@ -119,44 +111,12 @@ public class BlockProcessingOutputs {
       final Optional<BlockAccessList> blockAccessList,
       final long cumulativeBlockGasUsed,
       final Map<Long, Hash> accessedAncestors) {
-    this(
-        worldState,
-        receipts,
-        maybeRequests,
-        blockAccessList,
-        cumulativeBlockGasUsed,
-        accessedAncestors,
-        Optional.empty());
-  }
-
-  /**
-   * Creates a new instance.
-   *
-   * @param worldState the world state after processing the block
-   * @param receipts the receipts produced by processing the block
-   * @param maybeRequests the requests produced by processing the block
-   * @param blockAccessList the block-level access list produced by processing the block
-   * @param cumulativeBlockGasUsed the cumulative block gas used (pre-refund for EIP-7778)
-   * @param accessedAncestors the ancestor blocks resolved via BLOCKHASH during processing, keyed by
-   *     block number; always at least the parent
-   * @param witnessCodeReads the EIP-8025 code reads collected during block processing, or empty if
-   *     witness collection was not enabled for this block
-   */
-  public BlockProcessingOutputs(
-      final MutableWorldState worldState,
-      final List<TransactionReceipt> receipts,
-      final Optional<List<Request>> maybeRequests,
-      final Optional<BlockAccessList> blockAccessList,
-      final long cumulativeBlockGasUsed,
-      final Map<Long, Hash> accessedAncestors,
-      final Optional<WitnessCodeReads> witnessCodeReads) {
     this.worldState = worldState;
     this.receipts = receipts;
     this.maybeRequests = maybeRequests;
     this.maybeBlockAccessList = blockAccessList;
     this.cumulativeBlockGasUsed = cumulativeBlockGasUsed;
     this.accessedAncestors = accessedAncestors;
-    this.witnessCodeReads = witnessCodeReads;
   }
 
   /**
@@ -213,15 +173,5 @@ public class BlockProcessingOutputs {
    */
   public Map<Long, Hash> getAccessedAncestors() {
     return accessedAncestors;
-  }
-
-  /**
-   * Returns the EIP-8025 code reads collected during block processing, or empty if witness
-   * collection was not enabled for this block.
-   *
-   * @return the witness code reads, or empty if not collected
-   */
-  public Optional<WitnessCodeReads> getWitnessCodeReads() {
-    return witnessCodeReads;
   }
 }

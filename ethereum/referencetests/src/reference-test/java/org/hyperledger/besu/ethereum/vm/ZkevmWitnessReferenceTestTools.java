@@ -17,11 +17,11 @@ package org.hyperledger.besu.ethereum.vm;
 import static org.assertj.core.api.Assertions.assertThat;
 
 import org.hyperledger.besu.config.StubGenesisConfigOptions;
+import org.hyperledger.besu.datatypes.Address;
 import org.hyperledger.besu.datatypes.Hash;
 import org.hyperledger.besu.ethereum.BlockProcessingOutputs;
 import org.hyperledger.besu.ethereum.BlockProcessingResult;
 import org.hyperledger.besu.ethereum.ProtocolContext;
-import org.hyperledger.besu.ethereum.WitnessCodeReads;
 import org.hyperledger.besu.ethereum.chain.BadBlockManager;
 import org.hyperledger.besu.ethereum.chain.Blockchain;
 import org.hyperledger.besu.ethereum.chain.MutableBlockchain;
@@ -34,6 +34,7 @@ import org.hyperledger.besu.ethereum.mainnet.ProtocolScheduleBuilder;
 import org.hyperledger.besu.ethereum.mainnet.ProtocolSpec;
 import org.hyperledger.besu.ethereum.mainnet.ProtocolSpecAdapters;
 import org.hyperledger.besu.ethereum.mainnet.block.access.list.BlockAccessList;
+import org.hyperledger.besu.ethereum.mainnet.witness.WitnessCodeTracer;
 import org.hyperledger.besu.ethereum.referencetests.BlockchainReferenceTestCaseSpec;
 import org.hyperledger.besu.ethereum.referencetests.FixtureExecutionWitness;
 import org.hyperledger.besu.ethereum.referencetests.ReferenceTestProtocolSchedules;
@@ -52,6 +53,7 @@ import java.util.Collection;
 import java.util.List;
 import java.util.Map;
 import java.util.Optional;
+import java.util.Set;
 import java.util.function.Function;
 
 import org.slf4j.Logger;
@@ -113,6 +115,7 @@ public class ZkevmWitnessReferenceTestTools {
                 ? HeaderValidationMode.LIGHT
                 : HeaderValidationMode.FULL;
 
+        final WitnessCodeTracer witnessCodeTracer = new WitnessCodeTracer();
         final BlockProcessingResult processingResult =
             protocolSpec
                 .getBlockValidator()
@@ -122,7 +125,9 @@ public class ZkevmWitnessReferenceTestTools {
                     validationMode,
                     validationMode,
                     candidateBlock.getBlockAccessList(),
-                    false);
+                    false,
+                    true,
+                    witnessCodeTracer);
 
         final boolean imported = processingResult.isSuccessful();
         assertThat(imported)
@@ -134,7 +139,13 @@ public class ZkevmWitnessReferenceTestTools {
         if (imported) {
           // Assert before appending: while the chain head is still the parent, the parent world
           // state the witness builder needs is a direct lookup rather than a historical one.
-          assertWitness(protocolContext, block, blockchain, processingResult, candidateBlock);
+          assertWitness(
+              protocolContext,
+              block,
+              blockchain,
+              processingResult,
+              witnessCodeTracer.codeReads(),
+              candidateBlock);
 
           processingResult
               .getYield()
@@ -194,6 +205,7 @@ public class ZkevmWitnessReferenceTestTools {
       final Block block,
       final Blockchain blockchain,
       final BlockProcessingResult processingResult,
+      final Set<Address> codeReads,
       final BlockchainReferenceTestCaseSpec.CandidateBlock candidateBlock) {
 
     // Skip genesis block since it doesn't have a parent to build the witness against
@@ -220,16 +232,10 @@ public class ZkevmWitnessReferenceTestTools {
         .as("accessed ancestors for block %s, needed to build its expected witness", block.getHash())
         .isNotNull();
 
-    final WitnessCodeReads witnessCodeReads =
-        processingResult.getYield().flatMap(BlockProcessingOutputs::getWitnessCodeReads).orElse(null);
-    assertThat(witnessCodeReads)
-        .as("witness code reads for block %s, needed to build its expected witness", block.getHash())
-        .isNotNull();
-
     final FixtureExecutionWitness expected = expectedWitnessOpt.get();
     final BonsaiExecutionWitnessBuilder.Witness got =
         new BonsaiExecutionWitnessBuilder(ctx.getWorldStateArchive(), ctx.getBlockchain())
-            .buildWitness(block.getHeader(), blockAccessList, accessedAncestors, witnessCodeReads);
+            .buildWitness(block.getHeader(), blockAccessList, accessedAncestors, codeReads);
 
     logWitnessDiff("state", got.state(), expected.state(), block.getHash());
     logWitnessDiff("codes", got.codes(), expected.codes(), block.getHash());

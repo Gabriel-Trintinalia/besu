@@ -18,7 +18,6 @@ import org.hyperledger.besu.datatypes.Hash;
 import org.hyperledger.besu.ethereum.BlockProcessingOutputs;
 import org.hyperledger.besu.ethereum.BlockProcessingResult;
 import org.hyperledger.besu.ethereum.ProtocolContext;
-import org.hyperledger.besu.ethereum.WitnessCodeReads;
 import org.hyperledger.besu.ethereum.api.jsonrpc.RpcMethod;
 import org.hyperledger.besu.ethereum.api.jsonrpc.internal.JsonRpcRequestContext;
 import org.hyperledger.besu.ethereum.api.jsonrpc.internal.exception.InvalidJsonRpcParameters;
@@ -34,6 +33,7 @@ import org.hyperledger.besu.ethereum.core.BlockHeader;
 import org.hyperledger.besu.ethereum.mainnet.HeaderValidationMode;
 import org.hyperledger.besu.ethereum.mainnet.ProtocolSchedule;
 import org.hyperledger.besu.ethereum.mainnet.block.access.list.BlockAccessList;
+import org.hyperledger.besu.ethereum.mainnet.witness.WitnessCodeTracer;
 import org.hyperledger.besu.ethereum.trie.pathbased.bonsai.storage.BonsaiExecutionWitnessBuilder;
 
 import java.util.Map;
@@ -108,10 +108,11 @@ public class DebugExecutionWitness extends AbstractBlockParameterOrBlockHashMeth
     // Re-execute the block against its parent state. Validation is skipped (NONE/NONE) because the
     // block is already imported. Re-execution is what yields the things the witness needs and the
     // database does not hold: the block access list (state), the ancestors the BLOCKHASH lookup
-    // resolved (headers), and the EIP-8025 code reads collected alongside it (codes). All arrive on
-    // BlockProcessingOutputs. shouldPersist=false keeps the world state unchanged;
-    // shouldRecordBadBlock=false suppresses bad-block storage for what is known to be a valid,
-    // imported block.
+    // resolved (headers), and the EIP-8025 code reads (codes). The first two arrive on
+    // BlockProcessingOutputs, the code reads on the tracer the block is processed with.
+    // shouldPersist=false keeps the world state unchanged; shouldRecordBadBlock=false suppresses
+    // bad-block storage for what is known to be a valid, imported block.
+    final WitnessCodeTracer witnessCodeTracer = new WitnessCodeTracer();
     final BlockProcessingResult result =
         protocolSchedule
             .getByBlockHeader(blockHeader)
@@ -123,7 +124,8 @@ public class DebugExecutionWitness extends AbstractBlockParameterOrBlockHashMeth
                 HeaderValidationMode.NONE,
                 Optional.empty(),
                 false,
-                false);
+                false,
+                witnessCodeTracer);
 
     if (!result.isSuccessful()) {
       return new JsonRpcErrorResponse(reqId, RpcErrorType.INTERNAL_ERROR);
@@ -151,22 +153,12 @@ public class DebugExecutionWitness extends AbstractBlockParameterOrBlockHashMeth
                       new IllegalStateException(
                           "block processing produced no yield for block " + blockHeader.getHash()));
 
-      final WitnessCodeReads witnessCodeReads =
-          result
-              .getYield()
-              .flatMap(BlockProcessingOutputs::getWitnessCodeReads)
-              .orElseThrow(
-                  () ->
-                      new IllegalStateException(
-                          "witness code reads are required for witness generation but were absent for block "
-                              + blockHeader.getHash()));
-
       final BonsaiExecutionWitnessBuilder witnessBuilder =
           new BonsaiExecutionWitnessBuilder(
               getBlockchainQueries().getWorldStateArchive(), blockchain);
       witness =
           witnessBuilder.buildWitness(
-              blockHeader, blockAccessList, accessedAncestors, witnessCodeReads);
+              blockHeader, blockAccessList, accessedAncestors, witnessCodeTracer.codeReads());
     } catch (final IllegalStateException e) {
       LOG.error("Failed to build execution witness for block {}", blockHeader.getHash(), e);
       return new JsonRpcErrorResponse(reqId, RpcErrorType.INTERNAL_ERROR);

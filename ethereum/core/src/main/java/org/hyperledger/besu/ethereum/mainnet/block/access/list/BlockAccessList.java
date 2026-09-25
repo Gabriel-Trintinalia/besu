@@ -17,11 +17,8 @@ package org.hyperledger.besu.ethereum.mainnet.block.access.list;
 import org.hyperledger.besu.datatypes.Address;
 import org.hyperledger.besu.datatypes.StorageSlotKey;
 import org.hyperledger.besu.datatypes.Wei;
-import org.hyperledger.besu.ethereum.WitnessCodeReads;
 import org.hyperledger.besu.ethereum.core.encoding.BlockAccessListDecoder;
 import org.hyperledger.besu.ethereum.core.encoding.BlockAccessListEncoder;
-import org.hyperledger.besu.ethereum.mainnet.witness.WitnessCodeAccumulator;
-import org.hyperledger.besu.ethereum.mainnet.witness.WitnessCodeTracker;
 import org.hyperledger.besu.ethereum.rlp.BytesValueRLPInput;
 import org.hyperledger.besu.ethereum.rlp.BytesValueRLPOutput;
 import org.hyperledger.besu.ethereum.rlp.RLPOutput;
@@ -99,15 +96,7 @@ public record BlockAccessList(List<AccountChanges> accountChanges, Optional<Byte
   }
 
   public static BlockAccessListBuilder builder() {
-    return new BlockAccessListBuilder(null);
-  }
-
-  /**
-   * Returns a builder that also collects the block's EIP-8025 witness code reads, see {@link
-   * BlockAccessListBuilder#getWitnessCodeReads()}.
-   */
-  public static BlockAccessListBuilder builderWithWitnessCodeReads() {
-    return new BlockAccessListBuilder(new WitnessCodeAccumulator());
+    return new BlockAccessListBuilder();
   }
 
   @Override
@@ -198,31 +187,18 @@ public record BlockAccessList(List<AccountChanges> accountChanges, Optional<Byte
   public static class BlockAccessListBuilder {
     final Map<Address, AccountBuilder> accountChangesBuilders = new HashMap<>();
 
-    // EIP-8025 witness: null unless built with builderWithWitnessCodeReads(). Not part of the block
-    // access list; only fed from the per-transaction views this builder already receives in order.
-    private final WitnessCodeAccumulator witnessCodeAccumulator;
-
-    private BlockAccessListBuilder(final WitnessCodeAccumulator witnessCodeAccumulator) {
-      this.witnessCodeAccumulator = witnessCodeAccumulator;
+    public static AccessLocationTracker createPreExecutionAccessLocationTracker() {
+      return new AccessLocationTracker(0);
     }
 
-    public AccessLocationTracker createPreExecutionAccessLocationTracker() {
-      return createAccessLocationTracker(0);
-    }
-
-    public AccessLocationTracker createPostExecutionAccessLocationTracker(
+    public static AccessLocationTracker createPostExecutionAccessLocationTracker(
         final int numberOfTransactions) {
-      return createAccessLocationTracker((long) numberOfTransactions + 1L);
+      return new AccessLocationTracker((long) numberOfTransactions + 1L);
     }
 
-    public AccessLocationTracker createTransactionAccessLocationTracker(
+    public static AccessLocationTracker createTransactionAccessLocationTracker(
         final int transactionLocation) {
-      return createAccessLocationTracker((long) transactionLocation + 1L);
-    }
-
-    private AccessLocationTracker createAccessLocationTracker(final long blockAccessIndex) {
-      return new AccessLocationTracker(
-          blockAccessIndex, witnessCodeAccumulator != null ? new WitnessCodeTracker() : null);
+      return new AccessLocationTracker((long) transactionLocation + 1L);
     }
 
     public AccountBuilder getOrCreateAccountBuilder(final Address address) {
@@ -272,20 +248,6 @@ public record BlockAccessList(List<AccountChanges> accountChanges, Optional<Byte
                           builder.addCodeChange(partialBlockAccessView.getTxIndex(), change);
                         });
               });
-      if (witnessCodeAccumulator != null) {
-        partialBlockAccessView.witnessCodeAccesses().ifPresent(witnessCodeAccumulator::apply);
-      }
-    }
-
-    /**
-     * Returns the EIP-8025 code reads of every transaction applied so far, or empty unless built
-     * with {@link BlockAccessList#builderWithWitnessCodeReads()}.
-     *
-     * @return the witness code reads
-     */
-    public Optional<WitnessCodeReads> getWitnessCodeReads() {
-      return Optional.ofNullable(witnessCodeAccumulator)
-          .map(WitnessCodeAccumulator::toWitnessCodeReads);
     }
 
     /**

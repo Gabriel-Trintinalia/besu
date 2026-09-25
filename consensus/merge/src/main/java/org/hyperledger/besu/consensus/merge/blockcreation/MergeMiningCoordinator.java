@@ -26,6 +26,7 @@ import org.hyperledger.besu.ethereum.core.BlockHeader;
 import org.hyperledger.besu.ethereum.core.Withdrawal;
 import org.hyperledger.besu.ethereum.eth.manager.EthScheduler;
 import org.hyperledger.besu.ethereum.mainnet.block.access.list.BlockAccessList;
+import org.hyperledger.besu.plugin.services.tracer.BlockAwareOperationTracer;
 
 import java.util.List;
 import java.util.Optional;
@@ -93,6 +94,19 @@ public interface MergeMiningCoordinator extends MiningCoordinator {
    */
   BlockProcessingResult rememberBlock(
       final Block block, final Optional<BlockAccessList> blockAccessList);
+
+  /**
+   * Remember block with optional block access list, processing it with an explicit tracer.
+   *
+   * @param block the block
+   * @param blockAccessList optional block access list
+   * @param tracer the tracer to process the block with, in place of the plugin-based import tracer
+   * @return the block processing result
+   */
+  BlockProcessingResult rememberBlock(
+      final Block block,
+      final Optional<BlockAccessList> blockAccessList,
+      final BlockAwareOperationTracer tracer);
 
   /**
    * Validate block.

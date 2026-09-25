@@ -18,7 +18,6 @@ import static org.hyperledger.besu.ethereum.worldstate.WorldStateQueryParams.wit
 
 import org.hyperledger.besu.datatypes.Address;
 import org.hyperledger.besu.datatypes.Hash;
-import org.hyperledger.besu.ethereum.WitnessCodeReads;
 import org.hyperledger.besu.ethereum.chain.Blockchain;
 import org.hyperledger.besu.ethereum.core.BlockHeader;
 import org.hyperledger.besu.ethereum.mainnet.block.access.list.BlockAccessList;
@@ -68,7 +67,7 @@ public class BonsaiExecutionWitnessBuilder {
 
   /**
    * Builds the EIP-8025 execution witness (state trie nodes, codes, headers) for a block. Uses the
-   * TrieLog + BAL for {@code state}, the {@link WitnessCodeReads}'s accumulated code-read sets for
+   * TrieLog + BAL for {@code state}, the code reads collected by {@code WitnessCodeTracer} for
    * {@code codes}, and the oldest accessed ancestor in {@code accessedAncestors} for {@code
    * headers}.
    */
@@ -76,7 +75,7 @@ public class BonsaiExecutionWitnessBuilder {
       final BlockHeader blockHeader,
       final BlockAccessList blockAccessList,
       final Map<Long, Hash> accessedAncestors,
-      final WitnessCodeReads witnessCodeReads) {
+      final Set<Address> codeReads) {
 
     final TrieLog trieLog =
         worldStateProvider
@@ -101,7 +100,7 @@ public class BonsaiExecutionWitnessBuilder {
         throw new IllegalStateException("parent world state is not a BonsaiWorldState");
       }
       final List<String> state = buildTrieNodes(blockHeader, trieLog, ws, blockAccessList);
-      final List<String> codes = buildCodes(ws, witnessCodeReads.codeReads());
+      final List<String> codes = buildCodes(ws, codeReads);
       final long oldestAncestor =
           accessedAncestors.keySet().stream()
               .min(Long::compare)

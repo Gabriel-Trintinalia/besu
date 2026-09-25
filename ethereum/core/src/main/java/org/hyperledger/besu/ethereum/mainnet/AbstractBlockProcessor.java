@@ -23,7 +23,6 @@ import org.hyperledger.besu.datatypes.Wei;
 import org.hyperledger.besu.ethereum.BlockProcessingOutputs;
 import org.hyperledger.besu.ethereum.BlockProcessingResult;
 import org.hyperledger.besu.ethereum.ProtocolContext;
-import org.hyperledger.besu.ethereum.WitnessCodeReads;
 import org.hyperledger.besu.ethereum.chain.Blockchain;
 import org.hyperledger.besu.ethereum.core.Block;
 import org.hyperledger.besu.ethereum.core.BlockHeader;
@@ -211,6 +210,43 @@ public abstract class AbstractBlockProcessor implements BlockProcessor {
       final Block block,
       final Optional<BlockAccessList> blockAccessList,
       final PreprocessingFunction preprocessingBlockFunction) {
+    return processBlock(
+        protocolContext,
+        blockchain,
+        worldState,
+        block,
+        blockAccessList,
+        preprocessingBlockFunction,
+        Optional.empty());
+  }
+
+  @Override
+  public BlockProcessingResult processBlock(
+      final ProtocolContext protocolContext,
+      final Blockchain blockchain,
+      final MutableWorldState worldState,
+      final Block block,
+      final Optional<BlockAccessList> blockAccessList,
+      final Optional<BlockAwareOperationTracer> maybeTracer) {
+    return processBlock(
+        protocolContext,
+        blockchain,
+        worldState,
+        block,
+        blockAccessList,
+        new NoPreprocessing(),
+        maybeTracer);
+  }
+
+  @Override
+  public BlockProcessingResult processBlock(
+      final ProtocolContext protocolContext,
+      final Blockchain blockchain,
+      final MutableWorldState worldState,
+      final Block block,
+      final Optional<BlockAccessList> blockAccessList,
+      final PreprocessingFunction preprocessingBlockFunction,
+      final Optional<BlockAwareOperationTracer> maybeTracer) {
     final List<TransactionReceipt> receipts = new ArrayList<>();
     // EIP-7778: Track two separate cumulative gas values
     // cumulativeExecutionGasUsed: For block gas limit enforcement (uses protocol-specific strategy)
@@ -232,8 +268,9 @@ public abstract class AbstractBlockProcessor implements BlockProcessor {
     final BlockHashLookup blockHashLookup =
         protocolSpec.getPreExecutionProcessor().createBlockHashLookup(blockchain, blockHeader);
 
+    // An explicit tracer replaces the plugin-based import tracer for this block.
     final BlockAwareOperationTracer blockTracer =
-        getBlockImportTracer(protocolContext, blockHeader);
+        maybeTracer.orElseGet(() -> getBlockImportTracer(protocolContext, blockHeader));
 
     final Address miningBeneficiary = miningBeneficiaryCalculator.calculateBeneficiary(blockHeader);
 
@@ -249,13 +286,13 @@ public abstract class AbstractBlockProcessor implements BlockProcessor {
     final Optional<BlockAccessListBuilder> blockAccessListBuilder =
         protocolSpec
             .getBlockAccessListFactory()
-            .map(BlockAccessListFactory::newBlockAccessListBuilderWithWitnessCodeReads);
+            .map(BlockAccessListFactory::newBlockAccessListBuilder);
 
     Optional<PreprocessingContext> preProcessingContext = Optional.empty();
     try {
       final Optional<AccessLocationTracker> preExecutionAccessLocationTracker =
           blockAccessListBuilder.map(
-              BlockAccessListBuilder::createPreExecutionAccessLocationTracker);
+              b -> BlockAccessListBuilder.createPreExecutionAccessLocationTracker());
       final BlockProcessingContext blockProcessingContext =
           new BlockProcessingContext(
               blockHeader,
@@ -412,7 +449,9 @@ public abstract class AbstractBlockProcessor implements BlockProcessor {
 
       final Optional<AccessLocationTracker> postExecutionAccessLocationTracker =
           blockAccessListBuilder.map(
-              b -> b.createPostExecutionAccessLocationTracker(transactions.size()));
+              b ->
+                  BlockAccessListBuilder.createPostExecutionAccessLocationTracker(
+                      transactions.size()));
 
       final Optional<WithdrawalsProcessor> maybeWithdrawalsProcessor =
           protocolSpec.getWithdrawalsProcessor();
@@ -560,10 +599,6 @@ public abstract class AbstractBlockProcessor implements BlockProcessor {
       // EIP-8037: gas_metered = max(cumulative_execution, cumulative_state)
       final long gasMetered = Math.max(cumulativeExecutionGasUsed, cumulativeStateGasUsed);
 
-      // EIP-8025 witness: collected alongside the block access list, so present from BAL forks on.
-      final Optional<WitnessCodeReads> maybeWitnessCodeReads =
-          blockAccessListBuilder.flatMap(BlockAccessListBuilder::getWitnessCodeReads);
-
       return new BlockProcessingResult(
           Optional.of(
               new BlockProcessingOutputs(
@@ -572,8 +607,7 @@ public abstract class AbstractBlockProcessor implements BlockProcessor {
                   maybeRequests,
                   maybeBlockAccessList,
                   gasMetered,
-                  blockHashLookup.getAccessedAncestors(),
-                  maybeWitnessCodeReads)),
+                  blockHashLookup.getAccessedAncestors())),
           parallelizedTxFound ? Optional.of(nbParallelTx) : Optional.empty());
     } finally {
       stateRootCommitter.cancel();
@@ -647,7 +681,7 @@ public abstract class AbstractBlockProcessor implements BlockProcessor {
       final Optional<BlockAccessListBuilder> blockAccessListBuilder,
       final int transactionLocation) {
     return blockAccessListBuilder.map(
-        b -> b.createTransactionAccessLocationTracker(transactionLocation));
+        b -> BlockAccessListBuilder.createTransactionAccessLocationTracker(transactionLocation));
   }
 
   private void applyAccessLocationTracker(

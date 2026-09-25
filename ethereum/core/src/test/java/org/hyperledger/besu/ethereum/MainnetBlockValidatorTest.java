@@ -121,7 +121,10 @@ public class MainnetBlockValidatorTest {
     when(blockBodyValidator.validateBodyLight(any(), any(), any(), any(), any())).thenReturn(true);
     when(blockAccessListValidator.validate(any(), any(), anyInt())).thenReturn(true);
     when(blockProcessor.processBlock(
-            eq(protocolContext), any(), any(), any(), eq(Optional.empty())))
+            eq(protocolContext), any(), any(), any(), eq(Optional.empty()), eq(Optional.empty())))
+        .thenReturn(successfulProcessingResult);
+    when(blockProcessor.processBlock(
+            eq(protocolContext), any(), any(), any(), eq(Optional.empty()), eq(Optional.empty())))
         .thenReturn(successfulProcessingResult);
 
     assertNoBadBlocks();
@@ -208,7 +211,8 @@ public class MainnetBlockValidatorTest {
                     List.of())));
     final Optional<BlockAccessList> optionalBal = Optional.of(bal);
     when(blockAccessListValidator.validate(eq(optionalBal), any(), anyInt())).thenReturn(true);
-    when(blockProcessor.processBlock(eq(protocolContext), any(), any(), any(), eq(optionalBal)))
+    when(blockProcessor.processBlock(
+            eq(protocolContext), any(), any(), any(), eq(optionalBal), eq(Optional.empty())))
         .thenReturn(new BlockProcessingResult(Optional.empty(), false));
 
     BlockProcessingResult result =
@@ -246,7 +250,8 @@ public class MainnetBlockValidatorTest {
 
     assertValidationFailed(result, "provided gas insufficient");
     verify(blockAccessListValidator, never()).validate(any(), any(), anyInt());
-    verify(blockProcessor, never()).processBlock(eq(protocolContext), any(), any(), any(), eq(bal));
+    verify(blockProcessor, never())
+        .processBlock(eq(protocolContext), any(), any(), any(), eq(bal), eq(Optional.empty()));
     assertThat(badBlockManager.getBadBlocks()).containsExactly(blockWithOversizedTransaction);
   }
 
@@ -341,6 +346,7 @@ public class MainnetBlockValidatorTest {
             eq(blockchain),
             any(MutableWorldState.class),
             eq(block),
+            eq(Optional.empty()),
             eq(Optional.empty())))
         .thenReturn(BlockProcessingResult.FAILED);
 
@@ -384,6 +390,7 @@ public class MainnetBlockValidatorTest {
             eq(blockchain),
             any(MutableWorldState.class),
             eq(block),
+            eq(Optional.empty()),
             eq(Optional.empty()));
 
     BlockProcessingResult result =
@@ -428,6 +435,7 @@ public class MainnetBlockValidatorTest {
             eq(blockchain),
             any(MutableWorldState.class),
             eq(block),
+            eq(Optional.empty()),
             eq(Optional.empty())))
         .thenReturn(exceptionalResult);
 
@@ -449,6 +457,7 @@ public class MainnetBlockValidatorTest {
             eq(blockchain),
             any(MutableWorldState.class),
             eq(block),
+            eq(Optional.empty()),
             eq(Optional.empty())))
         .thenReturn(BlockProcessingResult.FAILED);
 
@@ -473,6 +482,7 @@ public class MainnetBlockValidatorTest {
             eq(blockchain),
             any(MutableWorldState.class),
             eq(block),
+            eq(Optional.empty()),
             eq(Optional.empty())))
         .thenReturn(BlockProcessingResult.FAILED);
 
@@ -497,6 +507,7 @@ public class MainnetBlockValidatorTest {
             eq(blockchain),
             any(MutableWorldState.class),
             eq(block),
+            eq(Optional.empty()),
             eq(Optional.empty())))
         .thenReturn(BlockProcessingResult.FAILED);
 
@@ -649,7 +660,7 @@ public class MainnetBlockValidatorTest {
     when(blockHeaderValidator.validateHeader(any(), any(), any())).thenReturn(true);
     when(blockHeaderValidator.validateHeader(any(), any(), any(), any())).thenReturn(true);
     when(blockProcessor.processBlock(
-            eq(protocolContext), any(), any(), any(), eq(Optional.empty())))
+            eq(protocolContext), any(), any(), any(), eq(Optional.empty()), eq(Optional.empty())))
         .thenReturn(successfulProcessingResult);
     when(blockBodyValidator.validateBody(any(), any(), any(), any(), any(), any(), any()))
         .thenReturn(true);

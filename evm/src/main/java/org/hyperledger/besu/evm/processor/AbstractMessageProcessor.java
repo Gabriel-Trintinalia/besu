@@ -241,6 +241,7 @@ public abstract class AbstractMessageProcessor {
     }
     if (operationTracer != null) {
       if (frame.getState() == MessageFrame.State.NOT_STARTED) {
+        frame.setOperationTracer(operationTracer);
         operationTracer.traceContextEnter(frame);
         start(frame, operationTracer);
       } else {

@@ -27,6 +27,7 @@ import org.hyperledger.besu.ethereum.eth.manager.EthScheduler;
 import org.hyperledger.besu.ethereum.mainnet.HeaderValidationMode;
 import org.hyperledger.besu.ethereum.mainnet.ProtocolSchedule;
 import org.hyperledger.besu.ethereum.mainnet.block.access.list.BlockAccessList;
+import org.hyperledger.besu.plugin.services.tracer.BlockAwareOperationTracer;
 
 import java.util.List;
 import java.util.Optional;
@@ -80,6 +81,15 @@ public class EvmToolMergeCoordinator implements MergeMiningCoordinator {
   @Override
   public BlockProcessingResult rememberBlock(
       final Block block, final Optional<BlockAccessList> blockAccessList) {
+    return rememberBlock(block, blockAccessList, null);
+  }
+
+  @Override
+  public BlockProcessingResult rememberBlock(
+      final Block block,
+      final Optional<BlockAccessList> blockAccessList,
+      final BlockAwareOperationTracer tracer) {
+    // A null tracer processes the block with the plugin-based import tracer.
     final var result =
         protocolSchedule
             .getByBlockHeader(block.getHeader())
@@ -90,7 +100,9 @@ public class EvmToolMergeCoordinator implements MergeMiningCoordinator {
                 HeaderValidationMode.FULL,
                 HeaderValidationMode.NONE,
                 blockAccessList,
-                false);
+                false,
+                true,
+                tracer);
     result
         .getYield()
         .ifPresent(

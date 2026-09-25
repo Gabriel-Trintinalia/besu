@@ -394,4 +394,19 @@ class BalParallelBlockProcessorIntegrationTest {
       return new BalTestBase() {}.executeAndCompare(baseFee, txs);
     }
   }
+
+  @Nested
+  @DisplayName("Explicit Tracer")
+  class ExplicitTracer extends AbstractExplicitTracerTest {
+    @Override
+    protected String getVariantName() {
+      return getVariant();
+    }
+
+    @Override
+    protected ParallelTransactionPreprocessing createParallelPreprocessing(
+        final MainnetTransactionProcessor transactionProcessor) {
+      return createPreprocessing(transactionProcessor);
+    }
+  }
 }
