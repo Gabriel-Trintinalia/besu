@@ -73,7 +73,7 @@ import org.hyperledger.besu.ethereum.mainnet.blockhash.PraguePreExecutionProcess
 import org.hyperledger.besu.ethereum.mainnet.blockhash.PreExecutionProcessor;
 import org.hyperledger.besu.ethereum.mainnet.feemarket.BaseFeeMarket;
 import org.hyperledger.besu.ethereum.mainnet.feemarket.FeeMarket;
-import org.hyperledger.besu.ethereum.mainnet.parallelization.MainnetParallelBlockProcessor;
+import org.hyperledger.besu.ethereum.mainnet.parallelization.ParallelBlockProcessorBuilder;
 import org.hyperledger.besu.ethereum.mainnet.requests.MainnetRequestsValidator;
 import org.hyperledger.besu.ethereum.mainnet.requests.RequestContractAddresses;
 import org.hyperledger.besu.ethereum.mainnet.requests.RequestProcessorCoordinator;
@@ -211,7 +211,7 @@ public abstract class MainnetProtocolSpecs {
         .balConfiguration(balConfiguration)
         .blockProcessorBuilder(
             isParallelTxProcessingEnabled
-                ? new MainnetParallelBlockProcessor.ParallelBlockProcessorBuilder(metricsSystem)
+                ? new ParallelBlockProcessorBuilder(metricsSystem)
                 : new MainnetBlockProcessor.MainnetBlockProcessorBuilder(metricsSystem))
         .blockValidatorBuilder(MainnetBlockValidatorBuilder::frontier)
         .blockImporterBuilder(MainnetBlockImporter::new)
@@ -295,15 +295,15 @@ public abstract class MainnetProtocolSpecs {
                 balConfig) ->
                 new DaoBlockProcessor(
                     isParallelTxProcessingEnabled
-                        ? new MainnetParallelBlockProcessor(
-                            transactionProcessor,
-                            transactionReceiptFactory,
-                            blockReward,
-                            miningBeneficiaryCalculator,
-                            skipZeroBlockRewards,
-                            protocolSchedule,
-                            balConfig,
-                            metricsSystem)
+                        ? new ParallelBlockProcessorBuilder(metricsSystem)
+                            .apply(
+                                transactionProcessor,
+                                transactionReceiptFactory,
+                                blockReward,
+                                miningBeneficiaryCalculator,
+                                skipZeroBlockRewards,
+                                protocolSchedule,
+                                balConfig)
                         : new MainnetBlockProcessor(
                             transactionProcessor,
                             transactionReceiptFactory,
@@ -330,7 +330,7 @@ public abstract class MainnetProtocolSpecs {
             metricsSystem)
         .blockProcessorBuilder(
             isParallelTxProcessingEnabled
-                ? new MainnetParallelBlockProcessor.ParallelBlockProcessorBuilder(metricsSystem)
+                ? new ParallelBlockProcessorBuilder(metricsSystem)
                 : new MainnetBlockProcessor.MainnetBlockProcessorBuilder(metricsSystem))
         .hardforkId(DAO_RECOVERY_TRANSITION);
   }
@@ -1479,12 +1479,7 @@ public abstract class MainnetProtocolSpecs {
         final MutableWorldState worldState,
         final Block block) {
       updateWorldStateForDao(worldState);
-      return wrapped.processBlock(
-          protocolContext,
-          blockchain,
-          worldState,
-          block,
-          new AbstractBlockProcessor.PreprocessingFunction.NoPreprocessing());
+      return wrapped.processBlock(protocolContext, blockchain, worldState, block);
     }
 
     @Override
@@ -1496,40 +1491,6 @@ public abstract class MainnetProtocolSpecs {
         final Optional<BlockAccessList> blockAccessList) {
       updateWorldStateForDao(worldState);
       return wrapped.processBlock(protocolContext, blockchain, worldState, block, blockAccessList);
-    }
-
-    @Override
-    public BlockProcessingResult processBlock(
-        final ProtocolContext protocolContext,
-        final Blockchain blockchain,
-        final MutableWorldState worldState,
-        final Block block,
-        final AbstractBlockProcessor.PreprocessingFunction preprocessingBlockFunction) {
-      return processBlock(
-          protocolContext,
-          blockchain,
-          worldState,
-          block,
-          Optional.empty(),
-          preprocessingBlockFunction);
-    }
-
-    @Override
-    public BlockProcessingResult processBlock(
-        final ProtocolContext protocolContext,
-        final Blockchain blockchain,
-        final MutableWorldState worldState,
-        final Block block,
-        final Optional<BlockAccessList> blockAccessList,
-        final AbstractBlockProcessor.PreprocessingFunction preprocessingBlockFunction) {
-      updateWorldStateForDao(worldState);
-      return wrapped.processBlock(
-          protocolContext,
-          blockchain,
-          worldState,
-          block,
-          blockAccessList,
-          preprocessingBlockFunction);
     }
 
     private static final Address DAO_REFUND_CONTRACT_ADDRESS =

@@ -81,6 +81,8 @@ public abstract class AbstractBlockProcessor implements BlockProcessor {
 
   static final int MAX_GENERATION = 6;
 
+  static final PreprocessingFunction NO_PREPROCESSING = new NoPreprocessing();
+
   protected final MainnetTransactionProcessor transactionProcessor;
 
   protected final AbstractBlockProcessor.TransactionReceiptFactory transactionReceiptFactory;
@@ -91,6 +93,7 @@ public abstract class AbstractBlockProcessor implements BlockProcessor {
   private final ProtocolSchedule protocolSchedule;
   protected final BalConfiguration balConfiguration;
   private final BlockProcessingMetrics blockProcessingMetrics;
+  private final PreprocessingFunction preprocessing;
 
   protected final MiningBeneficiaryCalculator miningBeneficiaryCalculator;
   private BlockImportTracerProvider blockImportTracerProvider = null;
@@ -123,6 +126,33 @@ public abstract class AbstractBlockProcessor implements BlockProcessor {
       final ProtocolSchedule protocolSchedule,
       final BalConfiguration balConfiguration,
       final MetricsSystem metricsSystem) {
+    this(
+        transactionProcessor,
+        transactionReceiptFactory,
+        blockReward,
+        miningBeneficiaryCalculator,
+        skipZeroBlockRewards,
+        protocolSchedule,
+        balConfiguration,
+        new BlockProcessingMetrics(metricsSystem),
+        NO_PREPROCESSING);
+  }
+
+  /**
+   * Creates a processor that runs {@code preprocessing} before the block's transactions are
+   * executed, e.g. to execute them speculatively in parallel. {@code blockProcessingMetrics} can be
+   * shared between processors that serve the same chain, as its gauges register once.
+   */
+  protected AbstractBlockProcessor(
+      final MainnetTransactionProcessor transactionProcessor,
+      final TransactionReceiptFactory transactionReceiptFactory,
+      final Wei blockReward,
+      final MiningBeneficiaryCalculator miningBeneficiaryCalculator,
+      final boolean skipZeroBlockRewards,
+      final ProtocolSchedule protocolSchedule,
+      final BalConfiguration balConfiguration,
+      final BlockProcessingMetrics blockProcessingMetrics,
+      final PreprocessingFunction preprocessing) {
     this.transactionProcessor = transactionProcessor;
     this.transactionReceiptFactory = transactionReceiptFactory;
     this.blockReward = blockReward;
@@ -130,7 +160,8 @@ public abstract class AbstractBlockProcessor implements BlockProcessor {
     this.skipZeroBlockRewards = skipZeroBlockRewards;
     this.protocolSchedule = protocolSchedule;
     this.balConfiguration = balConfiguration;
-    this.blockProcessingMetrics = new BlockProcessingMetrics(metricsSystem);
+    this.blockProcessingMetrics = blockProcessingMetrics;
+    this.preprocessing = preprocessing;
   }
 
   private BlockAwareOperationTracer getBlockImportTracer(
@@ -157,7 +188,7 @@ public abstract class AbstractBlockProcessor implements BlockProcessor {
   }
 
   /**
-   * Processes the block with no privateMetadata and no preprocessor.
+   * Processes the block with no block access list.
    *
    * @param protocolContext the current context of the protocol
    * @param blockchain the blockchain to append the block to
@@ -171,24 +202,7 @@ public abstract class AbstractBlockProcessor implements BlockProcessor {
       final Blockchain blockchain,
       final MutableWorldState worldState,
       final Block block) {
-    return processBlock(
-        protocolContext, blockchain, worldState, block, Optional.empty(), new NoPreprocessing());
-  }
-
-  @Override
-  public BlockProcessingResult processBlock(
-      final ProtocolContext protocolContext,
-      final Blockchain blockchain,
-      final MutableWorldState worldState,
-      final Block block,
-      final PreprocessingFunction preprocessingBlockFunction) {
-    return processBlock(
-        protocolContext,
-        blockchain,
-        worldState,
-        block,
-        Optional.empty(),
-        preprocessingBlockFunction);
+    return processBlock(protocolContext, blockchain, worldState, block, Optional.empty());
   }
 
   @Override
@@ -198,18 +212,6 @@ public abstract class AbstractBlockProcessor implements BlockProcessor {
       final MutableWorldState worldState,
       final Block block,
       final Optional<BlockAccessList> blockAccessList) {
-    return processBlock(
-        protocolContext, blockchain, worldState, block, blockAccessList, new NoPreprocessing());
-  }
-
-  @Override
-  public BlockProcessingResult processBlock(
-      final ProtocolContext protocolContext,
-      final Blockchain blockchain,
-      final MutableWorldState worldState,
-      final Block block,
-      final Optional<BlockAccessList> blockAccessList,
-      final PreprocessingFunction preprocessingBlockFunction) {
     final List<TransactionReceipt> receipts = new ArrayList<>();
     // EIP-7778: Track two separate cumulative gas values
     // cumulativeExecutionGasUsed: For block gas limit enforcement (uses protocol-specific strategy)
@@ -281,7 +283,7 @@ public abstract class AbstractBlockProcessor implements BlockProcessor {
               .orElse(Wei.ZERO);
 
       preProcessingContext =
-          preprocessingBlockFunction.run(
+          preprocessing.run(
               protocolContext,
               blockHeader,
               transactions,

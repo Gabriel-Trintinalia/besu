@@ -1,5 +1,5 @@
 /*
- * Copyright contributors to Hyperledger Besu.
+ * Copyright contributors to Besu.
  *
  * Licensed under the Apache License, Version 2.0 (the "License"); you may not use this file except in compliance with
  * the License. You may obtain a copy of the License at
@@ -16,47 +16,38 @@ package org.hyperledger.besu.ethereum.mainnet.parallelization;
 
 import org.hyperledger.besu.datatypes.Address;
 import org.hyperledger.besu.datatypes.Wei;
-import org.hyperledger.besu.ethereum.BlockProcessingResult;
-import org.hyperledger.besu.ethereum.ProtocolContext;
-import org.hyperledger.besu.ethereum.chain.Blockchain;
-import org.hyperledger.besu.ethereum.core.Block;
 import org.hyperledger.besu.ethereum.core.Transaction;
 import org.hyperledger.besu.ethereum.mainnet.BalConfiguration;
-import org.hyperledger.besu.ethereum.mainnet.BlockProcessor;
+import org.hyperledger.besu.ethereum.mainnet.BlockProcessingMetrics;
 import org.hyperledger.besu.ethereum.mainnet.MainnetBlockProcessor;
 import org.hyperledger.besu.ethereum.mainnet.MainnetTransactionProcessor;
 import org.hyperledger.besu.ethereum.mainnet.MiningBeneficiaryCalculator;
 import org.hyperledger.besu.ethereum.mainnet.ProtocolSchedule;
-import org.hyperledger.besu.ethereum.mainnet.ProtocolSpecBuilder;
 import org.hyperledger.besu.ethereum.mainnet.block.access.list.AccessLocationTracker;
-import org.hyperledger.besu.ethereum.mainnet.block.access.list.BlockAccessList;
 import org.hyperledger.besu.ethereum.mainnet.systemcall.BlockProcessingContext;
 import org.hyperledger.besu.ethereum.processing.TransactionProcessingResult;
-import org.hyperledger.besu.ethereum.trie.pathbased.bonsai.worldview.BonsaiWorldState;
-import org.hyperledger.besu.ethereum.trie.pathbased.bonsai.worldview.accumulator.BonsaiWorldStateUpdateAccumulator;
 import org.hyperledger.besu.evm.blockhash.BlockHashLookup;
 import org.hyperledger.besu.evm.worldstate.WorldUpdater;
 import org.hyperledger.besu.metrics.BesuMetricCategory;
 import org.hyperledger.besu.plugin.services.MetricsSystem;
 import org.hyperledger.besu.plugin.services.metrics.Counter;
-import org.hyperledger.besu.plugin.services.worldstate.MutableWorldState;
 
 import java.util.Optional;
-import java.util.concurrent.Executor;
 
-import org.slf4j.Logger;
-import org.slf4j.LoggerFactory;
-
-public class MainnetParallelBlockProcessor extends MainnetBlockProcessor {
-
-  private static final Logger LOG = LoggerFactory.getLogger(MainnetParallelBlockProcessor.class);
+/**
+ * Executes a block with its transactions run speculatively in parallel by the given preprocessing,
+ * taking each transaction's result from that run when it is still valid and re-executing it
+ * otherwise.
+ *
+ * <p>It has no block-level fallback: a failed block is returned as-is. {@link
+ * SequentialFallbackBlockProcessor} adds one on top of it.
+ */
+public class ParallelExecutionBlockProcessor extends MainnetBlockProcessor {
 
   private final Optional<Counter> confirmedParallelizedTransactionCounter;
   private final Optional<Counter> conflictingButCachedTransactionCounter;
 
-  private static final Executor executor = BlockProcessingExecutors.cpuExecutor();
-
-  public MainnetParallelBlockProcessor(
+  public ParallelExecutionBlockProcessor(
       final MainnetTransactionProcessor transactionProcessor,
       final TransactionReceiptFactory transactionReceiptFactory,
       final Wei blockReward,
@@ -64,7 +55,9 @@ public class MainnetParallelBlockProcessor extends MainnetBlockProcessor {
       final boolean skipZeroBlockRewards,
       final ProtocolSchedule protocolSchedule,
       final BalConfiguration balConfiguration,
-      final MetricsSystem metricsSystem) {
+      final MetricsSystem metricsSystem,
+      final BlockProcessingMetrics blockProcessingMetrics,
+      final PreprocessingFunction parallelPreprocessing) {
     super(
         transactionProcessor,
         transactionReceiptFactory,
@@ -73,7 +66,8 @@ public class MainnetParallelBlockProcessor extends MainnetBlockProcessor {
         skipZeroBlockRewards,
         protocolSchedule,
         balConfiguration,
-        metricsSystem);
+        blockProcessingMetrics,
+        parallelPreprocessing);
     this.confirmedParallelizedTransactionCounter =
         Optional.of(
             metricsSystem.createCounter(
@@ -123,73 +117,5 @@ public class MainnetParallelBlockProcessor extends MainnetBlockProcessor {
                     location,
                     blockHashLookup,
                     accessLocationTracker));
-  }
-
-  @Override
-  public BlockProcessingResult processBlock(
-      final ProtocolContext protocolContext,
-      final Blockchain blockchain,
-      final MutableWorldState worldState,
-      final Block block) {
-    return processBlock(protocolContext, blockchain, worldState, block, Optional.empty());
-  }
-
-  @Override
-  public BlockProcessingResult processBlock(
-      final ProtocolContext protocolContext,
-      final Blockchain blockchain,
-      final MutableWorldState worldState,
-      final Block block,
-      final Optional<BlockAccessList> blockAccessList) {
-    final BlockProcessingResult blockProcessingResult =
-        super.processBlock(
-            protocolContext,
-            blockchain,
-            worldState,
-            block,
-            blockAccessList,
-            new ParallelTransactionPreprocessing(transactionProcessor, executor, balConfiguration));
-    if (blockProcessingResult.isFailed()) {
-      // Fallback to non-parallel processing if there is a block processing exception .
-      LOG.info(
-          "Parallel transaction processing failure. Falling back to non-parallel processing for block #{} ({})",
-          block.getHeader().getNumber(),
-          block.getHash());
-      if (worldState instanceof BonsaiWorldState) {
-        ((BonsaiWorldStateUpdateAccumulator) worldState.updater()).reset();
-      }
-      return super.processBlock(protocolContext, blockchain, worldState, block, blockAccessList);
-    }
-    return blockProcessingResult;
-  }
-
-  public static class ParallelBlockProcessorBuilder
-      implements ProtocolSpecBuilder.BlockProcessorBuilder {
-
-    final MetricsSystem metricsSystem;
-
-    public ParallelBlockProcessorBuilder(final MetricsSystem metricsSystem) {
-      this.metricsSystem = metricsSystem;
-    }
-
-    @Override
-    public BlockProcessor apply(
-        final MainnetTransactionProcessor transactionProcessor,
-        final TransactionReceiptFactory transactionReceiptFactory,
-        final Wei blockReward,
-        final MiningBeneficiaryCalculator miningBeneficiaryCalculator,
-        final boolean skipZeroBlockRewards,
-        final ProtocolSchedule protocolSchedule,
-        final BalConfiguration balConfiguration) {
-      return new MainnetParallelBlockProcessor(
-          transactionProcessor,
-          transactionReceiptFactory,
-          blockReward,
-          miningBeneficiaryCalculator,
-          skipZeroBlockRewards,
-          protocolSchedule,
-          balConfiguration,
-          metricsSystem);
-    }
   }
 }

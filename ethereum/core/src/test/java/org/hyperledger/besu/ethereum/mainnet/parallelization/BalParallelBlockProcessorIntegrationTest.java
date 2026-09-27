@@ -137,18 +137,14 @@ class BalParallelBlockProcessorIntegrationTest {
               .getByBlockHeader(new BlockHeaderTestFixture().number(0L).buildHeader());
       final MainnetTransactionProcessor parTxProcessor = parSpec.getTransactionProcessor();
 
-      final BlockProcessor parProcessor = createParallelProcessor(parCtx);
       final ParallelTransactionPreprocessing balImportPreprocessing =
           new ParallelTransactionPreprocessingWithBal(
               parTxProcessor, generatedBal.get(), BalConfiguration.DEFAULT);
+      final BlockProcessor parProcessor = createParallelProcessor(parCtx, balImportPreprocessing);
 
       final BlockProcessingResult parResult =
           parProcessor.processBlock(
-              parCtx.getProtocolContext(),
-              parCtx.getBlockchain(),
-              parWs,
-              parBlock,
-              balImportPreprocessing);
+              parCtx.getProtocolContext(), parCtx.getBlockchain(), parWs, parBlock);
       assertTrue(
           parResult.isSuccessful(),
           "BAL parallel import failed: " + parResult.errorMessage.orElse("(no message)"));
@@ -233,18 +229,14 @@ class BalParallelBlockProcessorIntegrationTest {
               .getByBlockHeader(new BlockHeaderTestFixture().number(0L).buildHeader());
       final MainnetTransactionProcessor parTxProcessor = parSpec.getTransactionProcessor();
 
-      final BlockProcessor parProcessor = createParallelProcessor(parCtx);
       final ParallelTransactionPreprocessing balImportPreprocessing =
           new ParallelTransactionPreprocessingWithBal(
               parTxProcessor, generatedBal.get(), BalConfiguration.DEFAULT);
+      final BlockProcessor parProcessor = createParallelProcessor(parCtx, balImportPreprocessing);
 
       final BlockProcessingResult parResult =
           parProcessor.processBlock(
-              parCtx.getProtocolContext(),
-              parCtx.getBlockchain(),
-              parWs,
-              parBlock,
-              balImportPreprocessing);
+              parCtx.getProtocolContext(), parCtx.getBlockchain(), parWs, parBlock);
       assertTrue(
           parResult.isSuccessful(),
           "BAL parallel import failed: " + parResult.errorMessage.orElse("(no message)"));

@@ -38,7 +38,8 @@ import org.hyperledger.besu.ethereum.core.Transaction;
 import org.hyperledger.besu.ethereum.mainnet.AbstractBlockProcessor.TransactionReceiptFactory;
 import org.hyperledger.besu.ethereum.mainnet.block.access.list.BlockAccessList;
 import org.hyperledger.besu.ethereum.mainnet.block.access.list.BlockAccessListAccountLookup;
-import org.hyperledger.besu.ethereum.mainnet.parallelization.MainnetParallelBlockProcessor;
+import org.hyperledger.besu.ethereum.mainnet.parallelization.ParallelBlockProcessorBuilder;
+import org.hyperledger.besu.ethereum.mainnet.parallelization.ParallelExecutionBlockProcessor;
 import org.hyperledger.besu.ethereum.mainnet.parallelization.ParallelTransactionPreprocessing;
 import org.hyperledger.besu.ethereum.mainnet.staterootcommitter.BalStateRootCommitter;
 import org.hyperledger.besu.ethereum.trie.pathbased.bonsai.account.BonsaiAccount;
@@ -158,15 +159,15 @@ class AbstractBlockProcessorIntegrationTest {
             BalConfiguration.DEFAULT);
 
     final BlockProcessor parallelBlockProcessor =
-        new MainnetParallelBlockProcessor(
-            transactionProcessor,
-            receiptFactory,
-            coinbaseReward,
-            BlockHeader::getCoinbase,
-            skipRewards,
-            protocolSchedule,
-            BalConfiguration.DEFAULT,
-            new NoOpMetricsSystem());
+        new ParallelBlockProcessorBuilder(new NoOpMetricsSystem())
+            .apply(
+                transactionProcessor,
+                receiptFactory,
+                coinbaseReward,
+                BlockHeader::getCoinbase,
+                skipRewards,
+                protocolSchedule,
+                BalConfiguration.DEFAULT);
 
     return Stream.of(
         Arguments.of("sequential", sequentialBlockProcessor),
@@ -355,14 +356,23 @@ class AbstractBlockProcessorIntegrationTest {
             protocolSchedule,
             BalConfiguration.DEFAULT);
 
-    BlockProcessingResult parallelResult =
-        blockProcessor.processBlock(
-            protocolContext,
-            blockchain,
-            worldStateParallel,
-            block,
+    // No block-level fallback, so a parallel failure is not masked by a sequential rerun.
+    BlockProcessor parallelBlockProcessor =
+        new ParallelExecutionBlockProcessor(
+            transactionProcessor,
+            receiptFactory,
+            Wei.ZERO,
+            BlockHeader::getCoinbase,
+            true,
+            protocolSchedule,
+            BalConfiguration.DEFAULT,
+            new NoOpMetricsSystem(),
+            new BlockProcessingMetrics(new NoOpMetricsSystem()),
             new ParallelTransactionPreprocessing(
                 transactionProcessor, Runnable::run, BalConfiguration.DEFAULT));
+
+    BlockProcessingResult parallelResult =
+        parallelBlockProcessor.processBlock(protocolContext, blockchain, worldStateParallel, block);
 
     BlockProcessingResult sequentialResult =
         blockProcessor.processBlock(protocolContext, blockchain, worldStateSequential, block);
