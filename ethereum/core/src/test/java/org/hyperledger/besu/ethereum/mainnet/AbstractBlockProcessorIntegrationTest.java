@@ -40,7 +40,6 @@ import org.hyperledger.besu.ethereum.mainnet.block.access.list.BlockAccessList;
 import org.hyperledger.besu.ethereum.mainnet.block.access.list.BlockAccessListAccountLookup;
 import org.hyperledger.besu.ethereum.mainnet.parallelization.ParallelBlockProcessorBuilder;
 import org.hyperledger.besu.ethereum.mainnet.parallelization.ParallelExecutionBlockProcessor;
-import org.hyperledger.besu.ethereum.mainnet.parallelization.ParallelTransactionPreprocessing;
 import org.hyperledger.besu.ethereum.mainnet.staterootcommitter.BalStateRootCommitter;
 import org.hyperledger.besu.ethereum.trie.pathbased.bonsai.account.BonsaiAccount;
 import org.hyperledger.besu.ethereum.trie.pathbased.bonsai.worldview.BonsaiWorldState;
@@ -368,8 +367,7 @@ class AbstractBlockProcessorIntegrationTest {
             BalConfiguration.DEFAULT,
             new NoOpMetricsSystem(),
             new BlockProcessingMetrics(new NoOpMetricsSystem()),
-            new ParallelTransactionPreprocessing(
-                transactionProcessor, Runnable::run, BalConfiguration.DEFAULT));
+            Runnable::run);
 
     BlockProcessingResult parallelResult =
         parallelBlockProcessor.processBlock(protocolContext, blockchain, worldStateParallel, block);

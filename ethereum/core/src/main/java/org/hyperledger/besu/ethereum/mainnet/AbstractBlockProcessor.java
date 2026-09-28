@@ -29,7 +29,6 @@ import org.hyperledger.besu.ethereum.core.BlockHeader;
 import org.hyperledger.besu.ethereum.core.Request;
 import org.hyperledger.besu.ethereum.core.Transaction;
 import org.hyperledger.besu.ethereum.core.TransactionReceipt;
-import org.hyperledger.besu.ethereum.mainnet.AbstractBlockProcessor.PreprocessingFunction.NoPreprocessing;
 import org.hyperledger.besu.ethereum.mainnet.block.access.list.AccessLocationTracker;
 import org.hyperledger.besu.ethereum.mainnet.block.access.list.BlockAccessList;
 import org.hyperledger.besu.ethereum.mainnet.block.access.list.BlockAccessList.BlockAccessListBuilder;
@@ -81,8 +80,6 @@ public abstract class AbstractBlockProcessor implements BlockProcessor {
 
   static final int MAX_GENERATION = 6;
 
-  static final PreprocessingFunction NO_PREPROCESSING = new NoPreprocessing();
-
   protected final MainnetTransactionProcessor transactionProcessor;
 
   protected final AbstractBlockProcessor.TransactionReceiptFactory transactionReceiptFactory;
@@ -93,7 +90,6 @@ public abstract class AbstractBlockProcessor implements BlockProcessor {
   private final ProtocolSchedule protocolSchedule;
   protected final BalConfiguration balConfiguration;
   private final BlockProcessingMetrics blockProcessingMetrics;
-  private final PreprocessingFunction preprocessing;
 
   protected final MiningBeneficiaryCalculator miningBeneficiaryCalculator;
   private BlockImportTracerProvider blockImportTracerProvider = null;
@@ -134,14 +130,12 @@ public abstract class AbstractBlockProcessor implements BlockProcessor {
         skipZeroBlockRewards,
         protocolSchedule,
         balConfiguration,
-        new BlockProcessingMetrics(metricsSystem),
-        NO_PREPROCESSING);
+        new BlockProcessingMetrics(metricsSystem));
   }
 
   /**
-   * Creates a processor that runs {@code preprocessing} before the block's transactions are
-   * executed, e.g. to execute them speculatively in parallel. {@code blockProcessingMetrics} can be
-   * shared between processors that serve the same chain, as its gauges register once.
+   * Creates a processor that records into {@code blockProcessingMetrics}, which can be shared
+   * between processors that serve the same chain, as its gauges register once.
    */
   protected AbstractBlockProcessor(
       final MainnetTransactionProcessor transactionProcessor,
@@ -151,8 +145,7 @@ public abstract class AbstractBlockProcessor implements BlockProcessor {
       final boolean skipZeroBlockRewards,
       final ProtocolSchedule protocolSchedule,
       final BalConfiguration balConfiguration,
-      final BlockProcessingMetrics blockProcessingMetrics,
-      final PreprocessingFunction preprocessing) {
+      final BlockProcessingMetrics blockProcessingMetrics) {
     this.transactionProcessor = transactionProcessor;
     this.transactionReceiptFactory = transactionReceiptFactory;
     this.blockReward = blockReward;
@@ -161,7 +154,6 @@ public abstract class AbstractBlockProcessor implements BlockProcessor {
     this.protocolSchedule = protocolSchedule;
     this.balConfiguration = balConfiguration;
     this.blockProcessingMetrics = blockProcessingMetrics;
-    this.preprocessing = preprocessing;
   }
 
   private BlockAwareOperationTracer getBlockImportTracer(
@@ -283,7 +275,7 @@ public abstract class AbstractBlockProcessor implements BlockProcessor {
               .orElse(Wei.ZERO);
 
       preProcessingContext =
-          preprocessing.run(
+          preprocess(
               protocolContext,
               blockHeader,
               transactions,
@@ -587,6 +579,25 @@ public abstract class AbstractBlockProcessor implements BlockProcessor {
     }
   }
 
+  /**
+   * Runs before the block's transactions are executed, e.g. to execute them speculatively in
+   * parallel. The returned context is handed to {@link #getTransactionProcessingResult} for each
+   * transaction and aborted once the block is processed. Processes nothing ahead by default.
+   */
+  @SuppressWarnings("unused") // the parameters are used by subclasses
+  protected Optional<PreprocessingContext> preprocess(
+      final ProtocolContext protocolContext,
+      final BlockHeader blockHeader,
+      final List<Transaction> transactions,
+      final Address miningBeneficiary,
+      final BlockHashLookup blockHashLookup,
+      final Wei blobGasPrice,
+      final Optional<BlockAccessListBuilder> blockAccessListBuilder,
+      final Optional<BlockAccessList> blockAccessList,
+      final Optional<BlockHeader> maybeParentHeader) {
+    return Optional.empty();
+  }
+
   @SuppressWarnings("unused") // preProcessingContext and location are used by subclasses
   protected TransactionProcessingResult getTransactionProcessingResult(
       final Optional<PreprocessingContext> preProcessingContext,
@@ -674,34 +685,4 @@ public abstract class AbstractBlockProcessor implements BlockProcessor {
       final BlockHeader header,
       final List<BlockHeader> ommers,
       final boolean skipZeroBlockRewards);
-
-  public interface PreprocessingFunction {
-    Optional<PreprocessingContext> run(
-        final ProtocolContext protocolContext,
-        final BlockHeader blockHeader,
-        final List<Transaction> transactions,
-        final Address miningBeneficiary,
-        final BlockHashLookup blockHashLookup,
-        final Wei blobGasPrice,
-        final Optional<BlockAccessListBuilder> blockAccessListBuilder,
-        final Optional<BlockAccessList> maybeBlockBal,
-        final Optional<BlockHeader> maybeParentHeader);
-
-    class NoPreprocessing implements PreprocessingFunction {
-
-      @Override
-      public Optional<PreprocessingContext> run(
-          final ProtocolContext protocolContext,
-          final BlockHeader blockHeader,
-          final List<Transaction> transactions,
-          final Address miningBeneficiary,
-          final BlockHashLookup blockHashLookup,
-          final Wei blobGasPrice,
-          final Optional<BlockAccessListBuilder> blockAccessListBuilder,
-          final Optional<BlockAccessList> maybeBlockBal,
-          final Optional<BlockHeader> maybeParentHeader) {
-        return Optional.empty();
-      }
-    }
-  }
 }

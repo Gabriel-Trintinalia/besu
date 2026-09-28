@@ -78,28 +78,6 @@ public class MainnetBlockProcessor extends AbstractBlockProcessor {
       final ProtocolSchedule protocolSchedule,
       final BalConfiguration balConfiguration,
       final BlockProcessingMetrics blockProcessingMetrics) {
-    this(
-        transactionProcessor,
-        transactionReceiptFactory,
-        blockReward,
-        miningBeneficiaryCalculator,
-        skipZeroBlockRewards,
-        protocolSchedule,
-        balConfiguration,
-        blockProcessingMetrics,
-        NO_PREPROCESSING);
-  }
-
-  protected MainnetBlockProcessor(
-      final MainnetTransactionProcessor transactionProcessor,
-      final AbstractBlockProcessor.TransactionReceiptFactory transactionReceiptFactory,
-      final Wei blockReward,
-      final MiningBeneficiaryCalculator miningBeneficiaryCalculator,
-      final boolean skipZeroBlockRewards,
-      final ProtocolSchedule protocolSchedule,
-      final BalConfiguration balConfiguration,
-      final BlockProcessingMetrics blockProcessingMetrics,
-      final PreprocessingFunction preprocessing) {
     super(
         transactionProcessor,
         transactionReceiptFactory,
@@ -108,8 +86,7 @@ public class MainnetBlockProcessor extends AbstractBlockProcessor {
         skipZeroBlockRewards,
         protocolSchedule,
         balConfiguration,
-        blockProcessingMetrics,
-        preprocessing);
+        blockProcessingMetrics);
   }
 
   @Override

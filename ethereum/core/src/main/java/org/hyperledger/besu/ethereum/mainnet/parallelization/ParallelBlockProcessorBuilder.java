@@ -65,7 +65,7 @@ public class ParallelBlockProcessorBuilder implements ProtocolSpecBuilder.BlockP
             balConfiguration,
             metricsSystem,
             blockProcessingMetrics,
-            new ParallelTransactionPreprocessing(transactionProcessor, executor, balConfiguration));
+            executor);
     final BlockProcessor sequentialProcessor =
         new MainnetBlockProcessor(
             transactionProcessor,

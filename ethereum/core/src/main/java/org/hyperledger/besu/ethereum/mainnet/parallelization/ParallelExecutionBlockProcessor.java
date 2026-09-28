@@ -16,6 +16,8 @@ package org.hyperledger.besu.ethereum.mainnet.parallelization;
 
 import org.hyperledger.besu.datatypes.Address;
 import org.hyperledger.besu.datatypes.Wei;
+import org.hyperledger.besu.ethereum.ProtocolContext;
+import org.hyperledger.besu.ethereum.core.BlockHeader;
 import org.hyperledger.besu.ethereum.core.Transaction;
 import org.hyperledger.besu.ethereum.mainnet.BalConfiguration;
 import org.hyperledger.besu.ethereum.mainnet.BlockProcessingMetrics;
@@ -24,18 +26,23 @@ import org.hyperledger.besu.ethereum.mainnet.MainnetTransactionProcessor;
 import org.hyperledger.besu.ethereum.mainnet.MiningBeneficiaryCalculator;
 import org.hyperledger.besu.ethereum.mainnet.ProtocolSchedule;
 import org.hyperledger.besu.ethereum.mainnet.block.access.list.AccessLocationTracker;
+import org.hyperledger.besu.ethereum.mainnet.block.access.list.BlockAccessList;
+import org.hyperledger.besu.ethereum.mainnet.block.access.list.BlockAccessList.BlockAccessListBuilder;
 import org.hyperledger.besu.ethereum.mainnet.systemcall.BlockProcessingContext;
 import org.hyperledger.besu.ethereum.processing.TransactionProcessingResult;
+import org.hyperledger.besu.ethereum.trie.pathbased.bonsai.provider.PathBasedWorldStateProvider;
 import org.hyperledger.besu.evm.blockhash.BlockHashLookup;
 import org.hyperledger.besu.evm.worldstate.WorldUpdater;
 import org.hyperledger.besu.metrics.BesuMetricCategory;
 import org.hyperledger.besu.plugin.services.MetricsSystem;
 import org.hyperledger.besu.plugin.services.metrics.Counter;
 
+import java.util.List;
 import java.util.Optional;
+import java.util.concurrent.Executor;
 
 /**
- * Executes a block with its transactions run speculatively in parallel by the given preprocessing,
+ * Executes a block with its transactions run speculatively in parallel on the given executor,
  * taking each transaction's result from that run when it is still valid and re-executing it
  * otherwise.
  *
@@ -44,6 +51,7 @@ import java.util.Optional;
  */
 public class ParallelExecutionBlockProcessor extends MainnetBlockProcessor {
 
+  private final Executor executor;
   private final Optional<Counter> confirmedParallelizedTransactionCounter;
   private final Optional<Counter> conflictingButCachedTransactionCounter;
 
@@ -57,7 +65,7 @@ public class ParallelExecutionBlockProcessor extends MainnetBlockProcessor {
       final BalConfiguration balConfiguration,
       final MetricsSystem metricsSystem,
       final BlockProcessingMetrics blockProcessingMetrics,
-      final PreprocessingFunction parallelPreprocessing) {
+      final Executor executor) {
     super(
         transactionProcessor,
         transactionReceiptFactory,
@@ -66,8 +74,8 @@ public class ParallelExecutionBlockProcessor extends MainnetBlockProcessor {
         skipZeroBlockRewards,
         protocolSchedule,
         balConfiguration,
-        blockProcessingMetrics,
-        parallelPreprocessing);
+        blockProcessingMetrics);
+    this.executor = executor;
     this.confirmedParallelizedTransactionCounter =
         Optional.of(
             metricsSystem.createCounter(
@@ -81,6 +89,45 @@ public class ParallelExecutionBlockProcessor extends MainnetBlockProcessor {
                 BesuMetricCategory.BLOCK_PROCESSING,
                 "conflicted_transactions_counter",
                 "Counter for the number of conflicted transactions during block processing"));
+  }
+
+  @Override
+  protected Optional<PreprocessingContext> preprocess(
+      final ProtocolContext protocolContext,
+      final BlockHeader blockHeader,
+      final List<Transaction> transactions,
+      final Address miningBeneficiary,
+      final BlockHashLookup blockHashLookup,
+      final Wei blobGasPrice,
+      final Optional<BlockAccessListBuilder> blockAccessListBuilder,
+      final Optional<BlockAccessList> blockAccessList,
+      final Optional<BlockHeader> maybeParentHeader) {
+    if (!(protocolContext.getWorldStateArchive() instanceof PathBasedWorldStateProvider)) {
+      return Optional.empty();
+    }
+
+    final ParallelBlockTransactionProcessor parallelProcessor;
+
+    if (balConfiguration.isPerfectParallelizationEnabled() && blockAccessList.isPresent()) {
+      parallelProcessor =
+          new BalConcurrentTransactionProcessor(
+              transactionProcessor, blockAccessList.get(), balConfiguration);
+    } else {
+      parallelProcessor = new OptimisticConcurrentTransactionProcessor(transactionProcessor);
+    }
+
+    parallelProcessor.runAsyncBlock(
+        protocolContext,
+        blockHeader,
+        transactions,
+        miningBeneficiary,
+        blockHashLookup,
+        blobGasPrice,
+        executor,
+        blockAccessListBuilder,
+        maybeParentHeader);
+
+    return Optional.of(new PreprocessingContext(parallelProcessor));
   }
 
   @Override

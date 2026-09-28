@@ -33,13 +33,11 @@ import org.hyperledger.besu.ethereum.core.BlockHeader;
 import org.hyperledger.besu.ethereum.core.BlockHeaderTestFixture;
 import org.hyperledger.besu.ethereum.core.ExecutionContextTestFixture;
 import org.hyperledger.besu.ethereum.core.Transaction;
-import org.hyperledger.besu.ethereum.mainnet.AbstractBlockProcessor.PreprocessingFunction;
 import org.hyperledger.besu.ethereum.mainnet.BalConfiguration;
 import org.hyperledger.besu.ethereum.mainnet.BlockProcessingMetrics;
 import org.hyperledger.besu.ethereum.mainnet.BlockProcessor;
 import org.hyperledger.besu.ethereum.mainnet.BodyValidation;
 import org.hyperledger.besu.ethereum.mainnet.MainnetBlockProcessor;
-import org.hyperledger.besu.ethereum.mainnet.MainnetTransactionProcessor;
 import org.hyperledger.besu.ethereum.mainnet.ProtocolSpec;
 import org.hyperledger.besu.ethereum.mainnet.block.access.list.BlockAccessList;
 import org.hyperledger.besu.ethereum.mainnet.block.access.list.BlockAccessList.BalanceChange;
@@ -65,7 +63,7 @@ import org.web3j.abi.datatypes.generated.Uint256;
 /**
  * Abstract base class for parallel block processor integration tests. Provides common utilities for
  * block construction, state root discovery, and sequential vs parallel comparison. Subclasses
- * provide specific parallel preprocessing implementations (BAL or Optimistic).
+ * provide the BAL configuration for their parallel variant (BAL or Optimistic).
  */
 @SuppressWarnings("rawtypes")
 public abstract class AbstractParallelBlockProcessorIntegrationTest {
@@ -73,9 +71,6 @@ public abstract class AbstractParallelBlockProcessorIntegrationTest {
   protected static final BalConfiguration SEQUENTIAL_CONFIG = BalConfiguration.DEFAULT;
 
   protected abstract String getVariantName();
-
-  protected abstract ParallelTransactionPreprocessing createParallelPreprocessing(
-      MainnetTransactionProcessor transactionProcessor);
 
   protected BalConfiguration getBalConfiguration() {
     return BalConfiguration.DEFAULT;
@@ -103,22 +98,15 @@ public abstract class AbstractParallelBlockProcessorIntegrationTest {
         SEQUENTIAL_CONFIG);
   }
 
-  protected BlockProcessor createParallelProcessor(final ExecutionContextTestFixture ctx) {
-    final MainnetTransactionProcessor transactionProcessor =
-        genesisSpec(ctx).getTransactionProcessor();
-    return createParallelProcessor(
-        ctx,
-        new ParallelTransactionPreprocessing(
-            transactionProcessor, Runnable::run, getBalConfiguration()));
-  }
-
   /**
-   * Parallel execution without block-level fallback: when parallel processing produces a wrong
-   * state root, the result is returned as-is rather than silently falling back to sequential.
+   * Parallel execution on the calling thread, without block-level fallback: when parallel
+   * processing produces a wrong state root, the result is returned as-is rather than silently
+   * falling back to sequential.
    */
-  protected BlockProcessor createParallelProcessor(
-      final ExecutionContextTestFixture ctx, final PreprocessingFunction parallelPreprocessing) {
-    final ProtocolSpec spec = genesisSpec(ctx);
+  protected BlockProcessor createParallelProcessor(final ExecutionContextTestFixture ctx) {
+    final ProtocolSpec spec =
+        ctx.getProtocolSchedule()
+            .getByBlockHeader(new BlockHeaderTestFixture().number(0L).buildHeader());
     return new ParallelExecutionBlockProcessor(
         spec.getTransactionProcessor(),
         spec.getTransactionReceiptFactory(),
@@ -129,12 +117,7 @@ public abstract class AbstractParallelBlockProcessorIntegrationTest {
         getBalConfiguration(),
         new NoOpMetricsSystem(),
         new BlockProcessingMetrics(new NoOpMetricsSystem()),
-        parallelPreprocessing);
-  }
-
-  private static ProtocolSpec genesisSpec(final ExecutionContextTestFixture ctx) {
-    return ctx.getProtocolSchedule()
-        .getByBlockHeader(new BlockHeaderTestFixture().number(0L).buildHeader());
+        Runnable::run);
   }
 
   // ==================== Block Construction ====================
@@ -315,9 +298,7 @@ public abstract class AbstractParallelBlockProcessorIntegrationTest {
             .orElseThrow();
     final Block parBlock =
         createBlock(parCtx, parTxParent, stateRoot, baseFee, MINING_BENEFICIARY, txs);
-    final BlockProcessor parProcessor =
-        createParallelProcessor(
-            parCtx, createParallelPreprocessing(genesisSpec(parCtx).getTransactionProcessor()));
+    final BlockProcessor parProcessor = createParallelProcessor(parCtx);
     final BlockProcessingResult parResult =
         parProcessor.processBlock(
             parCtx.getProtocolContext(), parCtx.getBlockchain(), parWs, parBlock);
@@ -404,9 +385,7 @@ public abstract class AbstractParallelBlockProcessorIntegrationTest {
     final ExecutionContextTestFixture parCtx = createFreshContext();
     final MutableWorldState parWs = parCtx.getStateArchive().getWorldState();
     final Block parBlock = createBlock(parCtx, stateRoot, baseFee, txs);
-    final BlockProcessor parProcessor =
-        createParallelProcessor(
-            parCtx, createParallelPreprocessing(genesisSpec(parCtx).getTransactionProcessor()));
+    final BlockProcessor parProcessor = createParallelProcessor(parCtx);
     final BlockProcessingResult parResult =
         parProcessor.processBlock(
             parCtx.getProtocolContext(), parCtx.getBlockchain(), parWs, parBlock);
