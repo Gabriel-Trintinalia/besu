@@ -29,7 +29,6 @@ import org.hyperledger.besu.ethereum.core.BlockHeaderTestFixture;
 import org.hyperledger.besu.ethereum.core.ExecutionContextTestFixture;
 import org.hyperledger.besu.ethereum.core.Transaction;
 import org.hyperledger.besu.ethereum.mainnet.BalConfiguration;
-import org.hyperledger.besu.ethereum.mainnet.BlockProcessingMetrics;
 import org.hyperledger.besu.ethereum.mainnet.BlockProcessor;
 import org.hyperledger.besu.ethereum.mainnet.BodyValidation;
 import org.hyperledger.besu.ethereum.mainnet.MainnetBlockProcessor;
@@ -239,7 +238,7 @@ class BalParallelBlockProcessorIntegrationTest {
    * Parallel execution that injects a pre-computed BAL into the parallel run to force use of
    * BalConcurrentTransactionProcessor with applyWritesFromPriorTransactions.
    */
-  private static class ParallelExecutionWithPrecomputedBal extends ParallelExecutionBlockProcessor {
+  private static class ParallelExecutionWithPrecomputedBal extends MainnetParallelBlockProcessor {
 
     private final BlockAccessList preComputedBal;
 
@@ -265,8 +264,8 @@ class BalParallelBlockProcessorIntegrationTest {
           protocolSchedule,
           BalConfiguration.DEFAULT,
           new NoOpMetricsSystem(),
-          new BlockProcessingMetrics(new NoOpMetricsSystem()),
-          Runnable::run);
+          Runnable::run,
+          false);
       this.preComputedBal = preComputedBal;
     }
 

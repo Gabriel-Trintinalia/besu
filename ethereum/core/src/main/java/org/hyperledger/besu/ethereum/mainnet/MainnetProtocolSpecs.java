@@ -73,7 +73,7 @@ import org.hyperledger.besu.ethereum.mainnet.blockhash.PraguePreExecutionProcess
 import org.hyperledger.besu.ethereum.mainnet.blockhash.PreExecutionProcessor;
 import org.hyperledger.besu.ethereum.mainnet.feemarket.BaseFeeMarket;
 import org.hyperledger.besu.ethereum.mainnet.feemarket.FeeMarket;
-import org.hyperledger.besu.ethereum.mainnet.parallelization.ParallelBlockProcessorBuilder;
+import org.hyperledger.besu.ethereum.mainnet.parallelization.MainnetParallelBlockProcessor;
 import org.hyperledger.besu.ethereum.mainnet.requests.MainnetRequestsValidator;
 import org.hyperledger.besu.ethereum.mainnet.requests.RequestContractAddresses;
 import org.hyperledger.besu.ethereum.mainnet.requests.RequestProcessorCoordinator;
@@ -211,7 +211,7 @@ public abstract class MainnetProtocolSpecs {
         .balConfiguration(balConfiguration)
         .blockProcessorBuilder(
             isParallelTxProcessingEnabled
-                ? new ParallelBlockProcessorBuilder(metricsSystem)
+                ? new MainnetParallelBlockProcessor.ParallelBlockProcessorBuilder(metricsSystem)
                 : new MainnetBlockProcessor.MainnetBlockProcessorBuilder(metricsSystem))
         .blockValidatorBuilder(MainnetBlockValidatorBuilder::frontier)
         .blockImporterBuilder(MainnetBlockImporter::new)
@@ -295,15 +295,15 @@ public abstract class MainnetProtocolSpecs {
                 balConfig) ->
                 new DaoBlockProcessor(
                     isParallelTxProcessingEnabled
-                        ? new ParallelBlockProcessorBuilder(metricsSystem)
-                            .apply(
-                                transactionProcessor,
-                                transactionReceiptFactory,
-                                blockReward,
-                                miningBeneficiaryCalculator,
-                                skipZeroBlockRewards,
-                                protocolSchedule,
-                                balConfig)
+                        ? new MainnetParallelBlockProcessor(
+                            transactionProcessor,
+                            transactionReceiptFactory,
+                            blockReward,
+                            miningBeneficiaryCalculator,
+                            skipZeroBlockRewards,
+                            protocolSchedule,
+                            balConfig,
+                            metricsSystem)
                         : new MainnetBlockProcessor(
                             transactionProcessor,
                             transactionReceiptFactory,
@@ -330,7 +330,7 @@ public abstract class MainnetProtocolSpecs {
             metricsSystem)
         .blockProcessorBuilder(
             isParallelTxProcessingEnabled
-                ? new ParallelBlockProcessorBuilder(metricsSystem)
+                ? new MainnetParallelBlockProcessor.ParallelBlockProcessorBuilder(metricsSystem)
                 : new MainnetBlockProcessor.MainnetBlockProcessorBuilder(metricsSystem))
         .hardforkId(DAO_RECOVERY_TRANSITION);
   }
@@ -1478,8 +1478,7 @@ public abstract class MainnetProtocolSpecs {
         final Blockchain blockchain,
         final MutableWorldState worldState,
         final Block block) {
-      updateWorldStateForDao(worldState);
-      return wrapped.processBlock(protocolContext, blockchain, worldState, block);
+      return processBlock(protocolContext, blockchain, worldState, block, Optional.empty());
     }
 
     @Override

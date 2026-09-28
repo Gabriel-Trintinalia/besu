@@ -34,7 +34,6 @@ import org.hyperledger.besu.ethereum.core.BlockHeaderTestFixture;
 import org.hyperledger.besu.ethereum.core.ExecutionContextTestFixture;
 import org.hyperledger.besu.ethereum.core.Transaction;
 import org.hyperledger.besu.ethereum.mainnet.BalConfiguration;
-import org.hyperledger.besu.ethereum.mainnet.BlockProcessingMetrics;
 import org.hyperledger.besu.ethereum.mainnet.BlockProcessor;
 import org.hyperledger.besu.ethereum.mainnet.BodyValidation;
 import org.hyperledger.besu.ethereum.mainnet.MainnetBlockProcessor;
@@ -107,7 +106,7 @@ public abstract class AbstractParallelBlockProcessorIntegrationTest {
     final ProtocolSpec spec =
         ctx.getProtocolSchedule()
             .getByBlockHeader(new BlockHeaderTestFixture().number(0L).buildHeader());
-    return new ParallelExecutionBlockProcessor(
+    return new MainnetParallelBlockProcessor(
         spec.getTransactionProcessor(),
         spec.getTransactionReceiptFactory(),
         Wei.ZERO,
@@ -116,8 +115,8 @@ public abstract class AbstractParallelBlockProcessorIntegrationTest {
         ctx.getProtocolSchedule(),
         getBalConfiguration(),
         new NoOpMetricsSystem(),
-        new BlockProcessingMetrics(new NoOpMetricsSystem()),
-        Runnable::run);
+        Runnable::run,
+        false);
   }
 
   // ==================== Block Construction ====================
@@ -333,9 +332,10 @@ public abstract class AbstractParallelBlockProcessorIntegrationTest {
    * applied via the parallel path ({@code isProcessedInParallel} on the tx result).
    *
    * <p>With perfect parallelization (BAL), the parallel processor must report this for non-empty
-   * blocks. With optimistic collision handling, {@link ParallelExecutionBlockProcessor} may
-   * re-execute every transaction sequentially, in which case the field stays empty; we then only
-   * assert that any reported count is positive.
+   * blocks. With optimistic collision handling, {@link
+   * org.hyperledger.besu.ethereum.mainnet.parallelization.MainnetParallelBlockProcessor} may fall
+   * back to fully sequential processing for the whole block, in which case the field stays empty;
+   * we then only assert that any reported count is positive.
    */
   protected void assertParallelizationRecordedInResults(
       final BlockProcessingResult sequentialResult,

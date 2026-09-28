@@ -38,8 +38,7 @@ import org.hyperledger.besu.ethereum.core.Transaction;
 import org.hyperledger.besu.ethereum.mainnet.AbstractBlockProcessor.TransactionReceiptFactory;
 import org.hyperledger.besu.ethereum.mainnet.block.access.list.BlockAccessList;
 import org.hyperledger.besu.ethereum.mainnet.block.access.list.BlockAccessListAccountLookup;
-import org.hyperledger.besu.ethereum.mainnet.parallelization.ParallelBlockProcessorBuilder;
-import org.hyperledger.besu.ethereum.mainnet.parallelization.ParallelExecutionBlockProcessor;
+import org.hyperledger.besu.ethereum.mainnet.parallelization.MainnetParallelBlockProcessor;
 import org.hyperledger.besu.ethereum.mainnet.staterootcommitter.BalStateRootCommitter;
 import org.hyperledger.besu.ethereum.trie.pathbased.bonsai.account.BonsaiAccount;
 import org.hyperledger.besu.ethereum.trie.pathbased.bonsai.worldview.BonsaiWorldState;
@@ -158,15 +157,15 @@ class AbstractBlockProcessorIntegrationTest {
             BalConfiguration.DEFAULT);
 
     final BlockProcessor parallelBlockProcessor =
-        new ParallelBlockProcessorBuilder(new NoOpMetricsSystem())
-            .apply(
-                transactionProcessor,
-                receiptFactory,
-                coinbaseReward,
-                BlockHeader::getCoinbase,
-                skipRewards,
-                protocolSchedule,
-                BalConfiguration.DEFAULT);
+        new MainnetParallelBlockProcessor(
+            transactionProcessor,
+            receiptFactory,
+            coinbaseReward,
+            BlockHeader::getCoinbase,
+            skipRewards,
+            protocolSchedule,
+            BalConfiguration.DEFAULT,
+            new NoOpMetricsSystem());
 
     return Stream.of(
         Arguments.of("sequential", sequentialBlockProcessor),
@@ -357,7 +356,7 @@ class AbstractBlockProcessorIntegrationTest {
 
     // No block-level fallback, so a parallel failure is not masked by a sequential rerun.
     BlockProcessor parallelBlockProcessor =
-        new ParallelExecutionBlockProcessor(
+        new MainnetParallelBlockProcessor(
             transactionProcessor,
             receiptFactory,
             Wei.ZERO,
@@ -366,8 +365,8 @@ class AbstractBlockProcessorIntegrationTest {
             protocolSchedule,
             BalConfiguration.DEFAULT,
             new NoOpMetricsSystem(),
-            new BlockProcessingMetrics(new NoOpMetricsSystem()),
-            Runnable::run);
+            Runnable::run,
+            false);
 
     BlockProcessingResult parallelResult =
         parallelBlockProcessor.processBlock(protocolContext, blockchain, worldStateParallel, block);
