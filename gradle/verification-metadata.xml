@@ -2571,9 +2571,9 @@
             <sha256 value="1280540950a4c3470a421416b6f35458a9b635827265c29e5aef1ae839ae1788" origin="Manual, verified against GitHub release digest"/>
          </artifact>
       </component>
-      <component group="ethereum" name="execution-specs" version="tests-zkevm@v0.8.0">
-         <artifact name="execution-specs-tests-zkevm@v0.8.0-fixtures_zkevm.tar.gz">
-            <sha256 value="f19f782fb5cefb7466e852e101d28883452221f03cfa1867eec5d520a3112c5c" origin="Manual, verified against GitHub release digest"/>
+      <component group="ethereum" name="execution-specs" version="tests-zkevm@v21.0.0">
+         <artifact name="execution-specs-tests-zkevm@v21.0.0-fixtures_zkevm.tar.gz">
+            <sha256 value="44cfcb54fe08b870c53c96879f8ebbc960434032eb3696139dbe2a1629eebe1a" origin="Manual, verified against GitHub release digest"/>
          </artifact>
       </component>
       <component group="info.picocli" name="picocli" version="4.7.6">

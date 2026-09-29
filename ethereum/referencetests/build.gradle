@@ -141,22 +141,18 @@ def extractDevnetFixtures = tasks.register("extractDevnetFixtures", Sync) {
 tasks.register("cleanReferenceTestCache") {
   description = "Deletes cached execution-specs fixture tarballs other than the currently declared versions."
   doLast {
-    // Collect every module directory -> set of version directories that are currently in use.
-    // Multiple configs may share the same module (e.g. devnet and zkevm both use
-    // 'ethereum:execution-specs'), so we must keep ALL of their versions before deleting anything.
-    def keepByModule = [:].withDefault { [] as Set }
-    configurations.matching { it.name.endsWith('TarConfig') }.each { config ->
-      def currentFile = config.files.find { it.name.endsWith('.tar.gz') }
-      if (currentFile == null) return
-        // Cache layout: <module>/<version>/<hash>/<file>.tar.gz
-        def versionDir = currentFile.parentFile.parentFile
-      def moduleDir = versionDir.parentFile
-      keepByModule[moduleDir.absolutePath] << versionDir.name
-    }
-    keepByModule.each { modulePath, keepVersions ->
-      def moduleDir = new File(modulePath)
+    // Stable, devnet and zkevm fixtures all share the ethereum/execution-specs module directory, so
+    // all three declared versions have to be collected before anything is deleted.
+    def keptVersionDirs = [
+      configurations.tarConfig.files.find(stableFixtureTarball),
+      configurations.devnetTarConfig.files.find(devnetFixtureTarball),
+      configurations.zkevmTarConfig.files.find { it.name.startsWith('execution-spec') }
+      // Cache layout: <module>/<version>/<hash>/<file>.tar.gz
+    ].findAll { it != null }.collect { it.parentFile.parentFile }
+
+    keptVersionDirs.collect { it.parentFile }.unique().each { moduleDir ->
       moduleDir.listFiles()?.each { sibling ->
-        if (sibling.isDirectory() && !keepVersions.contains(sibling.name)) {
+        if (sibling.isDirectory() && !keptVersionDirs.any { it.absolutePath == sibling.absolutePath }) {
           logger.lifecycle("Deleting stale fixture cache: ${sibling}")
           delete sibling
         }
@@ -406,7 +402,7 @@ dependencies {
     )
   zkevmTarConfig(
     group: 'ethereum', name: 'execution-specs',
-    version: 'tests-zkevm@v0.8.0', classifier: 'fixtures_zkevm', ext: 'tar.gz'
+    version: 'tests-zkevm@v21.0.0', classifier: 'fixtures_zkevm', ext: 'tar.gz'
     )
   referenceTestImplementation 'com.fasterxml.jackson.core:jackson-databind'
   referenceTestImplementation 'com.google.guava:guava'
