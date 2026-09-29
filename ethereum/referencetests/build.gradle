@@ -141,14 +141,11 @@ def extractDevnetFixtures = tasks.register("extractDevnetFixtures", Sync) {
 tasks.register("cleanReferenceTestCache") {
   description = "Deletes cached execution-specs fixture tarballs other than the currently declared versions."
   doLast {
-    // Stable, devnet and zkevm fixtures all share the ethereum/execution-specs module directory, so
-    // all three declared versions have to be collected before anything is deleted.
+    // Stable and devnet fixtures share the ethereum/execution-specs module directory, so both
+    // declared versions have to be collected before anything is deleted.
     def keptVersionDirs = [
       configurations.tarConfig.files.find(stableFixtureTarball),
-      configurations.devnetTarConfig.files.find(devnetFixtureTarball),
-      configurations.zkevmTarConfig.files.find {
-        it.name.startsWith('execution-spec')
-      }
+      configurations.devnetTarConfig.files.find(devnetFixtureTarball)
       // Cache layout: <module>/<version>/<hash>/<file>.tar.gz
     ].findAll { it != null }.collect { it.parentFile.parentFile }
 
@@ -163,12 +160,32 @@ tasks.register("cleanReferenceTestCache") {
   }
 }
 
+// Kept separate from cleanReferenceTestCache: the zkevm fixture tarball is ~586MB, so this must
+// only ever run (and resolve configurations.zkevmTarConfig) as part of the zkevm path, never as a
+// side effect of a plain stable/devnet reference-test run. zkevm is declared under its own module
+// (execution-specs-zkevm), so its cache directory is never shared with the other fixture flavours.
+tasks.register("cleanZkevmFixtureCache") {
+  description = "Deletes cached zkevm execution-specs fixture tarballs other than the currently declared version."
+  doLast {
+    def keptVersionDir =
+      configurations.zkevmTarConfig.files.find { it.name.startsWith('execution-spec') }
+      ?.parentFile?.parentFile
+    if (keptVersionDir == null) return
+      keptVersionDir.parentFile.listFiles()?.each { sibling ->
+        if (sibling.isDirectory() && sibling.absolutePath != keptVersionDir.absolutePath) {
+          logger.lifecycle("Deleting stale fixture cache: ${sibling}")
+          delete sibling
+        }
+      }
+  }
+}
+
 def extractZkevmFixtures = tasks.register("extractZkevmFixtures", Sync) {
   from {
     tarTree(configurations.zkevmTarConfig.files.find { it.name.startsWith('execution-spec') })
   }
   into layout.buildDirectory.dir("execution-spec-zkevm-tests")
-  finalizedBy("cleanReferenceTestCache")
+  finalizedBy("cleanZkevmFixtureCache")
 }
 
 def zkevmExecutionWitnessTests = tasks.register("zkevmExecutionWitnessTests") {
@@ -403,7 +420,7 @@ dependencies {
     version: 'tests-glamsterdam-devnet@v8.1.4', classifier: 'fixtures_glamsterdam-devnet', ext: 'tar.gz'
     )
   zkevmTarConfig(
-    group: 'ethereum', name: 'execution-specs',
+    group: 'ethereum', name: 'execution-specs-zkevm',
     version: 'tests-zkevm@v21.0.0', classifier: 'fixtures_zkevm', ext: 'tar.gz'
     )
   referenceTestImplementation 'com.fasterxml.jackson.core:jackson-databind'
