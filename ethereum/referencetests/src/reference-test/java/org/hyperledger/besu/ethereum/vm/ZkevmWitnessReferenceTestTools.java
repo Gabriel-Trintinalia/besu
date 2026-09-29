@@ -175,7 +175,7 @@ public class ZkevmWitnessReferenceTestTools {
   private static ProtocolSchedule zkevmSchedule(final BlockchainReferenceTestCaseSpec spec) {
     final StubGenesisConfigOptions genesisOptions = new StubGenesisConfigOptions();
     genesisOptions.baseFeePerGas(0x0a);
-    genesisOptions.bpo1Time(0).bpo2Time(0).bpo3Time(0).bpo4Time(0).bpo5Time(0).amsterdamTime(0);
+    genesisOptions.bpo1Time(0).bpo2Time(0).amsterdamTime(0);
     spec.getBlobScheduleOptions().ifPresent(genesisOptions::blobScheduleOptions);
     KZGPointEvalPrecompiledContract.init();
     return new ProtocolScheduleBuilder(
