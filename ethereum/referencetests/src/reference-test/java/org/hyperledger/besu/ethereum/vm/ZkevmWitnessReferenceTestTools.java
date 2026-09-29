@@ -35,7 +35,6 @@ import org.hyperledger.besu.ethereum.mainnet.ProtocolSpecAdapters;
 import org.hyperledger.besu.ethereum.mainnet.block.access.list.BlockAccessList;
 import org.hyperledger.besu.ethereum.referencetests.BlockchainReferenceTestCaseSpec;
 import org.hyperledger.besu.ethereum.referencetests.FixtureExecutionWitness;
-import org.hyperledger.besu.ethereum.referencetests.ReferenceTestProtocolSchedules;
 import org.hyperledger.besu.ethereum.rlp.RLPException;
 import org.hyperledger.besu.ethereum.trie.pathbased.bonsai.storage.BonsaiExecutionWitnessBuilder;
 import org.hyperledger.besu.ethereum.worldstate.DataStorageConfiguration;
@@ -162,16 +161,7 @@ public class ZkevmWitnessReferenceTestTools {
     assertThat(blockchain.getChainHeadHash()).isEqualTo(spec.getLastBlockHash());
   }
 
-  /**
-   * Builds the single protocol schedule this suite needs. The zkevm fixtures target post-BPO
-   * Amsterdam blob parameters, so BPO1-5 are activated alongside Amsterdam.
-   *
-   * <p>Built directly rather than through {@link ReferenceTestProtocolSchedules}, whose factory
-   * derives ~35 schedules from one genesis stub: the BPO timestamps would leak into every entry via
-   * {@code clone()} and fail fork-order validation on the pre-merge ones. Building just the fork we
-   * need also keeps the shared schedule map, and every other reference-test flavour that consumes
-   * it, untouched.
-   */
+  /** Builds the single Amsterdam-at-time-0 protocol schedule this suite needs. */
   private static ProtocolSchedule zkevmSchedule(final BlockchainReferenceTestCaseSpec spec) {
     final StubGenesisConfigOptions genesisOptions = new StubGenesisConfigOptions();
     genesisOptions.baseFeePerGas(0x0a);
