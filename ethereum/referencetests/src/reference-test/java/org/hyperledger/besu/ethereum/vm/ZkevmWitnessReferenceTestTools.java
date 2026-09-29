@@ -68,10 +68,7 @@ public class ZkevmWitnessReferenceTestTools {
 
   private static final Logger LOG = LoggerFactory.getLogger(ZkevmWitnessReferenceTestTools.class);
 
-  /**
-   * The zkevm fixtures declare only "Amsterdam" and "BPO2ToAmsterdamAtTime15k". The latter has no
-   * entry in {@link ReferenceTestProtocolSchedules}, so it is not run.
-   */
+  /** At this stage we are only running tests for "Amsterdam" on purpose. */
   private static final List<String> NETWORKS_TO_RUN = List.of("Amsterdam");
 
   private static final JsonTestParameters<?, ?> params =
