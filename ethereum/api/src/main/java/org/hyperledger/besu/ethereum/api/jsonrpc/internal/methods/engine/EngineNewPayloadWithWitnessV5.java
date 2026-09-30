@@ -14,6 +14,8 @@
  */
 package org.hyperledger.besu.ethereum.api.jsonrpc.internal.methods.engine;
 
+import static org.hyperledger.besu.ethereum.api.jsonrpc.internal.methods.ExecutionEngineJsonRpcMethod.EngineStatus.VALID;
+
 import org.hyperledger.besu.datatypes.HardforkId;
 import org.hyperledger.besu.datatypes.Hash;
 import org.hyperledger.besu.ethereum.BlockProcessingOutputs;
@@ -44,10 +46,10 @@ import org.slf4j.LoggerFactory;
  * execution witness for the imported block.
  *
  * <p>The witness is derived from the EIP-7928 block access list already produced by the single
- * import pass (Amsterdam+), the same way {@code debug_executionWitness} builds it on an
- * already-imported block. See {@link BonsaiExecutionWitnessBuilder} for the caveat this implies:
- * {@code codes} is over-approximated from the block access list's account changes rather than from
- * instrumented code-read tracking.
+ * import pass, the same way {@code debug_executionWitness} builds it on an already-imported block.
+ * See {@link BonsaiExecutionWitnessBuilder} for the caveat this implies: {@code codes} is
+ * over-approximated from the block access list's account changes rather than from instrumented
+ * code-read tracking.
  */
 public final class EngineNewPayloadWithWitnessV5<
         EP extends ExecutionPayloadV4, NPRP extends NewPayloadRequestParametersV3<? extends EP>>
@@ -73,7 +75,7 @@ public final class EngineNewPayloadWithWitnessV5<
   }
 
   @Override
-  protected JsonRpcResponse respondWithSuccess(
+  protected JsonRpcResponse respondWithValid(
       final Object requestId,
       final ExecutionPayloadV1 param,
       final BlockHeader newBlockHeader,
@@ -91,28 +93,29 @@ public final class EngineNewPayloadWithWitnessV5<
             .map(BlockProcessingOutputs::getAccessedAncestors)
             .orElse(Map.of());
 
+    final BonsaiExecutionWitnessBuilder.Witness witness;
     try {
-      final BonsaiExecutionWitnessBuilder.Witness witness =
+      witness =
           new BonsaiExecutionWitnessBuilder(
                   protocolContext.getWorldStateArchive(), protocolContext.getBlockchain())
               .buildWitness(newBlockHeader, blockAccessList.get(), accessedAncestors);
-
-      if (witness.state().isEmpty()) {
-        LOG.debug("Empty witness state for imported block {}", validHash);
-        return new JsonRpcErrorResponse(requestId, RpcErrorType.INTERNAL_ERROR);
-      }
-
-      return new JsonRpcSuccessResponse(
-          requestId,
-          new EnginePayloadWithWitnessResult(
-              EngineStatus.VALID,
-              validHash,
-              Optional.empty(),
-              new EngineExecutionWitnessResult(
-                  witness.state(), witness.codes(), witness.headers())));
-    } catch (final IllegalStateException e) {
+    } catch (final RuntimeException e) {
+      // the block is already imported, so this is never an invalid request
       LOG.debug("Failed to build execution witness for block {}", validHash, e);
       return new JsonRpcErrorResponse(requestId, RpcErrorType.INTERNAL_ERROR);
     }
+    if (witness.state().isEmpty()) {
+      LOG.debug("Empty witness state for imported block {}", validHash);
+      return new JsonRpcErrorResponse(requestId, RpcErrorType.INTERNAL_ERROR);
+    }
+
+    logNewPayloadResponse(param, validHash, VALID);
+    return new JsonRpcSuccessResponse(
+        requestId,
+        new EnginePayloadWithWitnessResult(
+            VALID,
+            validHash,
+            Optional.empty(),
+            new EngineExecutionWitnessResult(witness.state(), witness.codes(), witness.headers())));
   }
 }
