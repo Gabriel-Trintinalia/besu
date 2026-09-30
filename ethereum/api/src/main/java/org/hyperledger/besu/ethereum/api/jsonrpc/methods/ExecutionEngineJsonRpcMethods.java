@@ -61,6 +61,7 @@ import org.hyperledger.besu.ethereum.blockcreation.MiningCoordinator;
 import org.hyperledger.besu.ethereum.eth.manager.EthPeers;
 import org.hyperledger.besu.ethereum.eth.transactions.TransactionPool;
 import org.hyperledger.besu.ethereum.mainnet.ProtocolSchedule;
+import org.hyperledger.besu.ethereum.trie.pathbased.bonsai.provider.PathBasedWorldStateProvider;
 import org.hyperledger.besu.plugin.services.MetricsSystem;
 
 import java.util.ArrayList;
@@ -199,10 +200,15 @@ public class ExecutionEngineJsonRpcMethods extends ApiGroupJsonRpcMethods {
 
   /**
    * {@code engine_newPayloadWithWitnessV5} is a distinct method rather than another version in the
-   * newPayload series, so it is registered on its own from Amsterdam onwards.
+   * newPayload series, so it is registered on its own from Amsterdam onwards. The witness can only
+   * be built from a path-based (Bonsai) world state, so the method is not registered otherwise: it
+   * would import every payload and then fail to answer.
    */
   private Collection<? extends JsonRpcMethod> createEngineNewPayloadWithWitnessMethods(
       final ConstructorArguments constructorArguments) {
+    if (!(protocolContext.getWorldStateArchive() instanceof PathBasedWorldStateProvider)) {
+      return List.of();
+    }
     return VersionScheduler.startsFrom(AMSTERDAM, EngineNewPayloadWithWitnessV5::new)
         .build(constructorArguments);
   }

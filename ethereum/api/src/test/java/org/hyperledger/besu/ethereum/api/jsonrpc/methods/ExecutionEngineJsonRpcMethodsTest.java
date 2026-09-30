@@ -27,6 +27,9 @@ import org.hyperledger.besu.ethereum.blockcreation.MiningCoordinator;
 import org.hyperledger.besu.ethereum.eth.manager.EthPeers;
 import org.hyperledger.besu.ethereum.eth.transactions.TransactionPool;
 import org.hyperledger.besu.ethereum.mainnet.ProtocolSchedule;
+import org.hyperledger.besu.ethereum.trie.forest.ForestWorldStateArchive;
+import org.hyperledger.besu.ethereum.trie.pathbased.bonsai.provider.PathBasedWorldStateProvider;
+import org.hyperledger.besu.ethereum.worldstate.WorldStateArchive;
 import org.hyperledger.besu.plugin.services.MetricsSystem;
 
 import java.util.Arrays;
@@ -45,23 +48,8 @@ class ExecutionEngineJsonRpcMethodsTest {
    */
   @Test
   void testGetSupportedMethods() {
-    MiningCoordinator miningCoordinator = mock(MergeMiningCoordinator.class);
-    when(miningCoordinator.isCompatibleWithEngineApi()).thenReturn(true);
-    ProtocolSchedule protocolSchedule = mock(ProtocolSchedule.class);
-    when(protocolSchedule.milestoneFor(any())).thenReturn(Optional.of(0L));
-    ExecutionEngineJsonRpcMethods methods =
-        new ExecutionEngineJsonRpcMethods(
-            miningCoordinator,
-            protocolSchedule,
-            mock(ProtocolContext.class),
-            mock(EthPeers.class),
-            mock(Vertx.class),
-            "testClient",
-            "testCommit",
-            mock(TransactionPool.class),
-            mock(MetricsSystem.class));
-
-    Map<String, JsonRpcMethod> engineMethods = methods.create();
+    Map<String, JsonRpcMethod> engineMethods =
+        createEngineMethods(mock(PathBasedWorldStateProvider.class));
     List<String> expectedMethodNames =
         Arrays.stream(RpcMethod.values())
             .map(RpcMethod::getMethodName)
@@ -83,5 +71,36 @@ class ExecutionEngineJsonRpcMethodsTest {
             .contains(actualMethod);
       }
     }
+  }
+
+  @Test
+  void shouldNotRegisterNewPayloadWithWitnessWithoutPathBasedWorldState() {
+    final Map<String, JsonRpcMethod> engineMethods =
+        createEngineMethods(mock(ForestWorldStateArchive.class));
+
+    assertThat(engineMethods)
+        .doesNotContainKey(RpcMethod.ENGINE_NEW_PAYLOAD_WITH_WITNESS_V5.getMethodName())
+        .containsKey(RpcMethod.ENGINE_NEW_PAYLOAD_V5.getMethodName());
+  }
+
+  private static Map<String, JsonRpcMethod> createEngineMethods(
+      final WorldStateArchive worldStateArchive) {
+    final MiningCoordinator miningCoordinator = mock(MergeMiningCoordinator.class);
+    when(miningCoordinator.isCompatibleWithEngineApi()).thenReturn(true);
+    final ProtocolSchedule protocolSchedule = mock(ProtocolSchedule.class);
+    when(protocolSchedule.milestoneFor(any())).thenReturn(Optional.of(0L));
+    final ProtocolContext protocolContext = mock(ProtocolContext.class);
+    when(protocolContext.getWorldStateArchive()).thenReturn(worldStateArchive);
+    return new ExecutionEngineJsonRpcMethods(
+            miningCoordinator,
+            protocolSchedule,
+            protocolContext,
+            mock(EthPeers.class),
+            mock(Vertx.class),
+            "testClient",
+            "testCommit",
+            mock(TransactionPool.class),
+            mock(MetricsSystem.class))
+        .create();
   }
 }
