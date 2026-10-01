@@ -294,25 +294,15 @@ public abstract class MainnetProtocolSpecs {
                 protocolSchedule,
                 balConfig) ->
                 new DaoBlockProcessor(
-                    isParallelTxProcessingEnabled
-                        ? new MainnetParallelBlockProcessor(
-                            transactionProcessor,
-                            transactionReceiptFactory,
-                            blockReward,
-                            miningBeneficiaryCalculator,
-                            skipZeroBlockRewards,
-                            protocolSchedule,
-                            balConfig,
-                            metricsSystem)
-                        : new MainnetBlockProcessor(
-                            transactionProcessor,
-                            transactionReceiptFactory,
-                            blockReward,
-                            miningBeneficiaryCalculator,
-                            skipZeroBlockRewards,
-                            protocolSchedule,
-                            balConfig,
-                            metricsSystem)))
+                    new MainnetBlockProcessor(
+                        transactionProcessor,
+                        transactionReceiptFactory,
+                        blockReward,
+                        miningBeneficiaryCalculator,
+                        skipZeroBlockRewards,
+                        protocolSchedule,
+                        balConfig,
+                        metricsSystem)))
         .hardforkId(DAO_RECOVERY_INIT);
   }
 
