@@ -119,8 +119,9 @@ public final class EngineNewPayloadWithWitnessV5<
                   protocolContext.getWorldStateArchive(), protocolContext.getBlockchain())
               .buildWitness(newBlockHeader, blockAccessList.get(), accessedAncestors);
     } catch (final RuntimeException e) {
-      // the block is already imported, so this is never an invalid request
-      LOG.debug("Failed to build execution witness for block {}", validHash, e);
+      // the payload is valid: its block was validated and imported above. Not being able to build
+      // the witness is a problem on Besu's side, so it is reported as an internal error
+      LOG.warn("Failed to build execution witness for block {}", validHash, e);
       return new JsonRpcErrorResponse(requestId, RpcErrorType.INTERNAL_ERROR);
     }
     if (witness.state().isEmpty()) {
