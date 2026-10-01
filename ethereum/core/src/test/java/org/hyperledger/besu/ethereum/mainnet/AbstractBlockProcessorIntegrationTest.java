@@ -353,7 +353,7 @@ class AbstractBlockProcessorIntegrationTest {
   }
 
   private BlockProcessor createParallelBlockProcessor(
-      final Block block, final Optional<BlockProcessor> sequentialFallback) {
+      final Block block, final Optional<BlockProcessor> sequentialBlockProcessor) {
     final ProtocolSchedule protocolSchedule =
         ExecutionContextTestFixture.builder(GenesisConfig.fromResource(GENESIS_RESOURCE))
             .dataStorageFormat(DataStorageFormat.BONSAI)
@@ -370,7 +370,7 @@ class AbstractBlockProcessorIntegrationTest {
         BalConfiguration.DEFAULT,
         new NoOpMetricsSystem(),
         Runnable::run,
-        sequentialFallback);
+        sequentialBlockProcessor);
   }
 
   @Test

@@ -60,7 +60,9 @@ public class MainnetParallelBlockProcessor extends MainnetBlockProcessor {
   private static final Executor cpuExecutor = BlockProcessingExecutors.cpuExecutor();
 
   private final Executor executor;
-  private final Optional<BlockProcessor> sequentialFallback;
+  // Reruns the whole block if parallel processing fails. Conflicts between transactions do not
+  // need it: processTransaction processes those transactions sequentially.
+  private final Optional<BlockProcessor> sequentialBlockProcessor;
   private final Optional<Counter> confirmedParallelizedTransactionCounter;
   private final Optional<Counter> conflictingButCachedTransactionCounter;
 
@@ -106,7 +108,8 @@ public class MainnetParallelBlockProcessor extends MainnetBlockProcessor {
         metricsSystem,
         blockProcessingMetrics,
         cpuExecutor,
-        // Fallback to sequential processing if parallel processing fails.
+        // Same arguments and metrics, so a rerun applies the same rules and reports to the same
+        // gauges.
         Optional.of(
             new MainnetBlockProcessor(
                 transactionProcessor,
@@ -130,7 +133,7 @@ public class MainnetParallelBlockProcessor extends MainnetBlockProcessor {
       final BalConfiguration balConfiguration,
       final MetricsSystem metricsSystem,
       final Executor executor,
-      final Optional<BlockProcessor> sequentialFallback) {
+      final Optional<BlockProcessor> sequentialBlockProcessor) {
     this(
         transactionProcessor,
         transactionReceiptFactory,
@@ -142,7 +145,7 @@ public class MainnetParallelBlockProcessor extends MainnetBlockProcessor {
         metricsSystem,
         new BlockProcessingMetrics(metricsSystem),
         executor,
-        sequentialFallback);
+        sequentialBlockProcessor);
   }
 
   private MainnetParallelBlockProcessor(
@@ -156,7 +159,7 @@ public class MainnetParallelBlockProcessor extends MainnetBlockProcessor {
       final MetricsSystem metricsSystem,
       final BlockProcessingMetrics blockProcessingMetrics,
       final Executor executor,
-      final Optional<BlockProcessor> sequentialFallback) {
+      final Optional<BlockProcessor> sequentialBlockProcessor) {
     super(
         transactionProcessor,
         transactionReceiptFactory,
@@ -167,7 +170,7 @@ public class MainnetParallelBlockProcessor extends MainnetBlockProcessor {
         balConfiguration,
         blockProcessingMetrics);
     this.executor = executor;
-    this.sequentialFallback = sequentialFallback;
+    this.sequentialBlockProcessor = sequentialBlockProcessor;
     this.confirmedParallelizedTransactionCounter =
         Optional.of(
             metricsSystem.createCounter(
@@ -192,8 +195,7 @@ public class MainnetParallelBlockProcessor extends MainnetBlockProcessor {
       final Optional<BlockAccessList> blockAccessList) {
     final BlockProcessingResult blockProcessingResult =
         super.processBlock(protocolContext, blockchain, worldState, block, blockAccessList);
-    if (blockProcessingResult.isFailed() && sequentialFallback.isPresent()) {
-      // Fallback to non-parallel processing if there is a block processing exception .
+    if (blockProcessingResult.isFailed() && sequentialBlockProcessor.isPresent()) {
       LOG.info(
           "Parallel transaction processing failure. Falling back to non-parallel processing for block #{} ({})",
           block.getHeader().getNumber(),
@@ -201,7 +203,7 @@ public class MainnetParallelBlockProcessor extends MainnetBlockProcessor {
       if (worldState instanceof BonsaiWorldState) {
         ((BonsaiWorldStateUpdateAccumulator) worldState.updater()).reset();
       }
-      return sequentialFallback
+      return sequentialBlockProcessor
           .get()
           .processBlock(protocolContext, blockchain, worldState, block, blockAccessList);
     }
@@ -209,7 +211,7 @@ public class MainnetParallelBlockProcessor extends MainnetBlockProcessor {
   }
 
   @Override
-  protected Optional<PreprocessingContext> preprocess(
+  protected Optional<ParallelBlockTransactionProcessor> startParallelExecution(
       final ProtocolContext protocolContext,
       final BlockHeader blockHeader,
       final List<Transaction> transactions,
@@ -244,12 +246,12 @@ public class MainnetParallelBlockProcessor extends MainnetBlockProcessor {
         blockAccessListBuilder,
         maybeParentHeader);
 
-    return Optional.of(new PreprocessingContext(parallelProcessor));
+    return Optional.of(parallelProcessor);
   }
 
   @Override
-  protected TransactionProcessingResult getTransactionProcessingResult(
-      final Optional<PreprocessingContext> preProcessingContext,
+  protected TransactionProcessingResult processTransaction(
+      final Optional<ParallelBlockTransactionProcessor> parallelProcessor,
       final BlockProcessingContext blockProcessingContext,
       final WorldUpdater transactionUpdater,
       final Wei blobGasPrice,
@@ -258,27 +260,26 @@ public class MainnetParallelBlockProcessor extends MainnetBlockProcessor {
       final int location,
       final BlockHashLookup blockHashLookup,
       final Optional<AccessLocationTracker> accessLocationTracker) {
-    return preProcessingContext
+    return parallelProcessor
         .flatMap(
-            ctx ->
-                ctx.processor()
-                    .getProcessingResult(
-                        blockProcessingContext.getWorldState(),
-                        miningBeneficiary,
-                        transaction,
-                        location,
-                        confirmedParallelizedTransactionCounter,
-                        conflictingButCachedTransactionCounter))
+            processor ->
+                processor.getProcessingResult(
+                    blockProcessingContext.getWorldState(),
+                    miningBeneficiary,
+                    transaction,
+                    location,
+                    confirmedParallelizedTransactionCounter,
+                    conflictingButCachedTransactionCounter))
+        // No usable parallel result (a conflict, or nothing ran in parallel): process it
+        // sequentially.
         .orElseGet(
             () ->
-                super.getTransactionProcessingResult(
-                    preProcessingContext,
+                processTransactionSequentially(
                     blockProcessingContext,
                     transactionUpdater,
                     blobGasPrice,
                     miningBeneficiary,
                     transaction,
-                    location,
                     blockHashLookup,
                     accessLocationTracker));
   }

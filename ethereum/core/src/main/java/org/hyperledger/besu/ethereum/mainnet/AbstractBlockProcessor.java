@@ -34,7 +34,7 @@ import org.hyperledger.besu.ethereum.mainnet.block.access.list.BlockAccessList;
 import org.hyperledger.besu.ethereum.mainnet.block.access.list.BlockAccessList.BlockAccessListBuilder;
 import org.hyperledger.besu.ethereum.mainnet.block.access.list.BlockAccessListFactory;
 import org.hyperledger.besu.ethereum.mainnet.block.access.list.PartialBlockAccessView;
-import org.hyperledger.besu.ethereum.mainnet.parallelization.PreprocessingContext;
+import org.hyperledger.besu.ethereum.mainnet.parallelization.ParallelBlockTransactionProcessor;
 import org.hyperledger.besu.ethereum.mainnet.requests.RequestProcessingContext;
 import org.hyperledger.besu.ethereum.mainnet.requests.RequestProcessorCoordinator;
 import org.hyperledger.besu.ethereum.mainnet.systemcall.BlockProcessingContext;
@@ -244,7 +244,7 @@ public abstract class AbstractBlockProcessor implements BlockProcessor {
             .getBlockAccessListFactory()
             .map(BlockAccessListFactory::newBlockAccessListBuilder);
 
-    Optional<PreprocessingContext> preProcessingContext = Optional.empty();
+    Optional<ParallelBlockTransactionProcessor> parallelProcessor = Optional.empty();
     try {
       final Optional<AccessLocationTracker> preExecutionAccessLocationTracker =
           blockAccessListBuilder.map(
@@ -274,8 +274,8 @@ public abstract class AbstractBlockProcessor implements BlockProcessor {
                               calculateExcessBlobGasForParent(protocolSpec, parentHeader)))
               .orElse(Wei.ZERO);
 
-      preProcessingContext =
-          preprocess(
+      parallelProcessor =
+          startParallelExecution(
               protocolContext,
               blockHeader,
               transactions,
@@ -310,8 +310,8 @@ public abstract class AbstractBlockProcessor implements BlockProcessor {
         final Optional<AccessLocationTracker> transactionLocationTracker =
             createTransactionAccessLocationTracker(blockAccessListBuilder, i);
         TransactionProcessingResult transactionProcessingResult =
-            getTransactionProcessingResult(
-                preProcessingContext,
+            processTransaction(
+                parallelProcessor,
                 blockProcessingContext,
                 transactionUpdater,
                 blobGasPrice,
@@ -567,25 +567,25 @@ public abstract class AbstractBlockProcessor implements BlockProcessor {
           parallelizedTxFound ? Optional.of(nbParallelTx) : Optional.empty());
     } finally {
       stateRootCommitter.cancel();
-      preProcessingContext.ifPresent(
-          ctx -> {
+      parallelProcessor.ifPresent(
+          processor -> {
             try {
               // Cancel any speculative futures not yet consumed by the main loop.
-              ctx.processor().abort();
+              processor.abort();
             } catch (final Exception e) {
-              LOG.debug("Error aborting parallel transaction preprocessing futures", e);
+              LOG.debug("Error aborting parallel transaction execution futures", e);
             }
           });
     }
   }
 
   /**
-   * Runs before the block's transactions are executed, e.g. to execute them speculatively in
-   * parallel. The returned context is handed to {@link #getTransactionProcessingResult} for each
-   * transaction and aborted once the block is processed. Processes nothing ahead by default.
+   * Starts executing the block's transactions speculatively in parallel, before they are executed
+   * in order. The returned processor is handed to {@link #processTransaction} for each transaction
+   * and aborted once the block is processed. Starts nothing by default.
    */
   @SuppressWarnings("unused") // the parameters are used by subclasses
-  protected Optional<PreprocessingContext> preprocess(
+  protected Optional<ParallelBlockTransactionProcessor> startParallelExecution(
       final ProtocolContext protocolContext,
       final BlockHeader blockHeader,
       final List<Transaction> transactions,
@@ -598,15 +598,38 @@ public abstract class AbstractBlockProcessor implements BlockProcessor {
     return Optional.empty();
   }
 
-  @SuppressWarnings("unused") // preProcessingContext and location are used by subclasses
-  protected TransactionProcessingResult getTransactionProcessingResult(
-      final Optional<PreprocessingContext> preProcessingContext,
+  /**
+   * Processes a transaction of the block, by default sequentially. Subclasses may instead return
+   * the result {@code parallelProcessor} computed for it.
+   */
+  @SuppressWarnings("unused") // parallelProcessor and location are used by subclasses
+  protected TransactionProcessingResult processTransaction(
+      final Optional<ParallelBlockTransactionProcessor> parallelProcessor,
       final BlockProcessingContext blockProcessingContext,
       final WorldUpdater transactionUpdater,
       final Wei blobGasPrice,
       final Address miningBeneficiary,
       final Transaction transaction,
       final int location,
+      final BlockHashLookup blockHashLookup,
+      final Optional<AccessLocationTracker> accessLocationTracker) {
+    return processTransactionSequentially(
+        blockProcessingContext,
+        transactionUpdater,
+        blobGasPrice,
+        miningBeneficiary,
+        transaction,
+        blockHashLookup,
+        accessLocationTracker);
+  }
+
+  /** Processes a transaction on the state left by the transactions before it. */
+  protected final TransactionProcessingResult processTransactionSequentially(
+      final BlockProcessingContext blockProcessingContext,
+      final WorldUpdater transactionUpdater,
+      final Wei blobGasPrice,
+      final Address miningBeneficiary,
+      final Transaction transaction,
       final BlockHashLookup blockHashLookup,
       final Optional<AccessLocationTracker> accessLocationTracker) {
     return transactionProcessor.processTransaction(

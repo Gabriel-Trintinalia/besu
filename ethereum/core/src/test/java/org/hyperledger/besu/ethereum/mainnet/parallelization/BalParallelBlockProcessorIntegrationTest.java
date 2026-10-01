@@ -270,7 +270,7 @@ class BalParallelBlockProcessorIntegrationTest {
     }
 
     @Override
-    protected Optional<PreprocessingContext> preprocess(
+    protected Optional<ParallelBlockTransactionProcessor> startParallelExecution(
         final ProtocolContext protocolContext,
         final BlockHeader blockHeader,
         final List<Transaction> transactions,
@@ -280,7 +280,7 @@ class BalParallelBlockProcessorIntegrationTest {
         final Optional<BlockAccessList.BlockAccessListBuilder> blockAccessListBuilder,
         final Optional<BlockAccessList> blockAccessList,
         final Optional<BlockHeader> maybeParentHeader) {
-      return super.preprocess(
+      return super.startParallelExecution(
           protocolContext,
           blockHeader,
           transactions,
