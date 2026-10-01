@@ -265,7 +265,7 @@ class BalParallelBlockProcessorIntegrationTest {
           BalConfiguration.DEFAULT,
           new NoOpMetricsSystem(),
           Runnable::run,
-          false);
+          Optional.empty());
       this.preComputedBal = preComputedBal;
     }
 

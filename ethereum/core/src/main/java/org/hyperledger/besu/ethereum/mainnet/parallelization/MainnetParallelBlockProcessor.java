@@ -84,13 +84,46 @@ public class MainnetParallelBlockProcessor extends MainnetBlockProcessor {
         protocolSchedule,
         balConfiguration,
         metricsSystem,
+        new BlockProcessingMetrics(metricsSystem));
+  }
+
+  private MainnetParallelBlockProcessor(
+      final MainnetTransactionProcessor transactionProcessor,
+      final TransactionReceiptFactory transactionReceiptFactory,
+      final Wei blockReward,
+      final MiningBeneficiaryCalculator miningBeneficiaryCalculator,
+      final boolean skipZeroBlockRewards,
+      final ProtocolSchedule protocolSchedule,
+      final BalConfiguration balConfiguration,
+      final MetricsSystem metricsSystem,
+      final BlockProcessingMetrics blockProcessingMetrics) {
+    this(
+        transactionProcessor,
+        transactionReceiptFactory,
+        blockReward,
+        miningBeneficiaryCalculator,
+        skipZeroBlockRewards,
+        protocolSchedule,
+        balConfiguration,
+        metricsSystem,
+        blockProcessingMetrics,
         cpuExecutor,
-        true);
+        // Fallback to sequential processing if parallel processing fails.
+        Optional.of(
+            new MainnetBlockProcessor(
+                transactionProcessor,
+                transactionReceiptFactory,
+                blockReward,
+                miningBeneficiaryCalculator,
+                skipZeroBlockRewards,
+                protocolSchedule,
+                balConfiguration,
+                blockProcessingMetrics)));
   }
 
   /**
    * @param executor runs the transactions in parallel
-   * @param sequentialFallback whether a block that fails in parallel is rerun sequentially
+   * @param sequentialFallback reruns a block that fails in parallel; empty to return the failure
    */
   @VisibleForTesting
   public MainnetParallelBlockProcessor(
@@ -103,7 +136,7 @@ public class MainnetParallelBlockProcessor extends MainnetBlockProcessor {
       final BalConfiguration balConfiguration,
       final MetricsSystem metricsSystem,
       final Executor executor,
-      final boolean sequentialFallback) {
+      final Optional<BlockProcessor> sequentialFallback) {
     this(
         transactionProcessor,
         transactionReceiptFactory,
@@ -129,7 +162,7 @@ public class MainnetParallelBlockProcessor extends MainnetBlockProcessor {
       final MetricsSystem metricsSystem,
       final BlockProcessingMetrics blockProcessingMetrics,
       final Executor executor,
-      final boolean sequentialFallback) {
+      final Optional<BlockProcessor> sequentialFallback) {
     super(
         transactionProcessor,
         transactionReceiptFactory,
@@ -140,20 +173,7 @@ public class MainnetParallelBlockProcessor extends MainnetBlockProcessor {
         balConfiguration,
         blockProcessingMetrics);
     this.executor = executor;
-    // Shares the metrics, as a second instance would take over their gauges.
-    this.sequentialFallback =
-        sequentialFallback
-            ? Optional.of(
-                new MainnetBlockProcessor(
-                    transactionProcessor,
-                    transactionReceiptFactory,
-                    blockReward,
-                    miningBeneficiaryCalculator,
-                    skipZeroBlockRewards,
-                    protocolSchedule,
-                    balConfiguration,
-                    blockProcessingMetrics))
-            : Optional.empty();
+    this.sequentialFallback = sequentialFallback;
     this.confirmedParallelizedTransactionCounter =
         Optional.of(
             metricsSystem.createCounter(

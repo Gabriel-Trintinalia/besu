@@ -116,7 +116,7 @@ public abstract class AbstractParallelBlockProcessorIntegrationTest {
         getBalConfiguration(),
         new NoOpMetricsSystem(),
         Runnable::run,
-        false);
+        Optional.empty());
   }
 
   // ==================== Block Construction ====================
