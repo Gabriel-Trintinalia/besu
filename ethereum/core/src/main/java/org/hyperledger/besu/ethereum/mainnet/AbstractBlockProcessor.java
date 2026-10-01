@@ -134,8 +134,9 @@ public abstract class AbstractBlockProcessor implements BlockProcessor {
   }
 
   /**
-   * Creates a processor that records into {@code blockProcessingMetrics}, which can be shared
-   * between processors that serve the same chain, as its gauges register once.
+   * Creates a processor that records into {@code blockProcessingMetrics}. Processors that serve the
+   * same chain should share it: a second instance registers the gauges again, and the metrics
+   * system keeps only the last registration.
    */
   protected AbstractBlockProcessor(
       final MainnetTransactionProcessor transactionProcessor,

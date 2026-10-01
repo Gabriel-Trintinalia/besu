@@ -108,8 +108,6 @@ public class MainnetParallelBlockProcessor extends MainnetBlockProcessor {
         metricsSystem,
         blockProcessingMetrics,
         cpuExecutor,
-        // Same arguments and metrics, so a rerun applies the same rules and reports to the same
-        // gauges.
         Optional.of(
             new MainnetBlockProcessor(
                 transactionProcessor,

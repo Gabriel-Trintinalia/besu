@@ -16,10 +16,6 @@ package org.hyperledger.besu.ethereum.mainnet;
 
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.junit.jupiter.api.Assertions.assertTrue;
-import static org.mockito.ArgumentMatchers.any;
-import static org.mockito.Mockito.mock;
-import static org.mockito.Mockito.verify;
-import static org.mockito.Mockito.when;
 
 import org.hyperledger.besu.config.GenesisConfig;
 import org.hyperledger.besu.crypto.KeyPair;
@@ -318,59 +314,100 @@ class AbstractBlockProcessorIntegrationTest {
 
   @Test
   void parallelFailureIsRerunOnSequentialFallback() {
-    final BlockProcessingResult fallbackResult = new BlockProcessingResult(Optional.empty());
-    final BlockProcessor fallback = mock(BlockProcessor.class);
-    when(fallback.processBlock(any(), any(), any(), any(), any())).thenReturn(fallbackResult);
-    final Block block = createBlockWithInvalidNonce();
-    final MutableWorldState worldState = worldStateArchive.getWorldState();
+    final ProtocolSchedule protocolSchedule = protocolSchedule();
+    final Block block = createBlockWithTwoTransfers();
 
     final BlockProcessingResult result =
-        createParallelBlockProcessor(block, Optional.of(fallback))
-            .processBlock(protocolContext, blockchain, worldState, block);
+        new FailingAtSecondTransaction(
+                protocolSchedule, Optional.of(sequentialBlockProcessor(protocolSchedule)))
+            .processBlock(protocolContext, blockchain, worldStateArchive.getWorldState(), block);
 
-    assertThat(result).isSameAs(fallbackResult);
-    verify(fallback).processBlock(protocolContext, blockchain, worldState, block, Optional.empty());
+    // The parallel attempt applied the first transfer before failing. The rerun only succeeds if
+    // the world state was reset first; otherwise the first transfer fails on its nonce.
+    assertThat(result.isSuccessful()).isTrue();
   }
 
   @Test
   void parallelFailureIsReturnedWithoutSequentialFallback() {
-    final Block block = createBlockWithInvalidNonce();
+    final Block block = createBlockWithTwoTransfers();
 
     final BlockProcessingResult result =
-        createParallelBlockProcessor(block, Optional.empty())
+        new FailingAtSecondTransaction(protocolSchedule(), Optional.empty())
             .processBlock(protocolContext, blockchain, worldStateArchive.getWorldState(), block);
 
     assertThat(result.isFailed()).isTrue();
   }
 
-  private Block createBlockWithInvalidNonce() {
-    // The sender's nonce is 0, so a transaction with nonce 5 fails the block.
+  private Block createBlockWithTwoTransfers() {
     return createBlockWithTransactions(
-        Hash.EMPTY_TRIE_HASH.toHexString(),
+        "0x8d9a8161b2c255f8f514cd92e5364624a775e274739dc9379cf938efd7d45ebc",
         Wei.ZERO,
         createTransferTransaction(
-            5, 1_000_000_000_000_000_000L, 300000L, 0L, 0L, ACCOUNT_2, ACCOUNT_GENESIS_1_KEYPAIR));
+            0, 1_000_000_000_000_000_000L, 300000L, 0L, 0L, ACCOUNT_2, ACCOUNT_GENESIS_1_KEYPAIR),
+        createTransferTransaction(
+            0, 2_000_000_000_000_000_000L, 300000L, 0L, 0L, ACCOUNT_3, ACCOUNT_GENESIS_2_KEYPAIR));
   }
 
-  private BlockProcessor createParallelBlockProcessor(
-      final Block block, final Optional<BlockProcessor> sequentialBlockProcessor) {
-    final ProtocolSchedule protocolSchedule =
-        ExecutionContextTestFixture.builder(GenesisConfig.fromResource(GENESIS_RESOURCE))
-            .dataStorageFormat(DataStorageFormat.BONSAI)
-            .build()
-            .getProtocolSchedule();
-    final ProtocolSpec spec = protocolSchedule.getByBlockHeader(block.getHeader());
-    return new MainnetParallelBlockProcessor(
+  private static ProtocolSchedule protocolSchedule() {
+    return ExecutionContextTestFixture.builder(GenesisConfig.fromResource(GENESIS_RESOURCE))
+        .dataStorageFormat(DataStorageFormat.BONSAI)
+        .build()
+        .getProtocolSchedule();
+  }
+
+  private static ProtocolSpec genesisSpec(final ProtocolSchedule protocolSchedule) {
+    return protocolSchedule.getByBlockHeader(new BlockHeaderTestFixture().number(0L).buildHeader());
+  }
+
+  private static BlockProcessor sequentialBlockProcessor(final ProtocolSchedule protocolSchedule) {
+    final ProtocolSpec spec = genesisSpec(protocolSchedule);
+    return new MainnetBlockProcessor(
         spec.getTransactionProcessor(),
         spec.getTransactionReceiptFactory(),
         Wei.ZERO,
         BlockHeader::getCoinbase,
         true,
         protocolSchedule,
-        BalConfiguration.DEFAULT,
-        new NoOpMetricsSystem(),
-        Runnable::run,
-        sequentialBlockProcessor);
+        BalConfiguration.DEFAULT);
+  }
+
+  /** Fails the block at its second transaction, after the first one changed the world state. */
+  private static final class FailingAtSecondTransaction extends MainnetParallelBlockProcessor {
+
+    FailingAtSecondTransaction(
+        final ProtocolSchedule protocolSchedule,
+        final Optional<BlockProcessor> sequentialBlockProcessor) {
+      this(genesisSpec(protocolSchedule), protocolSchedule, sequentialBlockProcessor);
+    }
+
+    private FailingAtSecondTransaction(
+        final ProtocolSpec spec,
+        final ProtocolSchedule protocolSchedule,
+        final Optional<BlockProcessor> sequentialBlockProcessor) {
+      super(
+          spec.getTransactionProcessor(),
+          spec.getTransactionReceiptFactory(),
+          Wei.ZERO,
+          BlockHeader::getCoinbase,
+          true,
+          protocolSchedule,
+          BalConfiguration.DEFAULT,
+          new NoOpMetricsSystem(),
+          Runnable::run,
+          sequentialBlockProcessor);
+    }
+
+    @Override
+    protected boolean hasAvailableBlockBudget(
+        final BlockHeader blockHeader,
+        final Transaction transaction,
+        final long cumulativeExecutionGasUsed,
+        final long cumulativeStateGasUsed,
+        final ProtocolSpec protocolSpec) {
+      // Out of budget once the first transaction used gas. This failure path leaves the first
+      // transaction in the world state, so only the fallback's reset makes the rerun succeed.
+      return cumulativeExecutionGasUsed == 0;
+    }
   }
 
   @Test
