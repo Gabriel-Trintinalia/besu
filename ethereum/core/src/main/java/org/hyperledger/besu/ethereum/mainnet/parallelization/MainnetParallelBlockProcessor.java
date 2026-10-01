@@ -60,8 +60,6 @@ public class MainnetParallelBlockProcessor extends MainnetBlockProcessor {
   private static final Executor cpuExecutor = BlockProcessingExecutors.cpuExecutor();
 
   private final Executor executor;
-  // Reruns a block that failed in parallel. It does no preprocessing, which is what makes the
-  // rerun sequential.
   private final Optional<BlockProcessor> sequentialFallback;
   private final Optional<Counter> confirmedParallelizedTransactionCounter;
   private final Optional<Counter> conflictingButCachedTransactionCounter;
@@ -121,10 +119,6 @@ public class MainnetParallelBlockProcessor extends MainnetBlockProcessor {
                 blockProcessingMetrics)));
   }
 
-  /**
-   * @param executor runs the transactions in parallel
-   * @param sequentialFallback reruns a block that fails in parallel; empty to return the failure
-   */
   @VisibleForTesting
   public MainnetParallelBlockProcessor(
       final MainnetTransactionProcessor transactionProcessor,
