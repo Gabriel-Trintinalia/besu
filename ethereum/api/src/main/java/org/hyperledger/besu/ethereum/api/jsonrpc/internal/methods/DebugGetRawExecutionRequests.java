@@ -80,11 +80,19 @@ public class DebugGetRawExecutionRequests extends AbstractBlockParameterOrBlockH
     final Object reqId = request.getRequest().getId();
 
     final Optional<Block> maybeBlock = blockchain.getBlockByHash(blockHash);
-    if (maybeBlock.isEmpty()
-        || blockchain.getBlockHeader(maybeBlock.get().getHeader().getParentHash()).isEmpty()) {
+    if (maybeBlock.isEmpty()) {
       return new JsonRpcErrorResponse(reqId, RpcErrorType.BLOCK_NOT_FOUND);
     }
     final Block block = maybeBlock.get();
+
+    // A block before Prague has no requests_hash and produces no requests, so there is nothing to
+    // re-execute (genesis and pruned parent state included).
+    if (block.getHeader().getRequestsHash().isEmpty()) {
+      return null;
+    }
+    if (blockchain.getBlockHeader(block.getHeader().getParentHash()).isEmpty()) {
+      return new JsonRpcErrorResponse(reqId, RpcErrorType.BLOCK_NOT_FOUND);
+    }
 
     // Requests are not stored, so re-execute the block against its parent state
     final BlockProcessingResult result =

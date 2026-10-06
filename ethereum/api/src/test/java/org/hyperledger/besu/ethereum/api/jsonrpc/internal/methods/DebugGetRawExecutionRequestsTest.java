@@ -19,8 +19,10 @@ import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.ArgumentMatchers.anyBoolean;
 import static org.mockito.ArgumentMatchers.eq;
 import static org.mockito.Mockito.mock;
+import static org.mockito.Mockito.verifyNoInteractions;
 import static org.mockito.Mockito.when;
 
+import org.hyperledger.besu.datatypes.Hash;
 import org.hyperledger.besu.datatypes.RequestType;
 import org.hyperledger.besu.ethereum.BlockProcessingOutputs;
 import org.hyperledger.besu.ethereum.BlockProcessingResult;
@@ -36,6 +38,7 @@ import org.hyperledger.besu.ethereum.api.query.BlockchainQueries;
 import org.hyperledger.besu.ethereum.chain.Blockchain;
 import org.hyperledger.besu.ethereum.core.Block;
 import org.hyperledger.besu.ethereum.core.BlockDataGenerator;
+import org.hyperledger.besu.ethereum.core.BlockDataGenerator.BlockOptions;
 import org.hyperledger.besu.ethereum.core.Request;
 import org.hyperledger.besu.ethereum.mainnet.ProtocolSchedule;
 import org.hyperledger.besu.ethereum.mainnet.ProtocolSpec;
@@ -50,7 +53,8 @@ import org.junit.jupiter.api.Test;
 
 public class DebugGetRawExecutionRequestsTest {
   private final BlockDataGenerator blockDataGenerator = new BlockDataGenerator();
-  private final Block block = blockDataGenerator.block();
+  private final Block block =
+      blockDataGenerator.block(new BlockOptions().setRequestsHash(Hash.ZERO));
   private final BlockchainQueries blockchainQueries = mock(BlockchainQueries.class);
   private final Blockchain blockchain = mock(Blockchain.class);
   private final BlockValidator blockValidator = mock(BlockValidator.class);
@@ -95,12 +99,19 @@ public class DebugGetRawExecutionRequestsTest {
   }
 
   @Test
-  public void shouldReturnNullBeforePrague() {
-    reExecutionYields(Optional.empty());
+  public void shouldReturnNullBeforePragueWithoutReExecuting() {
+    final Block prePrague = blockDataGenerator.block();
+    when(blockchainQueries.getBlockHeaderByHash(prePrague.getHash()))
+        .thenReturn(Optional.of(prePrague.getHeader()));
+    when(blockchain.getBlockByHash(prePrague.getHash())).thenReturn(Optional.of(prePrague));
+    // No parent state either: a pre-Prague block must not need it.
+    when(blockchain.getBlockHeader(prePrague.getHeader().getParentHash()))
+        .thenReturn(Optional.empty());
 
-    final JsonRpcSuccessResponse response = (JsonRpcSuccessResponse) request();
+    final JsonRpcSuccessResponse response = (JsonRpcSuccessResponse) request(prePrague);
 
     assertThat(response.getResult()).isNull();
+    verifyNoInteractions(blockValidator);
   }
 
   @Test
@@ -132,11 +143,15 @@ public class DebugGetRawExecutionRequestsTest {
   }
 
   private JsonRpcResponse request() {
+    return request(block);
+  }
+
+  private JsonRpcResponse request(final Block target) {
     return method.response(
         new JsonRpcRequestContext(
             new JsonRpcRequest(
                 "2.0",
                 "debug_getRawExecutionRequests",
-                new Object[] {block.getHash().toHexString()})));
+                new Object[] {target.getHash().toHexString()})));
   }
 }
