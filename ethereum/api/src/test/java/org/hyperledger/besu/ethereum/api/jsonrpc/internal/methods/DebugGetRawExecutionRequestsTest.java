@@ -115,6 +115,20 @@ public class DebugGetRawExecutionRequestsTest {
   }
 
   @Test
+  public void shouldReturnEmptyListForPragueGenesisWithoutReExecuting() {
+    final Block genesis =
+        blockDataGenerator.block(new BlockOptions().setBlockNumber(0).setRequestsHash(Hash.ZERO));
+    when(blockchainQueries.getBlockHeaderByHash(genesis.getHash()))
+        .thenReturn(Optional.of(genesis.getHeader()));
+    when(blockchain.getBlockByHash(genesis.getHash())).thenReturn(Optional.of(genesis));
+
+    final JsonRpcSuccessResponse response = (JsonRpcSuccessResponse) request(genesis);
+
+    assertThat(response.getResult()).isEqualTo(List.of());
+    verifyNoInteractions(blockValidator);
+  }
+
+  @Test
   public void shouldReturnInternalErrorWhenReExecutionFails() {
     when(blockValidator.validateAndProcessBlock(
             any(), eq(block), any(), any(), any(), anyBoolean(), anyBoolean()))

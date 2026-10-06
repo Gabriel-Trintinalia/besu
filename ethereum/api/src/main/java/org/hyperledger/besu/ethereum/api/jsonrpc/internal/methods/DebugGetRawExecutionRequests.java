@@ -28,10 +28,12 @@ import org.hyperledger.besu.ethereum.api.jsonrpc.internal.response.RpcErrorType;
 import org.hyperledger.besu.ethereum.api.query.BlockchainQueries;
 import org.hyperledger.besu.ethereum.chain.Blockchain;
 import org.hyperledger.besu.ethereum.core.Block;
+import org.hyperledger.besu.ethereum.core.BlockHeader;
 import org.hyperledger.besu.ethereum.core.Request;
 import org.hyperledger.besu.ethereum.mainnet.HeaderValidationMode;
 import org.hyperledger.besu.ethereum.mainnet.ProtocolSchedule;
 
+import java.util.List;
 import java.util.Optional;
 
 /**
@@ -78,17 +80,16 @@ public class DebugGetRawExecutionRequests extends AbstractBlockParameterOrBlockH
   @Override
   protected Object resultByBlockHash(final JsonRpcRequestContext request, final Hash blockHash) {
     final Object reqId = request.getRequest().getId();
-
     final Optional<Block> maybeBlock = blockchain.getBlockByHash(blockHash);
     if (maybeBlock.isEmpty()) {
       return new JsonRpcErrorResponse(reqId, RpcErrorType.BLOCK_NOT_FOUND);
     }
     final Block block = maybeBlock.get();
-
-    // A block before Prague has no requests_hash and produces no requests, so there is nothing to
-    // re-execute (genesis and pruned parent state included).
     if (block.getHeader().getRequestsHash().isEmpty()) {
       return null;
+    }
+    if (block.getHeader().getNumber() == BlockHeader.GENESIS_BLOCK_NUMBER) {
+      return List.of();
     }
     if (blockchain.getBlockHeader(block.getHeader().getParentHash()).isEmpty()) {
       return new JsonRpcErrorResponse(reqId, RpcErrorType.BLOCK_NOT_FOUND);
