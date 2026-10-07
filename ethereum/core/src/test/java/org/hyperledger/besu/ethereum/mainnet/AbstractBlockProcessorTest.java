@@ -28,7 +28,6 @@ import static org.mockito.Mockito.when;
 import org.hyperledger.besu.datatypes.Address;
 import org.hyperledger.besu.datatypes.GWei;
 import org.hyperledger.besu.datatypes.Hash;
-import org.hyperledger.besu.datatypes.Wei;
 import org.hyperledger.besu.ethereum.ProtocolContext;
 import org.hyperledger.besu.ethereum.chain.Blockchain;
 import org.hyperledger.besu.ethereum.core.Block;
@@ -73,6 +72,9 @@ abstract class AbstractBlockProcessorTest {
   void baseSetup() {
     lenient().when(protocolSchedule.getByBlockHeader(any())).thenReturn(protocolSpec);
     lenient()
+        .when(protocolSpec.getBlockRewardProcessor())
+        .thenReturn(BlockRewardProcessor.NO_REWARDS);
+    lenient()
         .when(protocolSpec.getPreExecutionProcessor())
         .thenReturn(new FrontierPreExecutionProcessor());
     lenient()
@@ -82,7 +84,6 @@ abstract class AbstractBlockProcessorTest {
         new TestBlockProcessor(
             transactionProcessor,
             transactionReceiptFactory,
-            Wei.ZERO,
             BlockHeader::getCoinbase,
             protocolSchedule,
             BalConfiguration.DEFAULT);
@@ -166,25 +167,15 @@ abstract class AbstractBlockProcessorTest {
     protected TestBlockProcessor(
         final MainnetTransactionProcessor transactionProcessor,
         final TransactionReceiptFactory transactionReceiptFactory,
-        final Wei blockReward,
         final MiningBeneficiaryCalculator miningBeneficiaryCalculator,
         final ProtocolSchedule protocolSchedule,
         final BalConfiguration balConfiguration) {
       super(
           transactionProcessor,
           transactionReceiptFactory,
-          blockReward,
           miningBeneficiaryCalculator,
           protocolSchedule,
           balConfiguration);
-    }
-
-    @Override
-    boolean rewardCoinbase(
-        final MutableWorldState worldState,
-        final BlockHeader header,
-        final List<BlockHeader> ommers) {
-      return false;
     }
   }
 
