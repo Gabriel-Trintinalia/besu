@@ -173,7 +173,9 @@ class AbstractBlockProcessorIntegrationTest {
             BlockHeader::getCoinbase,
             protocolSchedule,
             BalConfiguration.DEFAULT,
-            new NoOpMetricsSystem());
+            new NoOpMetricsSystem(),
+            Runnable::run,
+            Optional.empty());
 
     return Stream.of(
         Arguments.of("sequential", sequentialBlockProcessor),
