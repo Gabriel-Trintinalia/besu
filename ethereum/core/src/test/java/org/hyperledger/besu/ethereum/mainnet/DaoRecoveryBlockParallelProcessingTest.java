@@ -26,7 +26,9 @@ import org.hyperledger.besu.datatypes.Hash;
 import org.hyperledger.besu.datatypes.TransactionType;
 import org.hyperledger.besu.datatypes.Wei;
 import org.hyperledger.besu.ethereum.BlockProcessingResult;
+import org.hyperledger.besu.ethereum.ProtocolContext;
 import org.hyperledger.besu.ethereum.chain.BadBlockManager;
+import org.hyperledger.besu.ethereum.chain.Blockchain;
 import org.hyperledger.besu.ethereum.core.Block;
 import org.hyperledger.besu.ethereum.core.BlockBody;
 import org.hyperledger.besu.ethereum.core.BlockHeader;
@@ -35,9 +37,16 @@ import org.hyperledger.besu.ethereum.core.ExecutionContextTestFixture;
 import org.hyperledger.besu.ethereum.core.MiningConfiguration;
 import org.hyperledger.besu.ethereum.core.Transaction;
 import org.hyperledger.besu.ethereum.core.Util;
+import org.hyperledger.besu.ethereum.mainnet.block.access.list.BlockAccessList;
 import org.hyperledger.besu.ethereum.mainnet.parallelization.MainnetParallelBlockProcessor;
+import org.hyperledger.besu.ethereum.mainnet.parallelization.OptimisticConcurrentTransactionProcessor;
+import org.hyperledger.besu.ethereum.mainnet.parallelization.ParallelBlockTransactionProcessor;
+import org.hyperledger.besu.ethereum.processing.TransactionProcessingResult;
+import org.hyperledger.besu.evm.account.Account;
+import org.hyperledger.besu.evm.blockhash.BlockHashLookup;
 import org.hyperledger.besu.evm.internal.EvmConfiguration;
 import org.hyperledger.besu.metrics.noop.NoOpMetricsSystem;
+import org.hyperledger.besu.plugin.services.metrics.Counter;
 import org.hyperledger.besu.plugin.services.storage.DataStorageFormat;
 import org.hyperledger.besu.plugin.services.worldstate.MutableWorldState;
 
@@ -107,6 +116,43 @@ class DaoRecoveryBlockParallelProcessingTest {
         .isInstanceOf(MainnetParallelBlockProcessor.class);
   }
 
+  @Test
+  void parallelFallbackOnTheDaoBlockLosesTheDaoTransfers() {
+    // What the sequential DAO processor prevents: DaoBlockProcessor applies the DAO transfers, then
+    // delegates to a parallel processor whose parallel attempt fails. Its fallback resets the world
+    // state, dropping the transfers, and reruns the block directly on the sequential processor,
+    // so nothing applies them again and the block no longer matches its state root.
+    final GenesisConfig genesis = genesis(1);
+    final Hash expectedStateRoot = discoverStateRoot(genesis);
+    final ExecutionContextTestFixture ctx = fixture(genesis, false);
+    final ProtocolSpec spec = ctx.getProtocolSchedule().getByBlockHeader(blockOneHeader(ctx));
+    final BlockProcessor sequential =
+        new MainnetBlockProcessor(
+            spec.getTransactionProcessor(),
+            spec.getTransactionReceiptFactory(),
+            spec.getMiningBeneficiaryCalculator(),
+            ctx.getProtocolSchedule(),
+            BalConfiguration.DEFAULT);
+    final RecordingRerun rerun = new RecordingRerun(sequential);
+    final FailingInParallel parallel =
+        new FailingInParallel(spec, ctx.getProtocolSchedule(), rerun);
+    final BlockProcessor daoOverParallel = new MainnetProtocolSpecs.DaoBlockProcessor(parallel);
+
+    final BlockProcessingResult result =
+        processBlockOne(
+            ctx, ctx.getStateArchive().getWorldState(), expectedStateRoot, daoOverParallel);
+
+    // The DAO transfers were applied before the parallel attempt...
+    assertThat(parallel.refundBalanceAtParallelAttempt).isEqualTo(Wei.fromEth(3));
+    // ...and gone when the fallback reran the block: the reset dropped them.
+    assertThat(rerun.refundBalanceAtRerun).isEqualTo(Wei.ZERO);
+    assertThat(rerun.daoAccountBalanceAtRerun).isEqualTo(Wei.fromEth(1));
+    // So the rerun misses them, and the block no longer matches its state root.
+    assertThat(result.isFailed()).isTrue();
+    assertThat(result.errorMessage)
+        .hasValueSatisfying(message -> assertThat(message).contains(expectedStateRoot.toString()));
+  }
+
   private static BlockProcessor blockProcessor(final ExecutionContextTestFixture ctx) {
     return ctx.getProtocolSchedule()
         .getByBlockHeader(new BlockHeaderTestFixture().number(1).buildHeader())
@@ -130,15 +176,34 @@ class DaoRecoveryBlockParallelProcessingTest {
       final ExecutionContextTestFixture ctx,
       final MutableWorldState worldState,
       final Hash stateRoot) {
-    final BlockHeader genesisHeader = ctx.getBlockchain().getChainHeadHeader();
-    final BlockHeader header =
-        new BlockHeaderTestFixture()
-            .number(1)
-            .parentHash(genesisHeader.getHash())
-            .coinbase(COINBASE)
-            .stateRoot(stateRoot)
-            .gasLimit(30_000_000L)
-            .buildHeader();
+    return processBlockOne(
+        ctx,
+        worldState,
+        stateRoot,
+        ctx.getProtocolSchedule().getByBlockHeader(blockOneHeader(ctx)).getBlockProcessor());
+  }
+
+  private static BlockHeader blockOneHeader(final ExecutionContextTestFixture ctx) {
+    return blockOneHeader(ctx, Hash.ZERO);
+  }
+
+  private static BlockHeader blockOneHeader(
+      final ExecutionContextTestFixture ctx, final Hash stateRoot) {
+    return new BlockHeaderTestFixture()
+        .number(1)
+        .parentHash(ctx.getBlockchain().getChainHeadHeader().getHash())
+        .coinbase(COINBASE)
+        .stateRoot(stateRoot)
+        .gasLimit(30_000_000L)
+        .buildHeader();
+  }
+
+  private static BlockProcessingResult processBlockOne(
+      final ExecutionContextTestFixture ctx,
+      final MutableWorldState worldState,
+      final Hash stateRoot,
+      final BlockProcessor blockProcessor) {
+    final BlockHeader header = blockOneHeader(ctx, stateRoot);
     final Transaction transfer =
         Transaction.builder()
             .type(TransactionType.FRONTIER)
@@ -151,10 +216,8 @@ class DaoRecoveryBlockParallelProcessingTest {
             .signAndBuild(SENDER_KEYS);
     final Block block =
         new Block(header, new BlockBody(List.of(transfer), List.of(), Optional.empty()));
-    return ctx.getProtocolSchedule()
-        .getByBlockHeader(header)
-        .getBlockProcessor()
-        .processBlock(ctx.getProtocolContext(), ctx.getBlockchain(), worldState, block);
+    return blockProcessor.processBlock(
+        ctx.getProtocolContext(), ctx.getBlockchain(), worldState, block);
   }
 
   private static ExecutionContextTestFixture fixture(
@@ -200,5 +263,128 @@ class DaoRecoveryBlockParallelProcessingTest {
                 SENDER.toHexString(),
                 DAO_ACCOUNT_1.toHexString(),
                 DAO_ACCOUNT_2.toHexString()));
+  }
+
+  /**
+   * Reads a balance through the world state's updater, which on Bonsai is the accumulator holding
+   * the block's uncommitted changes, such as the DAO transfers.
+   */
+  private static Wei balance(final MutableWorldState worldState, final Address address) {
+    return Optional.ofNullable(worldState.updater().get(address))
+        .map(Account::getBalance)
+        .orElse(Wei.ZERO);
+  }
+
+  /** Records the world state the fallback reruns the block on, then reruns it. */
+  private static final class RecordingRerun implements BlockProcessor {
+
+    private final BlockProcessor delegate;
+    private Wei refundBalanceAtRerun;
+    private Wei daoAccountBalanceAtRerun;
+
+    RecordingRerun(final BlockProcessor delegate) {
+      this.delegate = delegate;
+    }
+
+    @Override
+    public BlockProcessingResult processBlock(
+        final ProtocolContext protocolContext,
+        final Blockchain blockchain,
+        final MutableWorldState worldState,
+        final Block block) {
+      return processBlock(protocolContext, blockchain, worldState, block, Optional.empty());
+    }
+
+    @Override
+    public BlockProcessingResult processBlock(
+        final ProtocolContext protocolContext,
+        final Blockchain blockchain,
+        final MutableWorldState worldState,
+        final Block block,
+        final Optional<BlockAccessList> blockAccessList) {
+      refundBalanceAtRerun = balance(worldState, DAO_REFUND_CONTRACT);
+      daoAccountBalanceAtRerun = balance(worldState, DAO_ACCOUNT_1);
+      return delegate.processBlock(protocolContext, blockchain, worldState, block, blockAccessList);
+    }
+  }
+
+  /** A parallel processor whose parallel attempt always fails, so the block falls back. */
+  private static final class FailingInParallel extends MainnetParallelBlockProcessor {
+
+    FailingInParallel(
+        final ProtocolSpec spec,
+        final ProtocolSchedule protocolSchedule,
+        final BlockProcessor sequentialBlockProcessor) {
+      super(
+          spec.getTransactionProcessor(),
+          spec.getTransactionReceiptFactory(),
+          spec.getMiningBeneficiaryCalculator(),
+          protocolSchedule,
+          BalConfiguration.DEFAULT,
+          new NoOpMetricsSystem(),
+          Runnable::run,
+          Optional.of(sequentialBlockProcessor));
+    }
+
+    private Wei refundBalanceAtParallelAttempt;
+
+    @Override
+    public BlockProcessingResult processBlock(
+        final ProtocolContext protocolContext,
+        final Blockchain blockchain,
+        final MutableWorldState worldState,
+        final Block block,
+        final Optional<BlockAccessList> blockAccessList) {
+      refundBalanceAtParallelAttempt = balance(worldState, DAO_REFUND_CONTRACT);
+      return super.processBlock(protocolContext, blockchain, worldState, block, blockAccessList);
+    }
+
+    @Override
+    protected Optional<ParallelBlockTransactionProcessor> startParallelExecution(
+        final ProtocolContext protocolContext,
+        final BlockHeader blockHeader,
+        final List<Transaction> transactions,
+        final Address miningBeneficiary,
+        final BlockHashLookup blockHashLookup,
+        final Wei blobGasPrice,
+        final Optional<BlockAccessList.BlockAccessListBuilder> blockAccessListBuilder,
+        final Optional<BlockAccessList> blockAccessList,
+        final Optional<BlockHeader> maybeParentHeader) {
+      return Optional.of(
+          new OverBudgetResults(transactionProcessor, blockHeader.getGasLimit() + 1));
+    }
+  }
+
+  /**
+   * Reports a result for every transaction that uses more gas than the block allows, a failure that
+   * does not reset the world state itself, so the reset happens in the fallback.
+   */
+  private static final class OverBudgetResults extends OptimisticConcurrentTransactionProcessor {
+
+    private final long gasUsed;
+
+    OverBudgetResults(final MainnetTransactionProcessor transactionProcessor, final long gasUsed) {
+      super(transactionProcessor);
+      this.gasUsed = gasUsed;
+    }
+
+    @Override
+    public Optional<TransactionProcessingResult> getProcessingResult(
+        final MutableWorldState worldState,
+        final Address miningBeneficiary,
+        final Transaction transaction,
+        final int location,
+        final Optional<Counter> confirmedParallelizedTransactionCounter,
+        final Optional<Counter> conflictingButCachedTransactionCounter) {
+      // gasLimit - gasRemaining, the pre-London block gas accounting, comes to gasUsed.
+      return Optional.of(
+          TransactionProcessingResult.successful(
+              List.of(),
+              gasUsed,
+              transaction.getGasLimit() - gasUsed,
+              Bytes.EMPTY,
+              Optional.empty(),
+              ValidationResult.valid()));
+    }
   }
 }
