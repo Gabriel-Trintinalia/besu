@@ -125,6 +125,7 @@ import java.util.Set;
 import java.util.function.Function;
 import java.util.stream.IntStream;
 
+import com.google.common.annotations.VisibleForTesting;
 import com.google.common.io.Resources;
 import io.vertx.core.json.JsonArray;
 import org.slf4j.Logger;
@@ -1487,7 +1488,8 @@ public abstract class MainnetProtocolSpecs {
     }
   }
 
-  private record DaoBlockProcessor(BlockProcessor wrapped) implements BlockProcessor {
+  @VisibleForTesting
+  record DaoBlockProcessor(BlockProcessor wrapped) implements BlockProcessor {
 
     @Override
     public BlockProcessingResult processBlock(
