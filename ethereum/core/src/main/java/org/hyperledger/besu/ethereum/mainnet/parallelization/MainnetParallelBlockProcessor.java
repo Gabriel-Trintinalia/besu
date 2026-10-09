@@ -60,11 +60,9 @@ public class MainnetParallelBlockProcessor extends MainnetBlockProcessor {
   private static final Executor cpuExecutor = BlockProcessingExecutors.cpuExecutor();
 
   private final Executor executor;
-  // Reruns the whole block if parallel processing fails. Conflicts between transactions do not
-  // need it: processTransaction processes those transactions sequentially.
-  // The rerun uses a plain MainnetBlockProcessor, not this instance, so it would not see a subclass
-  // override. Rules shared by both attempts must therefore come from the ProtocolSpec (as block
-  // rewards do) or be final in AbstractBlockProcessor (as hasAvailableBlockBudget is).
+  // Reruns the block sequentially if parallel processing fails (not for conflicting transactions,
+  // which processTransaction already reruns). The rerun is a plain MainnetBlockProcessor, so shared
+  // rules must come from the ProtocolSpec or be final in AbstractBlockProcessor.
   private final Optional<BlockProcessor> sequentialBlockProcessor;
   private final Optional<Counter> confirmedParallelizedTransactionCounter;
   private final Optional<Counter> conflictingButCachedTransactionCounter;
