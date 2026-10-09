@@ -138,7 +138,7 @@ public class MainnetBlockValidatorTest {
         .thenReturn(true);
     when(blockBodyValidator.validateBodyLight(any(), any(), any(), any(), any())).thenReturn(true);
     when(blockAccessListValidator.validate(any(), any(), anyInt())).thenReturn(true);
-    when(blockProcessor.processBlock(any(BlockExecutionContext.class)))
+    when(blockProcessor.processBlock(contextWith(Optional.empty())))
         .thenReturn(successfulProcessingResult);
 
     assertNoBadBlocks();
@@ -243,7 +243,7 @@ public class MainnetBlockValidatorTest {
                     List.of())));
     final Optional<BlockAccessList> optionalBal = Optional.of(bal);
     when(blockAccessListValidator.validate(eq(optionalBal), any(), anyInt())).thenReturn(true);
-    when(blockProcessor.processBlock(argThat(ctx -> ctx.getBlockAccessList().equals(optionalBal))))
+    when(blockProcessor.processBlock(contextWith(optionalBal)))
         .thenReturn(new BlockProcessingResult(Optional.empty(), false));
 
     BlockProcessingResult result =
@@ -257,6 +257,7 @@ public class MainnetBlockValidatorTest {
 
     assertThat(result.isSuccessful()).isTrue();
     assertNoBadBlocks();
+    verify(blockProcessor).processBlock(contextWith(block, optionalBal));
   }
 
   @Test
@@ -371,7 +372,7 @@ public class MainnetBlockValidatorTest {
 
   @Test
   public void validateAndProcessBlock_whenProcessBlockFails() {
-    when(blockProcessor.processBlock(any(BlockExecutionContext.class)))
+    when(blockProcessor.processBlock(contextWith(block, Optional.empty())))
         .thenReturn(BlockProcessingResult.FAILED);
 
     BlockProcessingResult result =
@@ -407,7 +408,9 @@ public class MainnetBlockValidatorTest {
   @MethodSource("getStorageExceptions")
   public void validateAndProcessBlock_whenStorageExceptionThrownProcessingBlock(
       final String caseName, final Exception storageException) {
-    doThrow(storageException).when(blockProcessor).processBlock(any(BlockExecutionContext.class));
+    doThrow(storageException)
+        .when(blockProcessor)
+        .processBlock(contextWith(block, Optional.empty()));
 
     BlockProcessingResult result =
         mainnetFrontierBlockValidator.validateAndProcessBlock(
@@ -446,7 +449,7 @@ public class MainnetBlockValidatorTest {
       final String caseName, final Exception cause, final boolean recordedAsBad) {
     final BlockProcessingResult exceptionalResult =
         new BlockProcessingResult(Optional.empty(), cause);
-    when(blockProcessor.processBlock(any(BlockExecutionContext.class)))
+    when(blockProcessor.processBlock(contextWith(block, Optional.empty())))
         .thenReturn(exceptionalResult);
 
     BlockProcessingResult result =
@@ -467,7 +470,7 @@ public class MainnetBlockValidatorTest {
 
   @Test
   public void validateAndProcessBlock_withShouldRecordBadBlockFalse() {
-    when(blockProcessor.processBlock(any(BlockExecutionContext.class)))
+    when(blockProcessor.processBlock(contextWith(block, Optional.empty())))
         .thenReturn(BlockProcessingResult.FAILED);
 
     BlockProcessingResult result =
@@ -486,7 +489,7 @@ public class MainnetBlockValidatorTest {
 
   @Test
   public void validateAndProcessBlock_withShouldRecordBadBlockTrue() {
-    when(blockProcessor.processBlock(any(BlockExecutionContext.class)))
+    when(blockProcessor.processBlock(contextWith(block, Optional.empty())))
         .thenReturn(BlockProcessingResult.FAILED);
 
     BlockProcessingResult result =
@@ -505,7 +508,7 @@ public class MainnetBlockValidatorTest {
 
   @Test
   public void validateAndProcessBlock_withShouldRecordBadBlockNotSet() {
-    when(blockProcessor.processBlock(any(BlockExecutionContext.class)))
+    when(blockProcessor.processBlock(contextWith(block, Optional.empty())))
         .thenReturn(BlockProcessingResult.FAILED);
 
     BlockProcessingResult result =
@@ -656,7 +659,7 @@ public class MainnetBlockValidatorTest {
     when(protocolContext.getWorldStateArchive()).thenReturn(blockchainSetupUtil.getWorldArchive());
     when(blockHeaderValidator.validateHeader(any(), any(), any())).thenReturn(true);
     when(blockHeaderValidator.validateHeader(any(), any(), any(), any())).thenReturn(true);
-    when(blockProcessor.processBlock(any(BlockExecutionContext.class)))
+    when(blockProcessor.processBlock(contextWith(Optional.empty())))
         .thenReturn(successfulProcessingResult);
     when(blockBodyValidator.validateBody(any(), any(), any(), any(), any(), any(), any()))
         .thenReturn(true);
@@ -675,5 +678,25 @@ public class MainnetBlockValidatorTest {
 
     assertThat(result.isSuccessful()).isTrue();
     assertThat(badBlockManager.getBadBlocks()).isEmpty();
+  }
+
+  /** Matches a context for {@code protocolContext} with {@code blockAccessList}, for any block. */
+  private BlockExecutionContext contextWith(final Optional<BlockAccessList> blockAccessList) {
+    return argThat(
+        context ->
+            context != null
+                && context.getProtocolContext() == protocolContext
+                && context.getBlockAccessList().equals(blockAccessList));
+  }
+
+  /** Matches a context for {@code protocolContext}, {@code block} and {@code blockAccessList}. */
+  private BlockExecutionContext contextWith(
+      final Block block, final Optional<BlockAccessList> blockAccessList) {
+    return argThat(
+        context ->
+            context != null
+                && context.getProtocolContext() == protocolContext
+                && context.getBlock().equals(block)
+                && context.getBlockAccessList().equals(blockAccessList));
   }
 }
