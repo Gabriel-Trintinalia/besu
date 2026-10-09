@@ -157,6 +157,7 @@ class AbstractBlockProcessorBalValidationTest {
                 .protocolContext(protocolContext)
                 .worldState(worldState)
                 .block(blockWithTxs(header, 1, 5_000L))
+                .blockAccessList(Optional.empty())
                 .build());
 
     assertThat(result.isSuccessful()).isTrue();
@@ -211,6 +212,7 @@ class AbstractBlockProcessorBalValidationTest {
                 .protocolContext(protocolContext)
                 .worldState(worldState)
                 .block(blockWithTxs(header, 6, 2000L))
+                .blockAccessList(Optional.empty())
                 .build());
 
     assertThat(result.isSuccessful()).isFalse();
@@ -250,6 +252,7 @@ class AbstractBlockProcessorBalValidationTest {
                 .protocolContext(protocolContext)
                 .worldState(worldState)
                 .block(blockWithTxs(header, 1, 500_000L))
+                .blockAccessList(Optional.empty())
                 .build());
 
     assertThat(result.isSuccessful()).isFalse();

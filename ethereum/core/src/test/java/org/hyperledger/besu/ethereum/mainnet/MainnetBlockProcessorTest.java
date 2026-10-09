@@ -88,6 +88,7 @@ public class MainnetBlockProcessorTest extends AbstractBlockProcessorTest {
             .protocolContext(protocolContext)
             .worldState(worldState)
             .block(emptyBlock)
+            .blockAccessList(Optional.empty())
             .build());
 
     // An empty block with 0 reward should not change the world state
@@ -124,6 +125,7 @@ public class MainnetBlockProcessorTest extends AbstractBlockProcessorTest {
                 .protocolContext(protocolContext)
                 .worldState(worldState)
                 .block(block)
+                .blockAccessList(Optional.empty())
                 .build());
 
     assertThat(result.isSuccessful()).isFalse();
@@ -161,6 +163,7 @@ public class MainnetBlockProcessorTest extends AbstractBlockProcessorTest {
                 .protocolContext(protocolContext)
                 .worldState(worldState)
                 .block(block)
+                .blockAccessList(Optional.empty())
                 .build());
 
     assertThat(result.isSuccessful()).isFalse();

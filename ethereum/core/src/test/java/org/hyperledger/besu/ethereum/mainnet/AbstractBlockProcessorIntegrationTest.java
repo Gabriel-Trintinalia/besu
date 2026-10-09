@@ -279,6 +279,7 @@ class AbstractBlockProcessorIntegrationTest {
                 .protocolContext(protocolContext)
                 .worldState(worldState)
                 .block(blockWithTransactions)
+                .blockAccessList(Optional.empty())
                 .build());
 
     assertTrue(blockProcessingResult.isSuccessful());
@@ -320,6 +321,7 @@ class AbstractBlockProcessorIntegrationTest {
                 .protocolContext(protocolContext)
                 .worldState(worldState)
                 .block(blockWithTransactions)
+                .blockAccessList(Optional.empty())
                 .build());
 
     assertTrue(blockProcessingResult.isSuccessful());
@@ -367,6 +369,7 @@ class AbstractBlockProcessorIntegrationTest {
                     .protocolContext(protocolContext)
                     .worldState(worldStateArchive.getWorldState())
                     .block(block)
+                    .blockAccessList(Optional.empty())
                     .build());
 
     // The parallel attempt applied the first transfer before failing. The rerun only succeeds if
@@ -385,6 +388,7 @@ class AbstractBlockProcessorIntegrationTest {
                     .protocolContext(protocolContext)
                     .worldState(worldStateArchive.getWorldState())
                     .block(block)
+                    .blockAccessList(Optional.empty())
                     .build());
 
     assertThat(result.isFailed()).isTrue();
@@ -562,6 +566,7 @@ class AbstractBlockProcessorIntegrationTest {
                 .protocolContext(protocolContext)
                 .worldState(worldStateParallel)
                 .block(block)
+                .blockAccessList(Optional.empty())
                 .build());
 
     BlockProcessingResult sequentialResult =
@@ -570,6 +575,7 @@ class AbstractBlockProcessorIntegrationTest {
                 .protocolContext(protocolContext)
                 .worldState(worldStateSequential)
                 .block(block)
+                .blockAccessList(Optional.empty())
                 .build());
 
     assertTrue(sequentialResult.isSuccessful());
@@ -653,6 +659,7 @@ class AbstractBlockProcessorIntegrationTest {
                 .protocolContext(protocolContext)
                 .worldState(worldState)
                 .block(blockWithTransactions)
+                .blockAccessList(Optional.empty())
                 .build());
 
     BonsaiAccount updatedSenderAccount1 =
@@ -723,6 +730,7 @@ class AbstractBlockProcessorIntegrationTest {
                 .protocolContext(protocolContext)
                 .worldState(worldState)
                 .block(blockWithTransactions)
+                .blockAccessList(Optional.empty())
                 .build());
 
     BonsaiAccount updatedSenderAccount =
@@ -803,6 +811,7 @@ class AbstractBlockProcessorIntegrationTest {
                 .protocolContext(protocolContext)
                 .worldState(worldState)
                 .block(blockWithTransactions)
+                .blockAccessList(Optional.empty())
                 .build());
 
     BonsaiAccount updatedSenderAccount1 =
@@ -889,6 +898,7 @@ class AbstractBlockProcessorIntegrationTest {
                 .protocolContext(protocolContext)
                 .worldState(worldState)
                 .block(blockWithTransactions)
+                .blockAccessList(Optional.empty())
                 .build());
 
     BonsaiAccount updatedSenderAccount1 =
@@ -966,6 +976,7 @@ class AbstractBlockProcessorIntegrationTest {
                 .protocolContext(protocolContext)
                 .worldState(worldState)
                 .block(blockWithTransactions)
+                .blockAccessList(Optional.empty())
                 .build());
 
     assertTrue(blockProcessingResult.isSuccessful());
@@ -1034,6 +1045,7 @@ class AbstractBlockProcessorIntegrationTest {
                 .protocolContext(protocolContext)
                 .worldState(worldState)
                 .block(blockWithTransactions)
+                .blockAccessList(Optional.empty())
                 .build());
 
     assertTrue(blockProcessingResult.isSuccessful());
@@ -1109,6 +1121,7 @@ class AbstractBlockProcessorIntegrationTest {
                 .protocolContext(protocolContext)
                 .worldState(worldState)
                 .block(blockWithTransactions)
+                .blockAccessList(Optional.empty())
                 .build());
 
     assertTrue(blockProcessingResult.isSuccessful());
@@ -1185,6 +1198,7 @@ class AbstractBlockProcessorIntegrationTest {
                 .protocolContext(protocolContext)
                 .worldState(worldState)
                 .block(blockWithTransactions)
+                .blockAccessList(Optional.empty())
                 .build());
     assertTrue(blockProcessingResult.isSuccessful());
 
@@ -1260,6 +1274,7 @@ class AbstractBlockProcessorIntegrationTest {
                 .protocolContext(protocolContext)
                 .worldState(worldState)
                 .block(blockWithTransactions)
+                .blockAccessList(Optional.empty())
                 .build());
 
     assertTrue(blockProcessingResult.isSuccessful());
@@ -1337,6 +1352,7 @@ class AbstractBlockProcessorIntegrationTest {
                 .protocolContext(protocolContext)
                 .worldState(worldState)
                 .block(blockWithTransactions)
+                .blockAccessList(Optional.empty())
                 .build());
 
     assertTrue(blockProcessingResult.isSuccessful());

@@ -101,6 +101,7 @@ abstract class AbstractBlockProcessorTest {
             .protocolContext(protocolContext)
             .worldState(worldState)
             .block(testBlockBuilder(emptyList()))
+            .blockAccessList(Optional.empty())
             .build());
     verify(withdrawalsProcessor, never()).processWithdrawals(any(), any(), any(), any());
   }
@@ -113,6 +114,7 @@ abstract class AbstractBlockProcessorTest {
             .protocolContext(protocolContext)
             .worldState(worldState)
             .block(testBlockBuilder(emptyList()))
+            .blockAccessList(Optional.empty())
             .build());
     verify(withdrawalsProcessor, never()).processWithdrawals(any(), any(), any(), any());
   }
@@ -127,6 +129,7 @@ abstract class AbstractBlockProcessorTest {
             .protocolContext(protocolContext)
             .worldState(worldState)
             .block(testBlockBuilder(withdrawals))
+            .blockAccessList(Optional.empty())
             .build());
     verify(withdrawalsProcessor).processWithdrawals(eq(withdrawals), any(), any(), any());
   }
@@ -142,6 +145,7 @@ abstract class AbstractBlockProcessorTest {
             .protocolContext(protocolContext)
             .worldState(worldState)
             .block(testBlockBuilder(withdrawals))
+            .blockAccessList(Optional.empty())
             .build());
     verify(withdrawalsProcessor, never()).processWithdrawals(any(), any(), any(), any());
   }

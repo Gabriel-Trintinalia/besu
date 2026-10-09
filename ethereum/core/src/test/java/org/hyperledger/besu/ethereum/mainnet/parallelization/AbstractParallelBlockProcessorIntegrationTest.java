@@ -203,6 +203,7 @@ public abstract class AbstractParallelBlockProcessorIntegrationTest {
                 .protocolContext(ctx.getProtocolContext())
                 .worldState(ws)
                 .block(block)
+                .blockAccessList(Optional.empty())
                 .build());
 
     if (result.isSuccessful()) {
@@ -252,6 +253,7 @@ public abstract class AbstractParallelBlockProcessorIntegrationTest {
                 .protocolContext(ctx.getProtocolContext())
                 .worldState(ws)
                 .block(block)
+                .blockAccessList(Optional.empty())
                 .build());
     assertTrue(
         result.isSuccessful(),
@@ -293,6 +295,7 @@ public abstract class AbstractParallelBlockProcessorIntegrationTest {
                 .protocolContext(seqCtx.getProtocolContext())
                 .worldState(seqWs)
                 .block(seqBlock)
+                .blockAccessList(Optional.empty())
                 .build());
     assertTrue(
         seqResult.isSuccessful(),
@@ -315,6 +318,7 @@ public abstract class AbstractParallelBlockProcessorIntegrationTest {
                 .protocolContext(parCtx.getProtocolContext())
                 .worldState(parWs)
                 .block(parBlock)
+                .blockAccessList(Optional.empty())
                 .build());
     assertTrue(
         parResult.isSuccessful(),
@@ -395,6 +399,7 @@ public abstract class AbstractParallelBlockProcessorIntegrationTest {
                 .protocolContext(seqCtx.getProtocolContext())
                 .worldState(seqWs)
                 .block(block)
+                .blockAccessList(Optional.empty())
                 .build());
     assertTrue(
         seqResult.isSuccessful(),
@@ -411,6 +416,7 @@ public abstract class AbstractParallelBlockProcessorIntegrationTest {
                 .protocolContext(parCtx.getProtocolContext())
                 .worldState(parWs)
                 .block(parBlock)
+                .blockAccessList(Optional.empty())
                 .build());
     assertTrue(
         parResult.isSuccessful(),

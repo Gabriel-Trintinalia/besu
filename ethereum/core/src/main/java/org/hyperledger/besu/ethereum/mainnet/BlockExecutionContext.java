@@ -27,9 +27,10 @@ import org.jspecify.annotations.Nullable;
 /**
  * Encapsulates all inputs required to execute a block via {@link BlockProcessor#processBlock}.
  *
- * <p>The three core fields — {@code protocolContext}, {@code worldState}, and {@code block} — are
- * required. The blockchain is obtained from {@code protocolContext}. The block access list is
- * optional and defaults to empty.
+ * <p>All four fields are required. The blockchain is obtained from {@code protocolContext}. The
+ * block access list must be set even when there is none, with {@link Optional#empty()}: without it,
+ * an Amsterdam block loses its BAL-based parallel execution and prefetch, with nothing failing, so
+ * leaving it out must be a decision rather than an omission.
  *
  * <p>Construct instances via {@link #builder()}.
  */
@@ -100,6 +101,7 @@ public class BlockExecutionContext {
     private MutableWorldState worldState;
     private Block block;
     @Nullable private BlockAccessList blockAccessList = null;
+    private boolean blockAccessListSet = false;
 
     /**
      * Sets the protocol context (required).
@@ -135,14 +137,16 @@ public class BlockExecutionContext {
     }
 
     /**
-     * Sets the optional pre-computed block access list.
+     * Sets the pre-computed block access list (required, possibly empty).
      *
-     * @param blockAccessList a pre-computed block access list to validate against (optional)
+     * @param blockAccessList a pre-computed block access list to validate against, or empty if
+     *     there is none
      * @return this builder
      */
     public Builder blockAccessList(final Optional<BlockAccessList> blockAccessList) {
       this.blockAccessList =
           Objects.requireNonNull(blockAccessList, "blockAccessList").orElse(null);
+      this.blockAccessListSet = true;
       return this;
     }
 
@@ -156,6 +160,10 @@ public class BlockExecutionContext {
       if (protocolContext == null) throw new IllegalStateException("protocolContext is required");
       if (worldState == null) throw new IllegalStateException("worldState is required");
       if (block == null) throw new IllegalStateException("block is required");
+      if (!blockAccessListSet) {
+        throw new IllegalStateException(
+            "blockAccessList is required: pass Optional.empty() if there is none");
+      }
       return new BlockExecutionContext(this);
     }
   }

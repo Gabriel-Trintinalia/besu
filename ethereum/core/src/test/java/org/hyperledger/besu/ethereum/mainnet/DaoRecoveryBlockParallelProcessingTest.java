@@ -220,6 +220,7 @@ class DaoRecoveryBlockParallelProcessingTest {
             .protocolContext(ctx.getProtocolContext())
             .worldState(worldState)
             .block(block)
+            .blockAccessList(Optional.empty())
             .build());
   }
 

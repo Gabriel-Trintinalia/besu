@@ -373,6 +373,7 @@ public abstract class AbstractIsolationTests {
                     .protocolContext(protocolContext)
                     .worldState(ws)
                     .block(block)
+                    .blockAccessList(Optional.empty())
                     .build());
     blockchain.appendBlock(block, res.getReceipts());
     return res;

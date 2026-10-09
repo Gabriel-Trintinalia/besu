@@ -31,6 +31,7 @@ import org.hyperledger.besu.plugin.services.trielogs.TrieLogEvent;
 import org.hyperledger.besu.plugin.services.worldstate.MutableWorldState;
 
 import java.util.List;
+import java.util.Optional;
 import java.util.concurrent.RejectedExecutionException;
 
 import org.junit.jupiter.api.Test;
@@ -151,6 +152,7 @@ public class TrieLogPrunerShutdownScenarioTest extends AbstractIsolationTests {
                 .protocolContext(protocolContext)
                 .worldState(worldState)
                 .block(block)
+                .blockAccessList(Optional.empty())
                 .build());
   }
 }
