@@ -37,6 +37,7 @@ import org.hyperledger.besu.evm.account.Account;
 import org.hyperledger.besu.evm.account.MutableAccount;
 import org.hyperledger.besu.evm.account.MutableAccount.BalanceUnderflowException;
 import org.hyperledger.besu.evm.blockhash.BlockHashLookup;
+import org.hyperledger.besu.evm.frame.CodeAccessListener;
 import org.hyperledger.besu.evm.frame.ExceptionalHaltReason;
 import org.hyperledger.besu.evm.frame.MessageFrame;
 import org.hyperledger.besu.evm.gascalculator.GasCalculator;
@@ -237,6 +238,10 @@ public class MainnetTransactionProcessor {
       }
 
       operationTracer.tracePrepareTransaction(worldState, transaction);
+      // The sender's code is read to resolve its code pointer, e.g. a 7702-delegated EOA.
+      if (operationTracer.isCodeAccessTracing() && sender.hasCode()) {
+        operationTracer.traceCodeRead(senderAddress, sender.getCodeHash());
+      }
 
       final Set<Address> eip2930WarmAddressList = new HashSet<>(Address.SIZE);
 
@@ -387,7 +392,8 @@ public class MainnetTransactionProcessor {
               .completer(__ -> {})
               .miningBeneficiary(miningBeneficiary)
               .blockHashLookup(blockHashLookup)
-              .eip2930AccessListWarmStorage(eip2930StorageList);
+              .eip2930AccessListWarmStorage(eip2930StorageList)
+              .codeAccessListener(operationTracer);
 
       accessLocationTracker.ifPresent(commonMessageFrameBuilder::eip7928AccessList);
 
@@ -454,6 +460,10 @@ public class MainnetTransactionProcessor {
               stateGasCalc,
               createTargetAlreadyAlive,
               delegationAccesses);
+      if (prepCharges.halted()) {
+        // The delegations the preparation applied are discarded with it.
+        operationTracer.traceStartTransactionFailed(worldUpdater, transaction);
+      }
 
       // Transaction-level state-gas charges persist regardless of the execution outcome, so put
       // them out of reach of a rollback.
@@ -845,6 +855,7 @@ public class MainnetTransactionProcessor {
       final StateGasCostCalculator stateGasCalc,
       final boolean createTargetAlreadyAlive,
       final List<CodeDelegationResult.AuthorityAccess> delegationAccesses) {
+    final CodeAccessListener codeAccessListener = initialFrame.getCodeAccessListener();
     // Pre-Amsterdam forks pay none of these charges, but still record the recipient load below.
     final boolean stateGasActive = stateGasCalc.isActive();
     boolean outOfGas = false;
@@ -877,6 +888,15 @@ public class MainnetTransactionProcessor {
         // entry charge runs out of gas — but an authorization out-of-gas, which comes first,
         // leaves it out.
         initialFrame.getEip7928AccessList().ifPresent(bal -> bal.addTouchedAccount(to));
+        // The same load reads the recipient's code to resolve a 7702 designator. The frame-entry
+        // read cannot cover it when the recipient's own charge below runs out of gas, since the
+        // frame then never starts. The delegation target's code is read once execution reaches it.
+        if (codeAccessListener.isCodeAccessTracing()) {
+          final Account toAccount = frameWorldState.get(to);
+          if (toAccount != null && hasCodeDelegation(toAccount.getCode())) {
+            codeAccessListener.traceCodeRead(to, toAccount.getCodeHash());
+          }
+        }
         if (stateGasActive) {
           // Measured because the leaf it pays for rolls back with a failed transaction, unlike a
           // delegation, which survives one.
@@ -907,11 +927,18 @@ public class MainnetTransactionProcessor {
       final MessageFrame initialFrame,
       final StateGasCostCalculator stateGasCalc,
       final List<CodeDelegationResult.AuthorityAccess> delegationAccesses) {
+    final CodeAccessListener codeAccessListener = initialFrame.getCodeAccessListener();
     final long accountWriteCost = gasCalculator.getAccountWriteGasCost();
     for (final CodeDelegationResult.AuthorityAccess access : delegationAccesses) {
       initialFrame
           .getEip7928AccessList()
           .ifPresent(bal -> bal.addTouchedAccount(access.authority()));
+      // Validating the authorization read the authority's code, before its charge: the read stays
+      // even if that charge runs out of gas, so an out-of-gas that stops the replay leaves exactly
+      // the authorities reached, up to and including the one being charged.
+      if (codeAccessListener.isCodeAccessTracing()) {
+        codeAccessListener.traceCodeRead(access.authority(), access.codeHashBefore());
+      }
       if (access.newAccount()
           && !initialFrame.consumeStateGas(stateGasCalc.emptyAccountDelegationStateGas())) {
         return false;
@@ -924,6 +951,12 @@ public class MainnetTransactionProcessor {
       }
       if (access.authBase() && !initialFrame.consumeStateGas(stateGasCalc.authBaseStateGas())) {
         return false;
+      }
+      // The authorization's delegation is written once its charge clears. Rewriting the code
+      // already read changes nothing, since that read is kept.
+      if (codeAccessListener.isCodeAccessTracing()
+          && !access.codeHashAfter().equals(access.codeHashBefore())) {
+        codeAccessListener.traceCodeWrite(access.authority(), access.codeHashAfter());
       }
     }
     return true;

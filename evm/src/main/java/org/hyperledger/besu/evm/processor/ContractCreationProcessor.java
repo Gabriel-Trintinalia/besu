@@ -230,6 +230,9 @@ public class ContractCreationProcessor extends AbstractMessageProcessor {
 
     final MutableAccount contract = frame.getWorldUpdater().getOrCreate(frame.getContractAddress());
     contract.setCode(contractCode);
+    if (operationTracer.isCodeAccessTracing()) {
+      operationTracer.traceCodeWrite(contract.getAddress(), contract.getCodeHash());
+    }
     LOG.atTrace()
         .setMessage("EIP-8037 REC_CODE_DEPOSIT depth={} addr={} len={}")
         .addArgument(frame.getDepth())

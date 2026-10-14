@@ -18,13 +18,16 @@ import org.hyperledger.besu.datatypes.Address;
 import org.hyperledger.besu.datatypes.Wei;
 import org.hyperledger.besu.evm.EVM;
 import org.hyperledger.besu.evm.ModificationNotAllowedException;
+import org.hyperledger.besu.evm.account.Account;
 import org.hyperledger.besu.evm.account.MutableAccount;
+import org.hyperledger.besu.evm.frame.CodeAccessListener;
 import org.hyperledger.besu.evm.frame.ExceptionalHaltReason;
 import org.hyperledger.besu.evm.frame.MessageFrame;
 import org.hyperledger.besu.evm.log.TransferLogEmitter;
 import org.hyperledger.besu.evm.precompile.PrecompileContractRegistry;
 import org.hyperledger.besu.evm.precompile.PrecompiledContract;
 import org.hyperledger.besu.evm.tracing.OperationTracer;
+import org.hyperledger.besu.evm.worldstate.CodeDelegationHelper;
 
 import java.util.Collections;
 import java.util.Objects;
@@ -108,6 +111,27 @@ public class MessageCallProcessor extends AbstractMessageProcessor {
     }
   }
 
+  /**
+   * Reports the code this frame executes: the contract's own code and, for a delegated account, its
+   * delegation target's code.
+   */
+  private static void traceFrameCodeRead(
+      final MessageFrame frame, final CodeAccessListener codeAccessListener) {
+    final Address contract = frame.getContractAddress();
+    final Account account = frame.getWorldUpdater().get(contract);
+    if (account == null) {
+      return;
+    }
+    codeAccessListener.traceCodeRead(contract, account.getCodeHash());
+    if (CodeDelegationHelper.hasCodeDelegation(account.getCode())) {
+      final Address target = CodeDelegationHelper.getTargetAddress(account.getCode());
+      final Account targetAccount = frame.getWorldUpdater().get(target);
+      if (targetAccount != null) {
+        codeAccessListener.traceCodeRead(target, targetAccount.getCodeHash());
+      }
+    }
+  }
+
   @Override
   protected void codeSuccess(final MessageFrame frame, final OperationTracer operationTracer) {
     LOG.trace(
@@ -131,6 +155,11 @@ public class MessageCallProcessor extends AbstractMessageProcessor {
     // point, it is created. Even if the value is zero we are still creating an account with 0x!
     final MutableAccount recipientAccount =
         frame.getWorldUpdater().getOrCreate(frame.getRecipientAddress());
+
+    final CodeAccessListener codeAccessListener = frame.getCodeAccessListener();
+    if (codeAccessListener.isCodeAccessTracing()) {
+      traceFrameCodeRead(frame, codeAccessListener);
+    }
 
     if (Objects.equals(frame.getValue(), Wei.ZERO)) {
       // This is only here for situations where you are calling a public address from a private

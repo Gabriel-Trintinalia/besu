@@ -28,6 +28,7 @@ import org.hyperledger.besu.datatypes.Wei;
 import org.hyperledger.besu.evm.Code;
 import org.hyperledger.besu.evm.EVM;
 import org.hyperledger.besu.evm.account.Account;
+import org.hyperledger.besu.evm.frame.CodeAccessListener;
 import org.hyperledger.besu.evm.frame.ExceptionalHaltReason;
 import org.hyperledger.besu.evm.frame.MessageFrame;
 import org.hyperledger.besu.evm.frame.MessageFrame.State;
@@ -233,6 +234,12 @@ public abstract class AbstractCallOperation extends AbstractOperation {
     final Account contract = getAccount(to, frame);
     cost = clampedAdd(cost, gasCalculator().calculateCodeDelegationResolutionGas(frame, contract));
 
+    // Resolving the delegation above read the designator, even if the call runs out of gas below.
+    final CodeAccessListener tracer = frame.getCodeAccessListener();
+    if (tracer.isCodeAccessTracing() && contract != null && hasCodeDelegation(contract.getCode())) {
+      tracer.traceCodeRead(to, contract.getCodeHash());
+    }
+
     if (frame.getRemainingGas() < cost) {
       return new OperationResult(cost, ExceptionalHaltReason.INSUFFICIENT_GAS);
     }
@@ -255,6 +262,21 @@ public abstract class AbstractCallOperation extends AbstractOperation {
         frame
             .getEip7928AccessList()
             .ifPresent(t -> t.addTouchedAccount(getTargetAddress(contractCode)));
+      }
+    }
+
+    // The code the call executes is read here, before the balance/depth soft-failure checks: the
+    // delegation target's for a delegated account, the account's own otherwise.
+    if (tracer.isCodeAccessTracing() && contract != null) {
+      final Bytes contractCode = contract.getCode();
+      if (hasCodeDelegation(contractCode)) {
+        final Address target = getTargetAddress(contractCode);
+        final Account targetAccount = frame.getWorldUpdater().get(target);
+        if (targetAccount != null) {
+          tracer.traceCodeRead(target, targetAccount.getCodeHash());
+        }
+      } else {
+        tracer.traceCodeRead(to, contract.getCodeHash());
       }
     }
 

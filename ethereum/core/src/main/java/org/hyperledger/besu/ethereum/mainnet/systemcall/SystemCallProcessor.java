@@ -154,6 +154,15 @@ public class SystemCallProcessor {
       return Optional.empty();
     }
 
+    // System calls are untraced by default. A tracer is only passed when it is block-aware,
+    // enabled, and opts into system-call tracing. Otherwise, OperationTracer.NO_TRACING is used.
+    final OperationTracer tracer =
+        context.getOperationTracer() instanceof BlockAwareOperationTracer blockAwareTracer
+                && blockAwareTracer.isEnabled()
+                && blockAwareTracer.isSystemCallTracingEnabled()
+            ? blockAwareTracer
+            : OperationTracer.NO_TRACING;
+
     // The frame runs in a child updater, committed into systemCallUpdater on success, so the
     // accounts systemCallUpdater wraps still hold the pre-call state the access list diffs against.
     final MessageFrame frame =
@@ -163,16 +172,8 @@ public class SystemCallProcessor {
             context.getBlockHeader(),
             context.getBlockHashLookup(),
             inputData,
-            accessLocationTracker);
-
-    // System calls are untraced by default. A tracer is only passed when it is block-aware,
-    // enabled, and opts into system-call tracing. Otherwise, OperationTracer.NO_TRACING is used.
-    final OperationTracer tracer =
-        context.getOperationTracer() instanceof BlockAwareOperationTracer blockAwareTracer
-                && blockAwareTracer.isEnabled()
-                && blockAwareTracer.isSystemCallTracingEnabled()
-            ? blockAwareTracer
-            : OperationTracer.NO_TRACING;
+            accessLocationTracker,
+            tracer);
     Deque<MessageFrame> stack = frame.getMessageFrameStack();
     while (!stack.isEmpty()) {
       final MessageFrame current = stack.peekFirst();
@@ -205,7 +206,8 @@ public class SystemCallProcessor {
       final ProcessableBlockHeader blockHeader,
       final BlockHashLookup blockHashLookup,
       final Bytes inputData,
-      final Optional<AccessLocationTracker> maybeAccessLocationTracker) {
+      final Optional<AccessLocationTracker> maybeAccessLocationTracker,
+      final OperationTracer operationTracer) {
 
     final AbstractMessageProcessor processor =
         mainnetTransactionProcessor.getMessageProcessor(MessageFrame.Type.MESSAGE_CALL);
@@ -235,7 +237,8 @@ public class SystemCallProcessor {
             // Pre-Amsterdam storageSetStateGas() is 0, so this seeds an empty reservoir (no
             // effect).
             .initialStateGasReservoir(systemCallStateGasReservoir())
-            .code(getCode(worldUpdater.get(callAddress), processor));
+            .code(getCode(worldUpdater.get(callAddress), processor))
+            .codeAccessListener(operationTracer);
 
     maybeAccessLocationTracker.ifPresent(
         tracker -> {
