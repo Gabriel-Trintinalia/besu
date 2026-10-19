@@ -110,6 +110,7 @@ class CodeAccessTracingTransactionProcessorTest {
     assertThat(result.isSuccessful()).isFalse();
     assertThat(tracer.events)
         .containsExactly(
+            "read " + address(SENDER) + " " + Hash.EMPTY,
             "read " + existingAuthority + " " + Hash.EMPTY,
             "write " + existingAuthority + " " + designator,
             "read " + freshAuthority + " " + Hash.EMPTY,

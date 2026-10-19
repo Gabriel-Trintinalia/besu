@@ -24,6 +24,7 @@ import org.hyperledger.besu.ethereum.mainnet.block.access.list.AccessLocationTra
 import org.hyperledger.besu.evm.Code;
 import org.hyperledger.besu.evm.account.Account;
 import org.hyperledger.besu.evm.blockhash.BlockHashLookup;
+import org.hyperledger.besu.evm.frame.CodeAccessListener;
 import org.hyperledger.besu.evm.frame.ExceptionalHaltReason;
 import org.hyperledger.besu.evm.frame.MessageFrame;
 import org.hyperledger.besu.evm.gascalculator.StateGasCostCalculator;
@@ -237,7 +238,7 @@ public class SystemCallProcessor {
             // Pre-Amsterdam storageSetStateGas() is 0, so this seeds an empty reservoir (no
             // effect).
             .initialStateGasReservoir(systemCallStateGasReservoir())
-            .code(getCode(worldUpdater.get(callAddress), processor))
+            .code(getCode(worldUpdater.get(callAddress), processor, operationTracer))
             .codeAccessListener(operationTracer);
 
     maybeAccessLocationTracker.ifPresent(
@@ -255,9 +256,15 @@ public class SystemCallProcessor {
     return stateGasCalc.storageSetStateGas() * SYSTEM_MAX_SSTORES_PER_CALL;
   }
 
-  private Code getCode(final Account contract, final AbstractMessageProcessor processor) {
+  private Code getCode(
+      final Account contract,
+      final AbstractMessageProcessor processor,
+      final CodeAccessListener codeAccessListener) {
     if (contract == null) {
       return Code.EMPTY_CODE;
+    }
+    if (codeAccessListener.isCodeAccessTracing()) {
+      codeAccessListener.traceCodeRead(contract.getAddress(), contract.getCodeHash());
     }
 
     // Bonsai accounts may have a fully cached code, so we use that one

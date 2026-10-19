@@ -19,7 +19,6 @@ import static org.hyperledger.besu.evm.frame.SoftFailureReason.LEGACY_MAX_CALL_D
 import static org.hyperledger.besu.evm.internal.Words.clampedAdd;
 import static org.hyperledger.besu.evm.internal.Words.clampedToLong;
 import static org.hyperledger.besu.evm.worldstate.CodeDelegationHelper.getTarget;
-import static org.hyperledger.besu.evm.worldstate.CodeDelegationHelper.getTargetAddress;
 import static org.hyperledger.besu.evm.worldstate.CodeDelegationHelper.hasCodeDelegation;
 
 import org.hyperledger.besu.datatypes.Address;
@@ -234,9 +233,8 @@ public abstract class AbstractCallOperation extends AbstractOperation {
     final Account contract = getAccount(to, frame);
     cost = clampedAdd(cost, gasCalculator().calculateCodeDelegationResolutionGas(frame, contract));
 
-    // Resolving the delegation above read the designator, even if the call runs out of gas below.
     final CodeAccessListener tracer = frame.getCodeAccessListener();
-    if (tracer.isCodeAccessTracing() && contract != null && hasCodeDelegation(contract.getCode())) {
+    if (tracer.isCodeAccessTracing() && contract != null) {
       tracer.traceCodeRead(to, contract.getCodeHash());
     }
 
@@ -252,33 +250,10 @@ public abstract class AbstractCallOperation extends AbstractOperation {
       return new OperationResult(cost, ExceptionalHaltReason.INSUFFICIENT_GAS);
     }
 
-    // Record the 7702 delegation target in the BAL once the gas checks have passed. getCode() does
-    // this on the success path, but it doesn't run on soft failures (insufficient balance, max
-    // depth) — record it here so the BAL stays accurate either way. Touching only after the gas
-    // checks ensures OOG calls don't add the delegation target to the BAL.
-    if (contract != null) {
-      final Bytes contractCode = contract.getCode();
-      if (hasCodeDelegation(contractCode)) {
-        frame
-            .getEip7928AccessList()
-            .ifPresent(t -> t.addTouchedAccount(getTargetAddress(contractCode)));
-      }
-    }
-
-    // The code the call executes is read here, before the balance/depth soft-failure checks: the
-    // delegation target's for a delegated account, the account's own otherwise.
-    if (tracer.isCodeAccessTracing() && contract != null) {
-      final Bytes contractCode = contract.getCode();
-      if (hasCodeDelegation(contractCode)) {
-        final Address target = getTargetAddress(contractCode);
-        final Account targetAccount = frame.getWorldUpdater().get(target);
-        if (targetAccount != null) {
-          tracer.traceCodeRead(target, targetAccount.getCodeHash());
-        }
-      } else {
-        tracer.traceCodeRead(to, contract.getCodeHash());
-      }
-    }
+    // The code is loaded once the gas checks have passed, so an OOG call neither reads the
+    // delegation target nor lists it in the BAL, but before the soft-failure checks (insufficient
+    // balance, max depth), which happen after the load.
+    final Code code = getCode(evm, frame, contract);
 
     frame.clearReturnData();
 
@@ -307,8 +282,6 @@ public abstract class AbstractCallOperation extends AbstractOperation {
     }
 
     final Bytes inputData = frame.readMutableMemory(inputDataOffset(frame), inputDataLength(frame));
-
-    final Code code = getCode(evm, frame, contract);
 
     MessageFrame.Builder builder =
         MessageFrame.builder()
@@ -458,6 +431,10 @@ public abstract class AbstractCallOperation extends AbstractOperation {
             evm.getGasCalculator()::isPrecompile,
             account,
             frame.getEip7928AccessList());
+    final CodeAccessListener tracer = frame.getCodeAccessListener();
+    if (tracer.isCodeAccessTracing()) {
+      tracer.traceCodeRead(target.address(), target.code().getCodeHash());
+    }
 
     if (accountHasCodeCache) {
       // If the account has a code cache, we can return the cached code of the target

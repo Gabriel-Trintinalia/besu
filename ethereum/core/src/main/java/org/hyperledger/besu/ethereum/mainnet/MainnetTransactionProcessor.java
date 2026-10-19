@@ -239,7 +239,7 @@ public class MainnetTransactionProcessor {
 
       operationTracer.tracePrepareTransaction(worldState, transaction);
       // The sender's code is read to resolve its code pointer, e.g. a 7702-delegated EOA.
-      if (operationTracer.isCodeAccessTracing() && sender.hasCode()) {
+      if (operationTracer.isCodeAccessTracing()) {
         operationTracer.traceCodeRead(senderAddress, sender.getCodeHash());
       }
 
@@ -437,7 +437,8 @@ public class MainnetTransactionProcessor {
                 frameWorldState,
                 eip2930WarmAddressList,
                 frameWorldState.get(to),
-                accessLocationTracker);
+                accessLocationTracker,
+                operationTracer);
 
         initialFrame =
             commonMessageFrameBuilder
@@ -855,7 +856,6 @@ public class MainnetTransactionProcessor {
       final StateGasCostCalculator stateGasCalc,
       final boolean createTargetAlreadyAlive,
       final List<CodeDelegationResult.AuthorityAccess> delegationAccesses) {
-    final CodeAccessListener codeAccessListener = initialFrame.getCodeAccessListener();
     // Pre-Amsterdam forks pay none of these charges, but still record the recipient load below.
     final boolean stateGasActive = stateGasCalc.isActive();
     boolean outOfGas = false;
@@ -888,12 +888,10 @@ public class MainnetTransactionProcessor {
         // entry charge runs out of gas — but an authorization out-of-gas, which comes first,
         // leaves it out.
         initialFrame.getEip7928AccessList().ifPresent(bal -> bal.addTouchedAccount(to));
-        // The same load reads the recipient's code to resolve a 7702 designator. The frame-entry
-        // read cannot cover it when the recipient's own charge below runs out of gas, since the
-        // frame then never starts. The delegation target's code is read once execution reaches it.
+        final CodeAccessListener codeAccessListener = initialFrame.getCodeAccessListener();
         if (codeAccessListener.isCodeAccessTracing()) {
           final Account toAccount = frameWorldState.get(to);
-          if (toAccount != null && hasCodeDelegation(toAccount.getCode())) {
+          if (toAccount != null) {
             codeAccessListener.traceCodeRead(to, toAccount.getCodeHash());
           }
         }
@@ -1001,6 +999,13 @@ public class MainnetTransactionProcessor {
       // EIP-7928: the target is loaded only once its access is paid for, so an access charge that
       // runs out of gas has to leave it out of the list entirely.
       initialFrame.getEip7928AccessList().ifPresent(bal -> bal.addTouchedAccount(target));
+      final CodeAccessListener codeAccessListener = initialFrame.getCodeAccessListener();
+      if (codeAccessListener.isCodeAccessTracing()) {
+        final Account targetAccount = worldState.get(target);
+        if (targetAccount != null) {
+          codeAccessListener.traceCodeRead(target, targetAccount.getCodeHash());
+        }
+      }
     }
     return true;
   }
@@ -1045,7 +1050,8 @@ public class MainnetTransactionProcessor {
       final WorldUpdater worldUpdater,
       final Set<Address> warmAddressList,
       final Account contract,
-      final Optional<AccessLocationTracker> accessLocationTracker) {
+      final Optional<AccessLocationTracker> accessLocationTracker,
+      final CodeAccessListener codeAccessListener) {
     if (contract == null) {
       return Code.EMPTY_CODE;
     }
@@ -1056,7 +1062,8 @@ public class MainnetTransactionProcessor {
     }
 
     if (hasCodeDelegation(contract.getCode())) {
-      return delegationTargetCode(worldUpdater, warmAddressList, contract, accessLocationTracker);
+      return delegationTargetCode(
+          worldUpdater, warmAddressList, contract, accessLocationTracker, codeAccessListener);
     }
 
     // Bonsai accounts may have a fully cached code, so we use that one
@@ -1073,7 +1080,8 @@ public class MainnetTransactionProcessor {
       final WorldUpdater worldUpdater,
       final Set<Address> warmAddressList,
       final Account contract,
-      final Optional<AccessLocationTracker> accessLocationTracker) {
+      final Optional<AccessLocationTracker> accessLocationTracker,
+      final CodeAccessListener codeAccessListener) {
     // Besu resolves the delegation target eagerly to build the frame, but EIP-7928 only lists it
     // once its access charge is paid, so recording is left to chargeTransactionEntry. Pre-Amsterdam
     // forks charge no such access and so still record it here.
@@ -1091,6 +1099,11 @@ public class MainnetTransactionProcessor {
     // still warm it here.
     if (!stateGasActive) {
       warmAddressList.add(target.address());
+    }
+    // Likewise, the target's code read is reported by chargeTransactionEntry once its access is
+    // paid for.
+    if (codeAccessListener.isCodeAccessTracing() && !stateGasActive) {
+      codeAccessListener.traceCodeRead(target.address(), target.code().getCodeHash());
     }
 
     return target.code();
