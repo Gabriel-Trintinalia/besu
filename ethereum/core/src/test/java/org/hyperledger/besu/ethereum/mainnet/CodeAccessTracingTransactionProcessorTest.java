@@ -19,10 +19,12 @@ import static org.hyperledger.besu.ethereum.mainnet.parallelization.ParallelBloc
 import static org.mockito.Mockito.mock;
 
 import org.hyperledger.besu.config.GenesisConfig;
+import org.hyperledger.besu.config.JsonUtil;
 import org.hyperledger.besu.crypto.KeyPair;
 import org.hyperledger.besu.crypto.SignatureAlgorithmFactory;
 import org.hyperledger.besu.datatypes.Address;
 import org.hyperledger.besu.datatypes.CodeDelegation;
+import org.hyperledger.besu.datatypes.HardforkId;
 import org.hyperledger.besu.datatypes.Hash;
 import org.hyperledger.besu.datatypes.TransactionType;
 import org.hyperledger.besu.datatypes.Wei;
@@ -42,10 +44,11 @@ import java.math.BigInteger;
 import java.util.ArrayList;
 import java.util.List;
 
+import com.fasterxml.jackson.databind.node.ObjectNode;
 import org.apache.tuweni.bytes.Bytes;
 import org.junit.jupiter.api.Test;
 
-/** The code access events {@link MainnetTransactionProcessor} emits for EIP-7702 authorizations. */
+/** The code access events {@link MainnetTransactionProcessor} emits for EIP-7702 delegations. */
 class CodeAccessTracingTransactionProcessorTest {
 
   private static final String GENESIS_RESOURCE =
@@ -117,6 +120,70 @@ class CodeAccessTracingTransactionProcessorTest {
             "startTransactionFailed");
     // The write the listener was told to discard never reached the state.
     assertThat(updater.get(existingAuthority).getCode()).isEqualTo(Bytes.EMPTY);
+  }
+
+  @Test
+  void topLevelCallToDelegatedAccountReadsTheTargetBeforeAmsterdam() {
+    // Osaka: the same chain without Amsterdam, so the top-level target access is not charged and
+    // its read is reported where the target is resolved.
+    final ObjectNode osakaGenesis =
+        JsonUtil.objectNodeFromURL(
+            CodeAccessTracingTransactionProcessorTest.class.getResource(GENESIS_RESOURCE), false);
+    ((ObjectNode) osakaGenesis.get("config")).remove("amsterdamTime");
+    final ExecutionContextTestFixture ctx =
+        ExecutionContextTestFixture.builder(GenesisConfig.fromConfig(osakaGenesis))
+            .dataStorageFormat(DataStorageFormat.BONSAI)
+            .build();
+    final BlockHeader header =
+        new BlockHeaderTestFixture()
+            .number(1)
+            .timestamp(1)
+            .gasLimit(30_000_000L)
+            .baseFeePerGas(Wei.ONE)
+            .buildHeader();
+    final ProtocolSpec spec = ctx.getProtocolSchedule().getByBlockHeader(header);
+    assertThat(spec.getHardforkId()).isEqualTo(HardforkId.MainnetHardforkId.OSAKA);
+
+    final Address delegated = Address.fromHexString("0xd1");
+    final Bytes designator =
+        Bytes.concatenate(Bytes.fromHexString("0xef0100"), DELEGATE.getBytes());
+    final Bytes targetCode = Bytes.fromHexString("0x00");
+    final WorldUpdater updater = ctx.getStateArchive().getWorldState().updater();
+    updater.getOrCreate(delegated).setCode(designator);
+    updater.getOrCreate(DELEGATE).setCode(targetCode);
+    final Transaction transaction =
+        Transaction.builder()
+            .type(TransactionType.EIP1559)
+            .nonce(0)
+            .maxPriorityFeePerGas(Wei.ONE)
+            .maxFeePerGas(Wei.of(10))
+            .gasLimit(100_000L)
+            .to(delegated)
+            .value(Wei.ZERO)
+            .payload(Bytes.EMPTY)
+            .chainId(CHAIN_ID)
+            .signAndBuild(SENDER);
+    final RecordingTracer tracer = new RecordingTracer();
+
+    final TransactionProcessingResult result =
+        spec.getTransactionProcessor()
+            .processTransaction(
+                updater,
+                header,
+                transaction,
+                Address.ZERO,
+                tracer,
+                mock(BlockHashLookup.class),
+                Wei.ZERO);
+
+    assertThat(result.isSuccessful()).isTrue();
+    // The frame executes the target's code, so the target's read is reported along with the
+    // recipient's designator, although no CALL opcode resolves the delegation.
+    assertThat(tracer.events)
+        .containsExactlyInAnyOrder(
+            "read " + address(SENDER) + " " + Hash.EMPTY,
+            "read " + delegated + " " + Hash.hash(designator),
+            "read " + DELEGATE + " " + Hash.hash(targetCode));
   }
 
   private static Transaction delegationTransaction(final KeyPair newAuthority, final long gas) {
