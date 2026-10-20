@@ -19,6 +19,7 @@ import static org.hyperledger.besu.evm.frame.SoftFailureReason.LEGACY_MAX_CALL_D
 import static org.hyperledger.besu.evm.internal.Words.clampedAdd;
 import static org.hyperledger.besu.evm.internal.Words.clampedToLong;
 import static org.hyperledger.besu.evm.worldstate.CodeDelegationHelper.getTarget;
+import static org.hyperledger.besu.evm.worldstate.CodeDelegationHelper.getTargetAddress;
 import static org.hyperledger.besu.evm.worldstate.CodeDelegationHelper.hasCodeDelegation;
 
 import org.hyperledger.besu.datatypes.Address;
@@ -250,10 +251,26 @@ public abstract class AbstractCallOperation extends AbstractOperation {
       return new OperationResult(cost, ExceptionalHaltReason.INSUFFICIENT_GAS);
     }
 
-    // The code is loaded once the gas checks have passed, so an OOG call neither reads the
-    // delegation target nor lists it in the BAL, but before the soft-failure checks (insufficient
-    // balance, max depth), which happen after the load.
-    final Code code = getCode(evm, frame, contract);
+    // Record the 7702 delegation target in the BAL once the gas checks have passed. getCode() does
+    // this on the success path, but it doesn't run on soft failures (insufficient balance, max
+    // depth) — record it here so the BAL stays accurate either way. Touching only after the gas
+    // checks ensures OOG calls don't add the delegation target to the BAL.
+    if (contract != null) {
+      final Bytes contractCode = contract.getCode();
+      if (hasCodeDelegation(contractCode)) {
+        frame
+            .getEip7928AccessList()
+            .ifPresent(t -> t.addTouchedAccount(getTargetAddress(contractCode)));
+        // Likewise, the target's code is read even on a soft failure: report it here too.
+        if (tracer.isCodeAccessTracing()) {
+          final Address target = getTargetAddress(contractCode);
+          final Account targetAccount = frame.getWorldUpdater().get(target);
+          if (targetAccount != null) {
+            tracer.traceCodeRead(target, targetAccount.getCodeHash());
+          }
+        }
+      }
+    }
 
     frame.clearReturnData();
 
@@ -282,6 +299,8 @@ public abstract class AbstractCallOperation extends AbstractOperation {
     }
 
     final Bytes inputData = frame.readMutableMemory(inputDataOffset(frame), inputDataLength(frame));
+
+    final Code code = getCode(evm, frame, contract);
 
     MessageFrame.Builder builder =
         MessageFrame.builder()
@@ -431,10 +450,6 @@ public abstract class AbstractCallOperation extends AbstractOperation {
             evm.getGasCalculator()::isPrecompile,
             account,
             frame.getEip7928AccessList());
-    final CodeAccessListener tracer = frame.getCodeAccessListener();
-    if (tracer.isCodeAccessTracing()) {
-      tracer.traceCodeRead(target.address(), target.code().getCodeHash());
-    }
 
     if (accountHasCodeCache) {
       // If the account has a code cache, we can return the cached code of the target

@@ -133,6 +133,15 @@ class CodeEventTracingTest {
   }
 
   @Test
+  void callWithInsufficientBalanceStillReadsTheDelegationTarget() {
+    // CONTRACT holds no balance, so the call soft-fails before any child frame runs.
+    run(callCode(DELEGATED, 1), 100_000);
+
+    assertThat(tracer.events).noneMatch(e -> e.startsWith("exit 1 "));
+    assertThat(tracer.reads).contains(read(DELEGATED, DESIGNATOR), read(TARGET, TARGET_CODE));
+  }
+
+  @Test
   void callToPlainContractReadsItsCode() {
     run(callCode(TARGET), 100_000);
 
@@ -161,8 +170,13 @@ class CodeEventTracingTest {
   }
 
   private static Bytes callCode(final Address to) {
+    return callCode(to, 0);
+  }
+
+  private static Bytes callCode(final Address to, final int value) {
     return Bytes.fromHexString(
-        "0x60006000600060006000"
+        "0x6000600060006000"
+            + String.format("60%02x", value)
             + "73"
             + to.getBytes().toUnprefixedHexString()
             + "6000"
