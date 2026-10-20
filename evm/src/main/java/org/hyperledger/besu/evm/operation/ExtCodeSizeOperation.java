@@ -62,14 +62,14 @@ public class ExtCodeSizeOperation extends AbstractOperation {
         return new OperationResult(cost, ExceptionalHaltReason.INSUFFICIENT_GAS);
       } else {
         final Account account = getAccount(address, frame);
+        Bytes codeSize = (account == null) ? Bytes.EMPTY : Words.intBytes(account.getCode().size());
+        frame.pushStackItem(codeSize);
 
+        // The account's code was loaded above to measure its size.
         final CodeAccessListener tracer = frame.getCodeAccessListener();
         if (tracer.isCodeAccessTracing() && account != null) {
           tracer.traceCodeRead(address, account.getCodeHash());
         }
-        Bytes codeSize = (account == null) ? Bytes.EMPTY : Words.intBytes(account.getCode().size());
-        frame.pushStackItem(codeSize);
-
         return new OperationResult(cost, null);
       }
     } catch (final UnderflowException ufe) {

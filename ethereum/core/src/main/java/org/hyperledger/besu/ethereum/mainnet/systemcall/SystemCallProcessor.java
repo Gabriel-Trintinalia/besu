@@ -263,6 +263,7 @@ public class SystemCallProcessor {
     if (contract == null) {
       return Code.EMPTY_CODE;
     }
+    // The system contract's code was just loaded to execute the system call.
     if (codeAccessListener.isCodeAccessTracing()) {
       codeAccessListener.traceCodeRead(contract.getAddress(), contract.getCodeHash());
     }

@@ -1099,11 +1099,10 @@ public class MainnetTransactionProcessor {
     // still warm it here.
     if (!stateGasActive) {
       warmAddressList.add(target.address());
-    }
-    // Likewise, the target's code read is reported by chargeTransactionEntry once its access is
-    // paid for.
-    if (codeAccessListener.isCodeAccessTracing() && !stateGasActive) {
-      codeAccessListener.traceCodeRead(target.address(), target.code().getCodeHash());
+      // Same for its code read: from Amsterdam, chargeTransactionEntry reports it.
+      if (codeAccessListener.isCodeAccessTracing()) {
+        codeAccessListener.traceCodeRead(target.address(), target.code().getCodeHash());
+      }
     }
 
     return target.code();

@@ -232,7 +232,7 @@ public abstract class AbstractCallOperation extends AbstractOperation {
 
     final Account contract = getAccount(to, frame);
     cost = clampedAdd(cost, gasCalculator().calculateCodeDelegationResolutionGas(frame, contract));
-
+    // Resolving a possible delegation reads `to`'s code, even if the call then runs out of gas.
     final CodeAccessListener tracer = frame.getCodeAccessListener();
     if (tracer.isCodeAccessTracing() && contract != null) {
       tracer.traceCodeRead(to, contract.getCodeHash());
