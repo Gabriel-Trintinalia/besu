@@ -64,6 +64,11 @@ class CodeAccessTracingTransactionProcessorTest {
   private static final Address DELEGATE = Address.fromHexString("0xde1e9a7e");
   private static final Address RECIPIENT = Address.fromHexString("0x1234");
 
+  private static final Address DELEGATED = Address.fromHexString("0xd1");
+  private static final Bytes DESIGNATOR =
+      Bytes.concatenate(Bytes.fromHexString("0xef0100"), DELEGATE.getBytes());
+  private static final Bytes TARGET_CODE = Bytes.fromHexString("0x00");
+
   @Test
   void preparationOutOfGasDiscardsTheDelegationsAlreadyWritten() {
     final ExecutionContextTestFixture ctx =
@@ -124,46 +129,31 @@ class CodeAccessTracingTransactionProcessorTest {
     final BlockHeader header = blockHeader();
     final ProtocolSpec spec = osakaSpec(ctx, header);
 
-    final Address delegated = Address.fromHexString("0xd1");
-    final Bytes designator =
-        Bytes.concatenate(Bytes.fromHexString("0xef0100"), DELEGATE.getBytes());
-    final Bytes targetCode = Bytes.fromHexString("0x00");
-    final WorldUpdater updater = ctx.getStateArchive().getWorldState().updater();
-    updater.getOrCreate(delegated).setCode(designator);
-    updater.getOrCreate(DELEGATE).setCode(targetCode);
-    final Transaction transaction =
-        Transaction.builder()
-            .type(TransactionType.EIP1559)
-            .nonce(0)
-            .maxPriorityFeePerGas(Wei.ONE)
-            .maxFeePerGas(Wei.of(10))
-            .gasLimit(100_000L)
-            .to(delegated)
-            .value(Wei.ZERO)
-            .payload(Bytes.EMPTY)
-            .chainId(CHAIN_ID)
-            .signAndBuild(SENDER);
-    final RecordingTracer tracer = new RecordingTracer();
-
-    final TransactionProcessingResult result =
-        spec.getTransactionProcessor()
-            .processTransaction(
-                updater,
-                header,
-                transaction,
-                Address.ZERO,
-                tracer,
-                mock(BlockHashLookup.class),
-                Wei.ZERO);
-
-    assertThat(result.isSuccessful()).isTrue();
     // The frame executes the target's code, so the target's read is reported along with the
     // recipient's designator, although no CALL opcode resolves the delegation.
-    assertThat(tracer.events)
+    assertThat(callDelegatedAccount(ctx, header, spec))
         .containsExactlyInAnyOrder(
             "read " + address(SENDER) + " " + Hash.EMPTY,
-            "read " + delegated + " " + Hash.hash(designator),
-            "read " + DELEGATE + " " + Hash.hash(targetCode));
+            "read " + DELEGATED + " " + Hash.hash(DESIGNATOR),
+            "read " + DELEGATE + " " + Hash.hash(TARGET_CODE));
+  }
+
+  @Test
+  void topLevelCallToDelegatedAccountReadsTheTargetOnceItsAccessIsPaid() {
+    // From Amsterdam the top-level target access is charged, and its read is reported once paid.
+    final ExecutionContextTestFixture ctx =
+        ExecutionContextTestFixture.builder(GenesisConfig.fromResource(GENESIS_RESOURCE))
+            .dataStorageFormat(DataStorageFormat.BONSAI)
+            .build();
+    final BlockHeader header = blockHeader();
+    final ProtocolSpec spec = ctx.getProtocolSchedule().getByBlockHeader(header);
+    assertThat(spec.getHardforkId()).isEqualTo(HardforkId.MainnetHardforkId.AMSTERDAM);
+
+    assertThat(callDelegatedAccount(ctx, header, spec))
+        .containsExactly(
+            "read " + address(SENDER) + " " + Hash.EMPTY,
+            "read " + DELEGATED + " " + Hash.hash(DESIGNATOR),
+            "read " + DELEGATE + " " + Hash.hash(TARGET_CODE));
   }
 
   @Test
@@ -199,6 +189,44 @@ class CodeAccessTracingTransactionProcessorTest {
             "write " + address(EXISTING_AUTHORITY) + " " + designator,
             "read " + address(newAuthority) + " " + Hash.EMPTY,
             "write " + address(newAuthority) + " " + designator);
+  }
+
+  /**
+   * Sends a plain transaction to {@link #DELEGATED}, an account delegated to {@link #DELEGATE},
+   * which holds {@link #TARGET_CODE}, and returns the code access events.
+   */
+  private static List<String> callDelegatedAccount(
+      final ExecutionContextTestFixture ctx, final BlockHeader header, final ProtocolSpec spec) {
+    final WorldUpdater updater = ctx.getStateArchive().getWorldState().updater();
+    updater.getOrCreate(DELEGATED).setCode(DESIGNATOR);
+    updater.getOrCreate(DELEGATE).setCode(TARGET_CODE);
+    final Transaction transaction =
+        Transaction.builder()
+            .type(TransactionType.EIP1559)
+            .nonce(0)
+            .maxPriorityFeePerGas(Wei.ONE)
+            .maxFeePerGas(Wei.of(10))
+            .gasLimit(100_000L)
+            .to(DELEGATED)
+            .value(Wei.ZERO)
+            .payload(Bytes.EMPTY)
+            .chainId(CHAIN_ID)
+            .signAndBuild(SENDER);
+    final RecordingTracer tracer = new RecordingTracer();
+
+    final TransactionProcessingResult result =
+        spec.getTransactionProcessor()
+            .processTransaction(
+                updater,
+                header,
+                transaction,
+                Address.ZERO,
+                tracer,
+                mock(BlockHashLookup.class),
+                Wei.ZERO);
+
+    assertThat(result.isSuccessful()).isTrue();
+    return tracer.events;
   }
 
   /** The same chain without Amsterdam, so Osaka is its last fork. */
