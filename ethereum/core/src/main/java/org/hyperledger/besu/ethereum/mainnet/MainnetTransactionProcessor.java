@@ -344,6 +344,16 @@ public class MainnetTransactionProcessor {
                   codeDelegationResult
                       .authorityAccesses()
                       .forEach(access -> tracker.addTouchedAccount(access.authority())));
+          // Likewise, report each authorization's code read and the delegation it wrote now.
+          if (operationTracer.isCodeAccessTracing()) {
+            for (final CodeDelegationResult.AuthorityAccess access :
+                codeDelegationResult.authorityAccesses()) {
+              operationTracer.traceCodeRead(access.authority(), access.codeHashBefore());
+              if (!access.codeHashAfter().equals(access.codeHashBefore())) {
+                operationTracer.traceCodeWrite(access.authority(), access.codeHashAfter());
+              }
+            }
+          }
           // The intrinsic already validated the charge, so there is nothing left to fail.
           codeDelegationRefund =
               gasCalculator.calculateDelegateCodeGasRefund(

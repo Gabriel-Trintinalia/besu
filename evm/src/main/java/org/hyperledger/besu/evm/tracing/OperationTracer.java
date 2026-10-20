@@ -96,7 +96,9 @@ public interface OperationTracer extends CodeAccessListener {
   /**
    * Trace the failure of a transaction's top-frame charges after {@link #traceStartTransaction},
    * e.g. an out-of-gas while charging its EIP-7702 authorizations. What those charges applied, such
-   * as delegation designators, is discarded, and the top frame never starts.
+   * as delegation designators, is discarded, and the top frame runs no code: it is never entered
+   * ({@link #traceContextEnter}), only re-entered ({@link #traceContextReEnter}) to exit as failed
+   * ({@link #traceContextExit}).
    *
    * @param worldView an immutable view of the execution context
    * @param transaction the transaction whose top-frame charges failed

@@ -70,13 +70,7 @@ class CodeAccessTracingTransactionProcessorTest {
         ExecutionContextTestFixture.builder(GenesisConfig.fromResource(GENESIS_RESOURCE))
             .dataStorageFormat(DataStorageFormat.BONSAI)
             .build();
-    final BlockHeader header =
-        new BlockHeaderTestFixture()
-            .number(1)
-            .timestamp(1)
-            .gasLimit(30_000_000L)
-            .baseFeePerGas(Wei.ONE)
-            .buildHeader();
+    final BlockHeader header = blockHeader();
     final ProtocolSpec spec = ctx.getProtocolSchedule().getByBlockHeader(header);
     final MainnetTransactionProcessor processor = spec.getTransactionProcessor();
 
@@ -124,25 +118,11 @@ class CodeAccessTracingTransactionProcessorTest {
 
   @Test
   void topLevelCallToDelegatedAccountReadsTheTargetBeforeAmsterdam() {
-    // Osaka: the same chain without Amsterdam, so the top-level target access is not charged and
-    // its read is reported where the target is resolved.
-    final ObjectNode osakaGenesis =
-        JsonUtil.objectNodeFromURL(
-            CodeAccessTracingTransactionProcessorTest.class.getResource(GENESIS_RESOURCE), false);
-    ((ObjectNode) osakaGenesis.get("config")).remove("amsterdamTime");
-    final ExecutionContextTestFixture ctx =
-        ExecutionContextTestFixture.builder(GenesisConfig.fromConfig(osakaGenesis))
-            .dataStorageFormat(DataStorageFormat.BONSAI)
-            .build();
-    final BlockHeader header =
-        new BlockHeaderTestFixture()
-            .number(1)
-            .timestamp(1)
-            .gasLimit(30_000_000L)
-            .baseFeePerGas(Wei.ONE)
-            .buildHeader();
-    final ProtocolSpec spec = ctx.getProtocolSchedule().getByBlockHeader(header);
-    assertThat(spec.getHardforkId()).isEqualTo(HardforkId.MainnetHardforkId.OSAKA);
+    // The top-level target access is not charged before Amsterdam, so its read is reported where
+    // the target is resolved.
+    final ExecutionContextTestFixture ctx = osakaContext();
+    final BlockHeader header = blockHeader();
+    final ProtocolSpec spec = osakaSpec(ctx, header);
 
     final Address delegated = Address.fromHexString("0xd1");
     final Bytes designator =
@@ -184,6 +164,68 @@ class CodeAccessTracingTransactionProcessorTest {
             "read " + address(SENDER) + " " + Hash.EMPTY,
             "read " + delegated + " " + Hash.hash(designator),
             "read " + DELEGATE + " " + Hash.hash(targetCode));
+  }
+
+  @Test
+  void delegationsBeforeAmsterdamReportTheirCodeAccesses() {
+    // No top-frame charge replays the authorizations before Amsterdam, so each one's code read
+    // and delegation write are reported as they are applied.
+    final ExecutionContextTestFixture ctx = osakaContext();
+    final BlockHeader header = blockHeader();
+    final ProtocolSpec spec = osakaSpec(ctx, header);
+    final KeyPair newAuthority = SignatureAlgorithmFactory.getInstance().generateKeyPair();
+    final Transaction transaction = delegationTransaction(newAuthority, 200_000L);
+    final WorldUpdater updater = ctx.getStateArchive().getWorldState().updater();
+    final RecordingTracer tracer = new RecordingTracer();
+
+    final TransactionProcessingResult result =
+        spec.getTransactionProcessor()
+            .processTransaction(
+                updater,
+                header,
+                transaction,
+                Address.ZERO,
+                tracer,
+                mock(BlockHashLookup.class),
+                Wei.ZERO);
+
+    final Hash designator =
+        Hash.hash(Bytes.concatenate(Bytes.fromHexString("0xef0100"), DELEGATE.getBytes()));
+    assertThat(result.isSuccessful()).isTrue();
+    assertThat(tracer.events)
+        .containsExactly(
+            "read " + address(SENDER) + " " + Hash.EMPTY,
+            "read " + address(EXISTING_AUTHORITY) + " " + Hash.EMPTY,
+            "write " + address(EXISTING_AUTHORITY) + " " + designator,
+            "read " + address(newAuthority) + " " + Hash.EMPTY,
+            "write " + address(newAuthority) + " " + designator);
+  }
+
+  /** The same chain without Amsterdam, so Osaka is its last fork. */
+  private static ExecutionContextTestFixture osakaContext() {
+    final ObjectNode osakaGenesis =
+        JsonUtil.objectNodeFromURL(
+            CodeAccessTracingTransactionProcessorTest.class.getResource(GENESIS_RESOURCE), false);
+    ((ObjectNode) osakaGenesis.get("config")).remove("amsterdamTime");
+    return ExecutionContextTestFixture.builder(GenesisConfig.fromConfig(osakaGenesis))
+        .dataStorageFormat(DataStorageFormat.BONSAI)
+        .build();
+  }
+
+  private static ProtocolSpec osakaSpec(
+      final ExecutionContextTestFixture ctx, final BlockHeader header) {
+    final ProtocolSpec spec = ctx.getProtocolSchedule().getByBlockHeader(header);
+    assertThat(spec.getHardforkId()).isEqualTo(HardforkId.MainnetHardforkId.OSAKA);
+    return spec;
+  }
+
+  private static BlockHeader blockHeader() {
+    return new BlockHeaderTestFixture()
+        .number(1)
+        .timestamp(1)
+        .gasLimit(30_000_000L)
+        .baseFeePerGas(Wei.ONE)
+        .buildHeader();
   }
 
   private static Transaction delegationTransaction(final KeyPair newAuthority, final long gas) {
