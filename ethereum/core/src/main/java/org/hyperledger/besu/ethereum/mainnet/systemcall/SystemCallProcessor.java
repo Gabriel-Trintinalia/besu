@@ -263,17 +263,20 @@ public class SystemCallProcessor {
     if (contract == null) {
       return Code.EMPTY_CODE;
     }
+
+    final Code code;
+    // Bonsai accounts may have a fully cached code, so we use that one
+    if (contract.getCodeCache() != null) {
+      code = contract.getOrCreateCachedCode();
+    }
+    // Any other account can only use the cached jump dest analysis if available
+    else {
+      code = processor.getOrCreateCachedJumpDest(contract.getCodeHash(), contract.getCode());
+    }
     // The system contract's code was just loaded to execute the system call.
     if (codeAccessListener.isCodeAccessTracing()) {
       codeAccessListener.traceCodeRead(contract.getAddress(), contract.getCodeHash());
     }
-
-    // Bonsai accounts may have a fully cached code, so we use that one
-    if (contract.getCodeCache() != null) {
-      return contract.getOrCreateCachedCode();
-    }
-
-    // Any other account can only use the cached jump dest analysis if available
-    return processor.getOrCreateCachedJumpDest(contract.getCodeHash(), contract.getCode());
+    return code;
   }
 }

@@ -238,7 +238,7 @@ public class MainnetTransactionProcessor {
       }
 
       operationTracer.tracePrepareTransaction(worldState, transaction);
-      // The sender's code is read to resolve its code pointer, e.g. a 7702-delegated EOA.
+      // validateForSender read the sender's code above.
       if (operationTracer.isCodeAccessTracing()) {
         operationTracer.traceCodeRead(senderAddress, sender.getCodeHash());
       }
